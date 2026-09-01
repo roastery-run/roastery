@@ -1,3 +1,4 @@
+import { apiKey } from "@better-auth/api-key";
 import * as schema from "@roastery/db/schema";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
@@ -100,6 +101,10 @@ export function createAuth(db: WorkerDb, env: AuthEnv, sendEmail?: EmailSender) 
         account: schema.accounts,
         verification: schema.verifications,
         jwks: schema.jwks,
+        // The plugin's model is `apikey`; our table is `api_keys`. The adapter
+        // resolves fields by PROPERTY name, so the property names on the
+        // Drizzle table must match the plugin's field names exactly.
+        apikey: schema.apiKeys,
       },
     }),
     secret: env.BETTER_AUTH_SECRET,
@@ -134,6 +139,33 @@ export function createAuth(db: WorkerDb, env: AuthEnv, sendEmail?: EmailSender) 
       // Required for JWT-mode OAuth access tokens, which is what makes machine
       // token validation stateless (no database round-trip per API request).
       jwt(),
+      /**
+       * API keys.
+       *
+       * Adopted for the credential primitive: generation, SHA-256 hashing,
+       * expiry, enable/disable, and — the reason it earns its place —
+       * per-key rate limiting and refill quotas, which metered API access
+       * needs and which we would otherwise have to build.
+       *
+       * We do NOT use its management endpoints. Those support organization
+       * ownership by calling into Better Auth's organization plugin, which
+       * would mean a second membership table and a second role system beside
+       * the ones this app already owns. Creation and revocation live in our
+       * own `console.credentials.*` operations instead, which hash with the
+       * plugin's exported `defaultKeyHasher` so its verification still
+       * matches. Verification itself has no such coupling.
+       *
+       * Its `permissions` field is likewise unused: our authorization
+       * vocabulary is the permissions table, and a second one would be a
+       * second source of truth. Role and scopes travel in `metadata`.
+       */
+      apiKey({
+        defaultPrefix: "sk_",
+        // 5 req/s sustained, matching the documented API budget. The Worker
+        // also rate-limits per credential; this is the per-key ceiling that
+        // survives independently of edge limits.
+        rateLimit: { enabled: true, timeWindow: 60_000, maxRequests: 300 },
+      }),
       magicLink({
         expiresIn: 300,
         sendMagicLink: async ({ email, url }) => {

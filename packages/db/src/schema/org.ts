@@ -164,48 +164,74 @@ export const orgInvitations = pgTable(
   ],
 );
 
-/** `sk_` keys for CLI and console-adjacent automation. */
+/**
+ * API keys, owned by @better-auth/api-key.
+ *
+ * The shape is dictated by that plugin (model name `apikey`), which handles
+ * generation, SHA-256 hashing, expiry, enable/disable, per-key rate limiting
+ * and refill quotas. We map it onto our own table name and snake_case columns;
+ * Better Auth's Drizzle adapter resolves fields by PROPERTY name, so the
+ * property names below must match the plugin's field names exactly.
+ *
+ * `referenceId` is the plugin's owner column. We point it at the organization
+ * rather than a user, because a service credential must outlive the employee
+ * who created it. We therefore also do key creation ourselves (hashing with
+ * the plugin's exported `defaultKeyHasher`) instead of calling the plugin's
+ * management endpoints, which would drag in Better Auth's organization plugin
+ * — a second membership and role system alongside the one in this file.
+ */
 export const apiKeys = pgTable(
   "api_keys",
   {
-    id: uuid("id").primaryKey().defaultRandom(),
-    orgId: uuid("org_id")
+    id: text("id").primaryKey(),
+    configId: text("config_id").notNull().default("default"),
+    name: text("name"),
+    /** First few characters, for identifying a key in the UI. */
+    start: text("start"),
+    prefix: text("prefix"),
+    /** The organization that owns this key. */
+    referenceId: uuid("reference_id")
       .notNull()
       .references(() => organizations.id, { onDelete: "cascade" }),
-    name: text("name").notNull(),
-    keyHash: text("key_hash").notNull(),
-    keyPrefix: text("key_prefix").notNull(),
-    roleSlug: text("role_slug")
-      .notNull()
-      .references(() => roles.slug),
-    /**
-     * Optional down-scoping, as permission slugs.
-     *
-     * NULL  → no down-scoping; the key has its role's full grants.
-     * []    → explicitly inert; the key can do nothing. Useful to disable a
-     *         key without revoking it, and it is what a caller gets if they
-     *         ask for scopes their role does not have.
-     * [...] → the INTERSECTION of these and the role's grants, so a key can
-     *         never exceed either what it was issued or what its role allows.
-     *
-     * The null/empty distinction is deliberate: collapsing them would make an
-     * unscoped key either silently omnipotent or silently useless, and both
-     * are bugs someone finds in production.
-     */
-    scopes: jsonb("scopes").$type<string[]>(),
-    createdBy: text("created_by").references(() => users.id, { onDelete: "set null" }),
-    lastUsedAt: timestamp("last_used_at", { withTimezone: true }),
+    /** SHA-256 of the key, base64url-encoded without padding. */
+    key: text("key").notNull(),
+
+    enabled: boolean("enabled").notNull().default(true),
     expiresAt: timestamp("expires_at", { withTimezone: true }),
-    revokedAt: timestamp("revoked_at", { withTimezone: true }),
+
+    // Per-key rate limiting and refill quotas, maintained by the plugin on
+    // every verification. This is the capability that made adopting it
+    // worthwhile: metered API access is a product requirement, not a detail.
+    rateLimitEnabled: boolean("rate_limit_enabled").notNull().default(true),
+    rateLimitTimeWindow: integer("rate_limit_time_window"),
+    rateLimitMax: integer("rate_limit_max"),
+    requestCount: integer("request_count").notNull().default(0),
+    remaining: integer("remaining"),
+    refillInterval: integer("refill_interval"),
+    refillAmount: integer("refill_amount"),
+    lastRefillAt: timestamp("last_refill_at", { withTimezone: true }),
+    lastRequest: timestamp("last_request", { withTimezone: true }),
+
+    /**
+     * JSON string (the plugin stringifies it). Carries `roleSlug` and the
+     * optional `scopes` down-scoping — our authorization vocabulary, not the
+     * plugin's `permissions` field, which uses a different shape and would be
+     * a second source of truth.
+     */
+    metadata: text("metadata"),
+    /** The plugin's own permission model. Deliberately unused; see above. */
+    permissions: text("permissions"),
+
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
-    // THE hot-path index: auth resolves a key by hash on every request carrying
-    // `Bearer sk_`, through the cache-disabled Hyperdrive, so it never benefits
-    // from query caching. Unique because two keys must never share a hash.
-    uniqueIndex("api_keys_key_hash_idx").on(t.keyHash),
-    index("api_keys_org_idx").on(t.orgId),
-    index("api_keys_created_by_idx").on(t.createdBy),
+    // THE hot-path index: every request carrying `Bearer sk_` resolves a key by
+    // hash, through the cache-disabled Hyperdrive, so it never benefits from
+    // query caching. Unique because two keys must never share a hash.
+    uniqueIndex("api_keys_key_idx").on(t.key),
+    index("api_keys_reference_idx").on(t.referenceId),
+    index("api_keys_config_idx").on(t.configId),
   ],
 );
 

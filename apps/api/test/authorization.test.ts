@@ -22,6 +22,7 @@ import { join } from "node:path";
 import * as schema from "@roastery/db/schema";
 import { PERMISSIONS, ROLES } from "@roastery/db/seed-authz";
 import {
+  type DirectTenancy,
   TENANT_DIRECT,
   TENANT_GLOBAL,
   TENANT_VIA,
@@ -193,7 +194,11 @@ describe("7. tenancy classification is complete", () => {
   });
 
   it("classifies every exported table exactly once", () => {
-    const direct = new Set<unknown>(Object.values(TENANT_DIRECT));
+    // TENANT_DIRECT entries carry the tenant column and its property name, so
+    // the table is one field of the entry rather than the value itself.
+    const direct = new Set<unknown>(
+      (Object.values(TENANT_DIRECT) as DirectTenancy[]).map((d) => d.table),
+    );
     // Annotated because TENANT_VIA is empty until the domain schema lands,
     // which erases the element type.
     const via = new Set<unknown>(

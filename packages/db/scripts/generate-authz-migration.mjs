@@ -50,20 +50,20 @@ lines.push("");
 
 lines.push("INSERT INTO plans (slug, name, rank, is_public, price_monthly, currency) VALUES");
 lines.push(
-  PLANS.map(
+  `${PLANS.map(
     (p) =>
       `  (${q(p.slug)}, ${q(p.name)}, ${p.rank}, true, ${p.priceMonthly === null ? "NULL" : q(p.priceMonthly)}, 'EUR')`,
-  ).join(",\n") + "\nON CONFLICT (slug) DO UPDATE SET name = EXCLUDED.name, rank = EXCLUDED.rank;",
+  ).join(",\n")}\nON CONFLICT (slug) DO UPDATE SET name = EXCLUDED.name, rank = EXCLUDED.rank;`,
 );
 lines.push("");
 
 lines.push("INSERT INTO plan_entitlements (plan_slug, key, value) VALUES");
 lines.push(
-  PLANS.flatMap((p) =>
+  `${PLANS.flatMap((p) =>
     Object.entries(p.entitlements).map(
       ([k, v]) => `  (${q(p.slug)}, ${q(k)}, ${q(JSON.stringify(v))}::jsonb)`,
     ),
-  ).join(",\n") + "\nON CONFLICT (plan_slug, key) DO UPDATE SET value = EXCLUDED.value;",
+  ).join(",\n")}\nON CONFLICT (plan_slug, key) DO UPDATE SET value = EXCLUDED.value;`,
 );
 lines.push("");
 

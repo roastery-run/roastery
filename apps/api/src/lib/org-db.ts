@@ -1,9 +1,4 @@
-import {
-  type DirectTenantTable,
-  isDirectTenantTable,
-  type ScopedTable,
-  transitiveTenancyFor,
-} from "@roastery/db/tenancy";
+import { directTenancyFor, type ScopedTable, transitiveTenancyFor } from "@roastery/db/tenancy";
 import { and, asc, desc, eq, inArray, type SQL, sql } from "drizzle-orm";
 import type { PgTable } from "drizzle-orm/pg-core";
 import type { WorkerDb } from "./db";
@@ -49,7 +44,7 @@ export type OrgDb = {
 
   count<T extends ScopedTable>(table: T, where?: SQL): Promise<number>;
 
-  insert<T extends DirectTenantTable>(
+  insert<T extends ScopedTable>(
     table: T,
     values: Record<string, unknown> | Record<string, unknown>[],
   ): Promise<T["$inferSelect"][]>;
@@ -91,9 +86,8 @@ function columns(table: unknown): Record<string, unknown> {
  * unreachable in practice.
  */
 export function orgPredicate(table: ScopedTable, orgId: string, db: WorkerDb): SQL {
-  if (isDirectTenantTable(table)) {
-    return eq((table as DirectTenantTable).orgId, orgId);
-  }
+  const direct = directTenancyFor(table);
+  if (direct) return eq(direct.column, orgId);
 
   const via = transitiveTenancyFor(table);
   if (via) {
@@ -104,7 +98,7 @@ export function orgPredicate(table: ScopedTable, orgId: string, db: WorkerDb): S
       db
         .select({ id: via.parentKey })
         .from(via.parent as PgTable)
-        .where(eq(via.parent.orgId, orgId)),
+        .where(eq(via.parentTenantColumn, orgId)),
     );
   }
 
@@ -224,15 +218,27 @@ export function createOrgDb(db: WorkerDb, orgId: string, actor: Actor): OrgDb {
     },
 
     async insert(table, values) {
+      const direct = directTenancyFor(table);
+      if (!direct) {
+        // Only a table owning its tenant column can have one injected. A
+        // transitively-scoped row inherits its tenant from its parent, so
+        // inserting one without that parent is a bug.
+        throw new Error(
+          `Cannot insert into "${tableName(table)}": it has no tenant column of its own.`,
+        );
+      }
+      // The property name differs per table (orgId, referenceId, ...), so it
+      // is read from the classification rather than assumed.
+      const key = direct.field;
       const list = Array.isArray(values) ? values : [values];
       const rows = list.map((v) => {
-        const given = v.orgId;
+        const given = v[key];
         // A caller passing a different org is a bug worth surfacing, not
         // something to paper over by overwriting it.
         if (given !== undefined && given !== orgId) {
           throw new Error("Refusing to insert a row for a different organization");
         }
-        return { ...v, orgId };
+        return { ...v, [key]: orgId };
       });
       return (await db
         .insert(table as PgTable)
@@ -241,8 +247,10 @@ export function createOrgDb(db: WorkerDb, orgId: string, actor: Actor): OrgDb {
     },
 
     async update(table, values, where) {
-      // orgId is stripped, so an update can never move a row between tenants.
-      const { orgId: _ignored, ...rest } = values;
+      // The tenant column is stripped, so an update can never move a row
+      // between tenants.
+      const tenantKey = directTenancyFor(table)?.field ?? "orgId";
+      const { [tenantKey]: _ignored, ...rest } = values;
       return (await db
         .update(table as PgTable)
         .set(rest as never)

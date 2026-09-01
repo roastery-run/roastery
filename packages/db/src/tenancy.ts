@@ -2,8 +2,8 @@
  * Tenant classification.
  *
  * Every exported pgTable must appear in EXACTLY ONE of the three maps below.
- * `authorization.test.ts` enumerates the schema module and fails the build on
- * any table that is missing or double-classified.
+ * `authorization.test.ts` enumerates the schema and fails the build on any
+ * table that is missing or double-classified.
  *
  * That test is the whole point. Enforcing tenancy by remembering to write a
  * predicate in each of ~200 handlers does not survive contact with a 79-table
@@ -13,37 +13,63 @@
 import type { PgColumn, PgTable } from "drizzle-orm/pg-core";
 import * as s from "./schema/index";
 
-/** A table carrying its own `org_id`. */
-export type DirectTenantTable = PgTable & { orgId: PgColumn };
+/**
+ * A table scoped by a column on itself.
+ *
+ * The column is named explicitly rather than assumed to be `orgId`, because
+ * tables whose shape is dictated by a third party do not get to follow our
+ * naming — `api_keys` comes from @better-auth/api-key and calls it
+ * `referenceId`. Assuming the name would have meant either aliasing a Drizzle
+ * column or leaving that table unscoped.
+ */
+export type DirectTenancy = {
+  table: PgTable;
+  /** The Drizzle column, for building the WHERE predicate. */
+  column: PgColumn;
+  /**
+   * The JS property name of that column.
+   *
+   * Needed separately because a column's `.name` is the snake_case DB name,
+   * while an insert's values object is keyed by the property name.
+   */
+  field: string;
+};
 
 /** A table that reaches the tenant through exactly one parent FK. */
 export type TransitiveTenancy = {
   child: PgTable;
   childFk: PgColumn;
-  parent: DirectTenantTable;
+  parent: PgTable;
   parentKey: PgColumn;
+  parentTenantColumn: PgColumn;
 };
 
-/**
- * Tables with their own `org_id`. Scoping is a direct equality predicate.
- */
 export const TENANT_DIRECT = {
-  org_members: s.orgMembers,
-  org_invitations: s.orgInvitations,
-  api_keys: s.apiKeys,
-  org_oauth_clients: s.orgOauthClients,
-  org_subscriptions: s.orgSubscriptions,
-  org_entitlement_overrides: s.orgEntitlementOverrides,
-  locations: s.locations,
-  units_of_measure: s.unitsOfMeasure,
-  audit_events: s.auditEvents,
-  events: s.events,
-} satisfies Record<string, DirectTenantTable>;
+  org_members: { table: s.orgMembers, column: s.orgMembers.orgId, field: "orgId" },
+  org_invitations: { table: s.orgInvitations, column: s.orgInvitations.orgId, field: "orgId" },
+  // Shape dictated by @better-auth/api-key: the owner column is referenceId.
+  api_keys: { table: s.apiKeys, column: s.apiKeys.referenceId, field: "referenceId" },
+  org_oauth_clients: { table: s.orgOauthClients, column: s.orgOauthClients.orgId, field: "orgId" },
+  org_subscriptions: {
+    table: s.orgSubscriptions,
+    column: s.orgSubscriptions.orgId,
+    field: "orgId",
+  },
+  org_entitlement_overrides: {
+    table: s.orgEntitlementOverrides,
+    column: s.orgEntitlementOverrides.orgId,
+    field: "orgId",
+  },
+  locations: { table: s.locations, column: s.locations.orgId, field: "orgId" },
+  units_of_measure: { table: s.unitsOfMeasure, column: s.unitsOfMeasure.orgId, field: "orgId" },
+  audit_events: { table: s.auditEvents, column: s.auditEvents.orgId, field: "orgId" },
+  events: { table: s.events, column: s.events.orgId, field: "orgId" },
+} satisfies Record<string, DirectTenancy>;
 
 /**
  * Tables that reach the tenant through a parent.
  *
- * Used where denormalizing `org_id` onto the child would cost more than the
+ * Used where denormalizing the tenant onto the child would cost more than the
  * semi-join saves — the canonical case being roast measurements, which run to
  * hundreds of rows per batch.
  */
@@ -58,12 +84,11 @@ export const TENANT_VIA = {
  * tenant-scoped table ends up readable by every customer:
  *
  * - Better Auth tables are keyed by user, not org; a user may belong to many
- *   orgs, and their credentials belong to none of them.
+ *   organizations, and their credentials belong to none of them.
  * - `organizations` itself is the tenant, so it cannot be scoped by one.
  * - `permissions` / `roles` / `role_permissions` are the authorization
  *   vocabulary. Built-in roles are shared and immutable; custom roles carry an
- *   `orgId` COLUMN but are read through the permission loader, never through
- *   OrgDb, so they are classified here deliberately.
+ *   orgId COLUMN but are read through the permission loader, never OrgDb.
  * - `plans` / `plan_entitlements` are the product catalogue, identical for
  *   everyone, and are read to answer "what would upgrading give me".
  */
@@ -83,14 +108,16 @@ export const TENANT_GLOBAL = {
 } satisfies Record<string, PgTable>;
 
 export type ScopedTable =
-  | (typeof TENANT_DIRECT)[keyof typeof TENANT_DIRECT]
+  | (typeof TENANT_DIRECT)[keyof typeof TENANT_DIRECT]["table"]
   | (typeof TENANT_VIA)[keyof typeof TENANT_VIA]["child"];
 
-const DIRECT_SET: ReadonlySet<unknown> = new Set(Object.values(TENANT_DIRECT));
+const DIRECT_BY_TABLE = new Map<unknown, DirectTenancy>(
+  Object.values(TENANT_DIRECT).map((d) => [d.table, d]),
+);
 const VIA_LIST: readonly TransitiveTenancy[] = Object.values(TENANT_VIA);
 
-export function isDirectTenantTable(table: unknown): table is DirectTenantTable {
-  return DIRECT_SET.has(table);
+export function directTenancyFor(table: unknown): DirectTenancy | undefined {
+  return DIRECT_BY_TABLE.get(table);
 }
 
 export function transitiveTenancyFor(table: unknown): TransitiveTenancy | undefined {

@@ -1,5 +1,5 @@
 {
-  "id": "4522b02a-6c64-47f5-a25a-86153ac36ea4",
+  "id": "9376a50f-eb14-4c6a-90d3-e43807face6d",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -560,59 +560,53 @@
       "columns": {
         "id": {
           "name": "id",
-          "type": "uuid",
+          "type": "text",
           "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "org_id": {
-          "name": "org_id",
-          "type": "uuid",
-          "primaryKey": false,
           "notNull": true
+        },
+        "config_id": {
+          "name": "config_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'default'"
         },
         "name": {
           "name": "name",
           "type": "text",
           "primaryKey": false,
+          "notNull": false
+        },
+        "start": {
+          "name": "start",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "prefix": {
+          "name": "prefix",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "reference_id": {
+          "name": "reference_id",
+          "type": "uuid",
+          "primaryKey": false,
           "notNull": true
         },
-        "key_hash": {
-          "name": "key_hash",
+        "key": {
+          "name": "key",
           "type": "text",
           "primaryKey": false,
           "notNull": true
         },
-        "key_prefix": {
-          "name": "key_prefix",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "role_slug": {
-          "name": "role_slug",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "scopes": {
-          "name": "scopes",
-          "type": "jsonb",
+        "enabled": {
+          "name": "enabled",
+          "type": "boolean",
           "primaryKey": false,
           "notNull": true,
-          "default": "'[]'::jsonb"
-        },
-        "created_by": {
-          "name": "created_by",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "last_used_at": {
-          "name": "last_used_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
+          "default": true
         },
         "expires_at": {
           "name": "expires_at",
@@ -620,9 +614,71 @@
           "primaryKey": false,
           "notNull": false
         },
-        "revoked_at": {
-          "name": "revoked_at",
+        "rate_limit_enabled": {
+          "name": "rate_limit_enabled",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "rate_limit_time_window": {
+          "name": "rate_limit_time_window",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "rate_limit_max": {
+          "name": "rate_limit_max",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "request_count": {
+          "name": "request_count",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "remaining": {
+          "name": "remaining",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "refill_interval": {
+          "name": "refill_interval",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "refill_amount": {
+          "name": "refill_amount",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "last_refill_at": {
+          "name": "last_refill_at",
           "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "last_request": {
+          "name": "last_request",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "metadata": {
+          "name": "metadata",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "permissions": {
+          "name": "permissions",
+          "type": "text",
           "primaryKey": false,
           "notNull": false
         },
@@ -632,14 +688,21 @@
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
         }
       },
       "indexes": {
-        "api_keys_key_hash_idx": {
-          "name": "api_keys_key_hash_idx",
+        "api_keys_key_idx": {
+          "name": "api_keys_key_idx",
           "columns": [
             {
-              "expression": "key_hash",
+              "expression": "key",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -650,11 +713,11 @@
           "method": "btree",
           "with": {}
         },
-        "api_keys_org_idx": {
-          "name": "api_keys_org_idx",
+        "api_keys_reference_idx": {
+          "name": "api_keys_reference_idx",
           "columns": [
             {
-              "expression": "org_id",
+              "expression": "reference_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -665,11 +728,11 @@
           "method": "btree",
           "with": {}
         },
-        "api_keys_created_by_idx": {
-          "name": "api_keys_created_by_idx",
+        "api_keys_config_idx": {
+          "name": "api_keys_config_idx",
           "columns": [
             {
-              "expression": "created_by",
+              "expression": "config_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -682,43 +745,17 @@
         }
       },
       "foreignKeys": {
-        "api_keys_org_id_organizations_id_fk": {
-          "name": "api_keys_org_id_organizations_id_fk",
+        "api_keys_reference_id_organizations_id_fk": {
+          "name": "api_keys_reference_id_organizations_id_fk",
           "tableFrom": "api_keys",
           "tableTo": "organizations",
           "columnsFrom": [
-            "org_id"
+            "reference_id"
           ],
           "columnsTo": [
             "id"
           ],
           "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "api_keys_role_slug_roles_slug_fk": {
-          "name": "api_keys_role_slug_roles_slug_fk",
-          "tableFrom": "api_keys",
-          "tableTo": "roles",
-          "columnsFrom": [
-            "role_slug"
-          ],
-          "columnsTo": [
-            "slug"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "api_keys_created_by_users_id_fk": {
-          "name": "api_keys_created_by_users_id_fk",
-          "tableFrom": "api_keys",
-          "tableTo": "users",
-          "columnsFrom": [
-            "created_by"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "set null",
           "onUpdate": "no action"
         }
       },

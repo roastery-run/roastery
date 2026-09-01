@@ -5,22 +5,15 @@
     {
       "idx": 0,
       "version": "7",
-      "when": 1788302053545,
+      "when": 1788303465499,
       "tag": "0000_init",
       "breakpoints": true
     },
     {
       "idx": 1,
       "version": "7",
-      "when": 1788302074753,
+      "when": 1788303465574,
       "tag": "0001_seed_authz",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "7",
-      "when": 1788302383938,
-      "tag": "0002_api_key_scopes_nullable",
       "breakpoints": true
     }
   ]
