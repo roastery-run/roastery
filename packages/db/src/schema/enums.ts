@@ -80,3 +80,79 @@ export const productFormatEnum = pgEnum("product_format", [
   "drip_bag",
   "bulk",
 ]);
+
+/* ----------------------------------------------------------- inventory */
+
+export const greenStateEnum = pgEnum("green_state", [
+  "green",
+  "parchment",
+  "dry_cherry",
+  "wet_parchment",
+  "raw_green",
+  "decaf_green",
+]);
+
+export const lotStatusEnum = pgEnum("lot_status", [
+  "projected",
+  "in_transit",
+  "spot",
+  "available",
+  "reserved",
+  "quarantined",
+  "depleted",
+  "archived",
+]);
+
+/**
+ * What a ledger row means. The distinction is not cosmetic: reports group by
+ * it ("how much did we roast", "how much did we write off"), and a generic
+ * "adjustment" would collapse shrinkage, theft and a recount into one number.
+ */
+export const inventoryEventEnum = pgEnum("inventory_event", [
+  "receive",
+  "adjust",
+  "allocate",
+  "deallocate",
+  "roast_consume",
+  "transfer_out",
+  "transfer_in",
+  "split_out",
+  "split_in",
+  "merge_out",
+  "merge_in",
+  "sample_draw",
+  "shrinkage",
+  "write_off",
+  "recount",
+  "return",
+]);
+
+/** Nodes in the traceability graph. */
+export const traceNodeKindEnum = pgEnum("trace_node_kind", [
+  "producer",
+  "green_lot",
+  "roast_batch",
+  "roasted_lot",
+  "blend_lot",
+  "product_batch",
+  "order_line",
+]);
+
+export const costComponentKindEnum = pgEnum("cost_component_kind", [
+  "base_price",
+  "differential",
+  "futures",
+  "fx_adjustment",
+  "carry",
+  "storage",
+  "freight",
+  "insurance",
+  "duty",
+  "customs",
+  "handling",
+  "financing",
+  "broker_fee",
+  "sampling",
+  "certification",
+  "other",
+]);

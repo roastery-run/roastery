@@ -18,6 +18,7 @@ import { catalogMachine } from "./rpc/catalog-machine";
 import { catalogParty } from "./rpc/catalog-party";
 import { catalogProduct } from "./rpc/catalog-product";
 import { consoleRoutes } from "./rpc/console";
+import { inventoryGreen } from "./rpc/inventory-green";
 
 /**
  * One error envelope for the whole API.
@@ -116,6 +117,7 @@ app.route("/", catalogMachine);
 app.route("/", catalogParty);
 app.route("/", catalogProduct);
 app.route("/", consoleRoutes);
+app.route("/", inventoryGreen);
 
 /* --------------------------------------------------------------- metadata */
 

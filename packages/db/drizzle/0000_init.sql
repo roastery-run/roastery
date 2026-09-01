@@ -1,11 +1,16 @@
 CREATE TYPE "public"."actor_type" AS ENUM('user', 'api_key', 'oauth_client', 'system');--> statement-breakpoint
+CREATE TYPE "public"."cost_component_kind" AS ENUM('base_price', 'differential', 'futures', 'fx_adjustment', 'carry', 'storage', 'freight', 'insurance', 'duty', 'customs', 'handling', 'financing', 'broker_fee', 'sampling', 'certification', 'other');--> statement-breakpoint
+CREATE TYPE "public"."green_state" AS ENUM('green', 'parchment', 'dry_cherry', 'wet_parchment', 'raw_green', 'decaf_green');--> statement-breakpoint
+CREATE TYPE "public"."inventory_event" AS ENUM('receive', 'adjust', 'allocate', 'deallocate', 'roast_consume', 'transfer_out', 'transfer_in', 'split_out', 'split_in', 'merge_out', 'merge_in', 'sample_draw', 'shrinkage', 'write_off', 'recount', 'return');--> statement-breakpoint
 CREATE TYPE "public"."location_kind" AS ENUM('roastery', 'warehouse', 'cafe', 'lab', 'transit', 'external');--> statement-breakpoint
+CREATE TYPE "public"."lot_status" AS ENUM('projected', 'in_transit', 'spot', 'available', 'reserved', 'quarantined', 'depleted', 'archived');--> statement-breakpoint
 CREATE TYPE "public"."machine_connectivity" AS ENUM('none', 'artisan', 'bridge', 'modbus', 'serial', 'cloud_api');--> statement-breakpoint
 CREATE TYPE "public"."partner_type" AS ENUM('supplier', 'importer', 'exporter', 'cooperative', 'producer', 'mill', 'broker', 'warehouse', 'customer');--> statement-breakpoint
 CREATE TYPE "public"."producer_kind" AS ENUM('farm', 'cooperative', 'washing_station', 'estate', 'smallholder_group');--> statement-breakpoint
 CREATE TYPE "public"."product_format" AS ENUM('whole_bean', 'ground_espresso', 'ground_filter', 'ground_french_press', 'capsule', 'instant', 'drip_bag', 'bulk');--> statement-breakpoint
 CREATE TYPE "public"."roast_machine_type" AS ENUM('drum', 'fluid_bed', 'recirculating', 'sample', 'tangential', 'centrifugal');--> statement-breakpoint
 CREATE TYPE "public"."subscription_status" AS ENUM('trialing', 'active', 'past_due', 'canceled', 'paused');--> statement-breakpoint
+CREATE TYPE "public"."trace_node_kind" AS ENUM('producer', 'green_lot', 'roast_batch', 'roasted_lot', 'blend_lot', 'product_batch', 'order_line');--> statement-breakpoint
 CREATE TYPE "public"."uom_kind" AS ENUM('mass', 'volume', 'count', 'bag', 'length', 'time');--> statement-breakpoint
 CREATE TABLE "accounts" (
 	"id" text PRIMARY KEY NOT NULL,
@@ -150,6 +155,128 @@ CREATE TABLE "products" (
 	"barcode" text,
 	"is_active" boolean DEFAULT true NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "cost_components" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"org_id" uuid NOT NULL,
+	"green_lot_id" uuid,
+	"contract_line_id" uuid,
+	"kind" "cost_component_kind" NOT NULL,
+	"label" text,
+	"amount" numeric(18, 4) NOT NULL,
+	"currency" text NOT NULL,
+	"fx_rate_used" numeric(18, 8),
+	"amount_base" numeric(18, 4) NOT NULL,
+	"per_unit" boolean DEFAULT false NOT NULL,
+	"unit_id" uuid,
+	"incurred_at" timestamp with time zone,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "green_lots" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"org_id" uuid NOT NULL,
+	"name" text NOT NULL,
+	"lot_code" text NOT NULL,
+	"supplier_ref" text,
+	"producer_id" uuid,
+	"partner_id" uuid,
+	"parent_lot_id" uuid,
+	"state" "green_state" DEFAULT 'green' NOT NULL,
+	"status" "lot_status" DEFAULT 'available' NOT NULL,
+	"varieties" text[] DEFAULT '{}' NOT NULL,
+	"process_method" text,
+	"harvest_year" integer,
+	"certifications" text[] DEFAULT '{}' NOT NULL,
+	"initial_weight_kg" numeric(14, 4) NOT NULL,
+	"current_weight_kg" numeric(14, 4) DEFAULT '0' NOT NULL,
+	"reserved_weight_kg" numeric(14, 4) DEFAULT '0' NOT NULL,
+	"min_weight_kg" numeric(14, 4),
+	"entered_value" numeric(14, 4),
+	"entered_unit_id" uuid,
+	"bag_count" integer,
+	"bag_weight_kg" numeric(10, 4),
+	"unit_cost" numeric(18, 6),
+	"cost_unit_id" uuid,
+	"currency" text,
+	"total_value_base" numeric(18, 4),
+	"fx_rate_used" numeric(18, 8),
+	"default_location_id" uuid,
+	"registered_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"notes" text,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "inventory_reconciliations" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"org_id" uuid NOT NULL,
+	"green_lot_id" uuid NOT NULL,
+	"expected_kg" numeric(14, 4) NOT NULL,
+	"actual_kg" numeric(14, 4) NOT NULL,
+	"drift_kg" numeric(14, 4) NOT NULL,
+	"resolved_at" timestamp with time zone,
+	"resolved_by" text,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "inventory_transactions" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"org_id" uuid NOT NULL,
+	"green_lot_id" uuid NOT NULL,
+	"seq" bigint NOT NULL,
+	"event_type" "inventory_event" NOT NULL,
+	"location_id" uuid,
+	"weight_before_kg" numeric(14, 4) NOT NULL,
+	"delta_kg" numeric(14, 4) NOT NULL,
+	"weight_after_kg" numeric(14, 4) NOT NULL,
+	"group_id" uuid,
+	"counterparty_lot_id" uuid,
+	"roast_batch_id" uuid,
+	"contract_line_id" uuid,
+	"comment" text,
+	"occurred_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"created_by" text,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "landed_costs" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"org_id" uuid NOT NULL,
+	"green_lot_id" uuid NOT NULL,
+	"base_price_base" numeric(18, 4) DEFAULT '0' NOT NULL,
+	"freight_base" numeric(18, 4) DEFAULT '0' NOT NULL,
+	"duty_base" numeric(18, 4) DEFAULT '0' NOT NULL,
+	"carry_base" numeric(18, 4) DEFAULT '0' NOT NULL,
+	"other_base" numeric(18, 4) DEFAULT '0' NOT NULL,
+	"total_base" numeric(18, 4) DEFAULT '0' NOT NULL,
+	"per_kg_base" numeric(18, 6) DEFAULT '0' NOT NULL,
+	"computed_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "lot_consumption" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"org_id" uuid NOT NULL,
+	"source_kind" "trace_node_kind" NOT NULL,
+	"source_id" uuid NOT NULL,
+	"target_kind" "trace_node_kind" NOT NULL,
+	"target_id" uuid NOT NULL,
+	"weight_kg" numeric(14, 4) NOT NULL,
+	"ratio_pct" numeric(7, 4),
+	"transaction_id" uuid,
+	"occurred_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "lot_location_balances" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"org_id" uuid NOT NULL,
+	"green_lot_id" uuid NOT NULL,
+	"location_id" uuid NOT NULL,
+	"weight_kg" numeric(14, 4) DEFAULT '0' NOT NULL,
+	"bag_count" integer,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
@@ -455,6 +582,29 @@ ALTER TABLE "partners" ADD CONSTRAINT "partners_org_id_organizations_id_fk" FORE
 ALTER TABLE "producers" ADD CONSTRAINT "producers_org_id_organizations_id_fk" FOREIGN KEY ("org_id") REFERENCES "public"."organizations"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "producers" ADD CONSTRAINT "producers_partner_id_partners_id_fk" FOREIGN KEY ("partner_id") REFERENCES "public"."partners"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "products" ADD CONSTRAINT "products_org_id_organizations_id_fk" FOREIGN KEY ("org_id") REFERENCES "public"."organizations"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "cost_components" ADD CONSTRAINT "cost_components_org_id_organizations_id_fk" FOREIGN KEY ("org_id") REFERENCES "public"."organizations"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "cost_components" ADD CONSTRAINT "cost_components_green_lot_id_green_lots_id_fk" FOREIGN KEY ("green_lot_id") REFERENCES "public"."green_lots"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "cost_components" ADD CONSTRAINT "cost_components_unit_id_units_of_measure_id_fk" FOREIGN KEY ("unit_id") REFERENCES "public"."units_of_measure"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "green_lots" ADD CONSTRAINT "green_lots_org_id_organizations_id_fk" FOREIGN KEY ("org_id") REFERENCES "public"."organizations"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "green_lots" ADD CONSTRAINT "green_lots_producer_id_producers_id_fk" FOREIGN KEY ("producer_id") REFERENCES "public"."producers"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "green_lots" ADD CONSTRAINT "green_lots_partner_id_partners_id_fk" FOREIGN KEY ("partner_id") REFERENCES "public"."partners"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "green_lots" ADD CONSTRAINT "green_lots_entered_unit_id_units_of_measure_id_fk" FOREIGN KEY ("entered_unit_id") REFERENCES "public"."units_of_measure"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "green_lots" ADD CONSTRAINT "green_lots_cost_unit_id_units_of_measure_id_fk" FOREIGN KEY ("cost_unit_id") REFERENCES "public"."units_of_measure"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "green_lots" ADD CONSTRAINT "green_lots_default_location_id_locations_id_fk" FOREIGN KEY ("default_location_id") REFERENCES "public"."locations"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "inventory_reconciliations" ADD CONSTRAINT "inventory_reconciliations_org_id_organizations_id_fk" FOREIGN KEY ("org_id") REFERENCES "public"."organizations"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "inventory_reconciliations" ADD CONSTRAINT "inventory_reconciliations_green_lot_id_green_lots_id_fk" FOREIGN KEY ("green_lot_id") REFERENCES "public"."green_lots"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "inventory_reconciliations" ADD CONSTRAINT "inventory_reconciliations_resolved_by_users_id_fk" FOREIGN KEY ("resolved_by") REFERENCES "public"."users"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "inventory_transactions" ADD CONSTRAINT "inventory_transactions_org_id_organizations_id_fk" FOREIGN KEY ("org_id") REFERENCES "public"."organizations"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "inventory_transactions" ADD CONSTRAINT "inventory_transactions_green_lot_id_green_lots_id_fk" FOREIGN KEY ("green_lot_id") REFERENCES "public"."green_lots"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "inventory_transactions" ADD CONSTRAINT "inventory_transactions_location_id_locations_id_fk" FOREIGN KEY ("location_id") REFERENCES "public"."locations"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "inventory_transactions" ADD CONSTRAINT "inventory_transactions_created_by_users_id_fk" FOREIGN KEY ("created_by") REFERENCES "public"."users"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "landed_costs" ADD CONSTRAINT "landed_costs_org_id_organizations_id_fk" FOREIGN KEY ("org_id") REFERENCES "public"."organizations"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "landed_costs" ADD CONSTRAINT "landed_costs_green_lot_id_green_lots_id_fk" FOREIGN KEY ("green_lot_id") REFERENCES "public"."green_lots"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "lot_consumption" ADD CONSTRAINT "lot_consumption_org_id_organizations_id_fk" FOREIGN KEY ("org_id") REFERENCES "public"."organizations"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "lot_consumption" ADD CONSTRAINT "lot_consumption_transaction_id_inventory_transactions_id_fk" FOREIGN KEY ("transaction_id") REFERENCES "public"."inventory_transactions"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "lot_location_balances" ADD CONSTRAINT "lot_location_balances_org_id_organizations_id_fk" FOREIGN KEY ("org_id") REFERENCES "public"."organizations"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "lot_location_balances" ADD CONSTRAINT "lot_location_balances_green_lot_id_green_lots_id_fk" FOREIGN KEY ("green_lot_id") REFERENCES "public"."green_lots"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "lot_location_balances" ADD CONSTRAINT "lot_location_balances_location_id_locations_id_fk" FOREIGN KEY ("location_id") REFERENCES "public"."locations"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "oauth_access_tokens" ADD CONSTRAINT "oauth_access_tokens_client_id_oauth_clients_client_id_fk" FOREIGN KEY ("client_id") REFERENCES "public"."oauth_clients"("client_id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "oauth_access_tokens" ADD CONSTRAINT "oauth_access_tokens_session_id_sessions_id_fk" FOREIGN KEY ("session_id") REFERENCES "public"."sessions"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "oauth_access_tokens" ADD CONSTRAINT "oauth_access_tokens_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
@@ -509,6 +659,30 @@ CREATE UNIQUE INDEX "products_org_sku_idx" ON "products" USING btree ("org_id","
 CREATE INDEX "products_org_active_idx" ON "products" USING btree ("org_id","is_active","format");--> statement-breakpoint
 CREATE INDEX "products_org_barcode_idx" ON "products" USING btree ("org_id","barcode");--> statement-breakpoint
 CREATE INDEX "products_org_created_idx" ON "products" USING btree ("org_id","created_at","id");--> statement-breakpoint
+CREATE INDEX "cost_components_org_lot_idx" ON "cost_components" USING btree ("org_id","green_lot_id");--> statement-breakpoint
+CREATE INDEX "cost_components_org_line_idx" ON "cost_components" USING btree ("org_id","contract_line_id");--> statement-breakpoint
+CREATE INDEX "cost_components_org_kind_idx" ON "cost_components" USING btree ("org_id","kind");--> statement-breakpoint
+CREATE UNIQUE INDEX "green_lots_org_code_idx" ON "green_lots" USING btree ("org_id","lot_code");--> statement-breakpoint
+CREATE INDEX "green_lots_org_status_weight_idx" ON "green_lots" USING btree ("org_id","status","current_weight_kg");--> statement-breakpoint
+CREATE INDEX "green_lots_org_registered_idx" ON "green_lots" USING btree ("org_id","registered_at");--> statement-breakpoint
+CREATE INDEX "green_lots_org_producer_idx" ON "green_lots" USING btree ("org_id","producer_id");--> statement-breakpoint
+CREATE INDEX "green_lots_org_parent_idx" ON "green_lots" USING btree ("org_id","parent_lot_id");--> statement-breakpoint
+CREATE INDEX "green_lots_org_created_idx" ON "green_lots" USING btree ("org_id","created_at","id");--> statement-breakpoint
+CREATE INDEX "green_lots_name_trgm_idx" ON "green_lots" USING gin ("name" gin_trgm_ops);--> statement-breakpoint
+CREATE INDEX "inventory_recon_org_lot_idx" ON "inventory_reconciliations" USING btree ("org_id","green_lot_id","created_at");--> statement-breakpoint
+CREATE INDEX "inventory_recon_open_idx" ON "inventory_reconciliations" USING btree ("org_id","created_at") WHERE resolved_at IS NULL;--> statement-breakpoint
+CREATE UNIQUE INDEX "inventory_txn_lot_seq_idx" ON "inventory_transactions" USING btree ("green_lot_id","seq");--> statement-breakpoint
+CREATE INDEX "inventory_txn_org_lot_time_idx" ON "inventory_transactions" USING btree ("org_id","green_lot_id","occurred_at");--> statement-breakpoint
+CREATE INDEX "inventory_txn_org_event_time_idx" ON "inventory_transactions" USING btree ("org_id","event_type","occurred_at");--> statement-breakpoint
+CREATE INDEX "inventory_txn_org_location_idx" ON "inventory_transactions" USING btree ("org_id","location_id","occurred_at");--> statement-breakpoint
+CREATE INDEX "inventory_txn_group_idx" ON "inventory_transactions" USING btree ("group_id");--> statement-breakpoint
+CREATE INDEX "inventory_txn_roast_idx" ON "inventory_transactions" USING btree ("roast_batch_id");--> statement-breakpoint
+CREATE UNIQUE INDEX "landed_costs_org_lot_idx" ON "landed_costs" USING btree ("org_id","green_lot_id");--> statement-breakpoint
+CREATE INDEX "lot_consumption_src_idx" ON "lot_consumption" USING btree ("org_id","source_kind","source_id");--> statement-breakpoint
+CREATE INDEX "lot_consumption_tgt_idx" ON "lot_consumption" USING btree ("org_id","target_kind","target_id");--> statement-breakpoint
+CREATE INDEX "lot_consumption_txn_idx" ON "lot_consumption" USING btree ("transaction_id");--> statement-breakpoint
+CREATE UNIQUE INDEX "lot_location_balances_lot_loc_idx" ON "lot_location_balances" USING btree ("green_lot_id","location_id");--> statement-breakpoint
+CREATE INDEX "lot_location_balances_org_loc_idx" ON "lot_location_balances" USING btree ("org_id","location_id");--> statement-breakpoint
 CREATE INDEX "oauth_access_tokens_client_id_idx" ON "oauth_access_tokens" USING btree ("client_id");--> statement-breakpoint
 CREATE INDEX "oauth_access_tokens_session_id_idx" ON "oauth_access_tokens" USING btree ("session_id");--> statement-breakpoint
 CREATE INDEX "oauth_access_tokens_user_id_idx" ON "oauth_access_tokens" USING btree ("user_id");--> statement-breakpoint
