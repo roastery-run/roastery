@@ -1,0 +1,5 @@
+{
+  "extends": "@roastery/tsconfig/base.json",
+  "compilerOptions": { "noEmit": true },
+  "include": ["src", "drizzle.config.ts"]
+}

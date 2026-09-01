@@ -1,0 +1,30 @@
+{
+  "name": "@roastery/db",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./schema": "./src/schema/index.ts",
+    "./tenancy": "./src/tenancy.ts",
+    "./seed-authz": "./src/seed-authz.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "generate": "drizzle-kit generate",
+    "ensure-extensions": "node scripts/ensure-extensions.mjs",
+    "migrate": "pnpm ensure-extensions && drizzle-kit migrate",
+    "push": "drizzle-kit push"
+  },
+  "dependencies": {
+    "drizzle-orm": "catalog:"
+  },
+  "devDependencies": {
+    "@roastery/tsconfig": "workspace:*",
+    "@types/pg": "^8.15.5",
+    "dotenv": "^17.2.3",
+    "drizzle-kit": "^0.31.5",
+    "pg": "^8.16.3",
+    "typescript": "catalog:"
+  }
+}

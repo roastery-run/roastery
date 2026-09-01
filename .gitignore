@@ -1,0 +1,14 @@
+node_modules/
+dist/
+.turbo/
+.wrangler/
+*.tsbuildinfo
+.env
+.env.local
+.dev.vars
+wrangler.local.jsonc
+coverage/
+.DS_Store
+
+# Local verification artifacts
+/tmp/

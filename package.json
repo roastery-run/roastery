@@ -1,0 +1,32 @@
+{
+  "name": "roastery",
+  "private": true,
+  "scripts": {
+    "build": "turbo build",
+    "dev": "turbo dev",
+    "dev:api": "turbo dev --filter=@roastery/api",
+    "format": "biome format --write .",
+    "lint": "biome lint .",
+    "check": "biome check .",
+    "check:fix": "biome check --write .",
+    "test": "turbo test",
+    "typecheck": "turbo typecheck",
+    "db:generate": "pnpm --filter @roastery/db generate",
+    "db:migrate": "pnpm --filter @roastery/db migrate",
+    "db:up": "docker compose up -d --wait neon-local",
+    "db:down": "docker compose down",
+    "setup:local": "bash scripts/setup-local.sh"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.5.4",
+    "drizzle-orm": "^0.45.2",
+    "tsx": "^4.20.3",
+    "turbo": "^2.10.5",
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.4"
+  },
+  "packageManager": "pnpm@10.34.5",
+  "engines": {
+    "node": ">=20"
+  }
+}

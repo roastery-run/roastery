@@ -1,0 +1,23 @@
+# Neon Local — spawns an ephemeral Neon branch on start and deletes it on stop,
+# so each dev/test run gets an isolated throwaway database rather than sharing
+# one long-lived dev branch that slowly fills with everyone's experiments.
+#
+#   pnpm db:up        start the proxy (fresh ephemeral branch)
+#   pnpm db:migrate   apply migrations to it
+#   pnpm db:down      stop (the branch is deleted)
+services:
+  neon-local:
+    image: neondatabase/neon_local:latest
+    container_name: roastery-db
+    ports:
+      - "5432:5432"
+    environment:
+      NEON_API_KEY: ${NEON_API_KEY:?set NEON_API_KEY in .env}
+      NEON_PROJECT_ID: ${NEON_PROJECT_ID:?set NEON_PROJECT_ID in .env}
+      PARENT_BRANCH_ID: ${NEON_PARENT_BRANCH_ID:-}
+      DELETE_BRANCH: ${DELETE_BRANCH:-true}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h localhost -p 5432 -U neon"]
+      interval: 2s
+      timeout: 3s
+      retries: 15

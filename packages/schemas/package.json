@@ -1,0 +1,19 @@
+{
+  "name": "@roastery/schemas",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@roastery/tsconfig": "workspace:*",
+    "typescript": "catalog:"
+  }
+}

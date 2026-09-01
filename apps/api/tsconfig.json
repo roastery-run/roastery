@@ -1,0 +1,5 @@
+{
+  "extends": "@roastery/tsconfig/worker.json",
+  "compilerOptions": { "paths": { "@/*": ["./src/*"] } },
+  "include": ["src", "test"]
+}
