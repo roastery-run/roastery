@@ -1,5 +1,10 @@
 CREATE TYPE "public"."actor_type" AS ENUM('user', 'api_key', 'oauth_client', 'system');--> statement-breakpoint
 CREATE TYPE "public"."location_kind" AS ENUM('roastery', 'warehouse', 'cafe', 'lab', 'transit', 'external');--> statement-breakpoint
+CREATE TYPE "public"."machine_connectivity" AS ENUM('none', 'artisan', 'bridge', 'modbus', 'serial', 'cloud_api');--> statement-breakpoint
+CREATE TYPE "public"."partner_type" AS ENUM('supplier', 'importer', 'exporter', 'cooperative', 'producer', 'mill', 'broker', 'warehouse', 'customer');--> statement-breakpoint
+CREATE TYPE "public"."producer_kind" AS ENUM('farm', 'cooperative', 'washing_station', 'estate', 'smallholder_group');--> statement-breakpoint
+CREATE TYPE "public"."product_format" AS ENUM('whole_bean', 'ground_espresso', 'ground_filter', 'ground_french_press', 'capsule', 'instant', 'drip_bag', 'bulk');--> statement-breakpoint
+CREATE TYPE "public"."roast_machine_type" AS ENUM('drum', 'fluid_bed', 'recirculating', 'sample', 'tangential', 'centrifugal');--> statement-breakpoint
 CREATE TYPE "public"."subscription_status" AS ENUM('trialing', 'active', 'past_due', 'canceled', 'paused');--> statement-breakpoint
 CREATE TYPE "public"."uom_kind" AS ENUM('mass', 'volume', 'count', 'bag', 'length', 'time');--> statement-breakpoint
 CREATE TABLE "accounts" (
@@ -69,6 +74,81 @@ CREATE TABLE "verifications" (
 	"identifier" text NOT NULL,
 	"value" text NOT NULL,
 	"expires_at" timestamp with time zone NOT NULL,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "machines" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"org_id" uuid NOT NULL,
+	"location_id" uuid,
+	"name" text NOT NULL,
+	"code" text NOT NULL,
+	"brand" text,
+	"model" text,
+	"machine_type" "roast_machine_type" DEFAULT 'drum' NOT NULL,
+	"capacity_kg" numeric(10, 4),
+	"min_batch_kg" numeric(10, 4),
+	"max_batch_kg" numeric(10, 4),
+	"connectivity" "machine_connectivity" DEFAULT 'none' NOT NULL,
+	"device_id" text,
+	"is_active" boolean DEFAULT true NOT NULL,
+	"installed_at" timestamp with time zone,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "partners" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"org_id" uuid NOT NULL,
+	"name" text NOT NULL,
+	"code" text NOT NULL,
+	"types" "partner_type"[] NOT NULL,
+	"country" text,
+	"default_currency" text,
+	"payment_terms_days" integer,
+	"contact_email" text,
+	"contact_phone" text,
+	"website" text,
+	"notes" text,
+	"is_active" boolean DEFAULT true NOT NULL,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "producers" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"org_id" uuid NOT NULL,
+	"name" text NOT NULL,
+	"code" text NOT NULL,
+	"kind" "producer_kind" NOT NULL,
+	"partner_id" uuid,
+	"country" text,
+	"region" text,
+	"subregion" text,
+	"altitude_min_m" integer,
+	"altitude_max_m" integer,
+	"latitude" numeric(9, 6),
+	"longitude" numeric(9, 6),
+	"varieties" text[] DEFAULT '{}' NOT NULL,
+	"process_methods" text[] DEFAULT '{}' NOT NULL,
+	"farm_size_ha" numeric(10, 2),
+	"is_active" boolean DEFAULT true NOT NULL,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "products" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"org_id" uuid NOT NULL,
+	"sku" text NOT NULL,
+	"name" text NOT NULL,
+	"format" "product_format" NOT NULL,
+	"net_weight_kg" numeric(10, 4),
+	"list_price" numeric(18, 4),
+	"currency" text,
+	"barcode" text,
+	"is_active" boolean DEFAULT true NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );
@@ -369,6 +449,12 @@ CREATE TABLE "units_of_measure" (
 ALTER TABLE "accounts" ADD CONSTRAINT "accounts_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "passkeys" ADD CONSTRAINT "passkeys_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "sessions" ADD CONSTRAINT "sessions_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "machines" ADD CONSTRAINT "machines_org_id_organizations_id_fk" FOREIGN KEY ("org_id") REFERENCES "public"."organizations"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "machines" ADD CONSTRAINT "machines_location_id_locations_id_fk" FOREIGN KEY ("location_id") REFERENCES "public"."locations"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "partners" ADD CONSTRAINT "partners_org_id_organizations_id_fk" FOREIGN KEY ("org_id") REFERENCES "public"."organizations"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "producers" ADD CONSTRAINT "producers_org_id_organizations_id_fk" FOREIGN KEY ("org_id") REFERENCES "public"."organizations"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "producers" ADD CONSTRAINT "producers_partner_id_partners_id_fk" FOREIGN KEY ("partner_id") REFERENCES "public"."partners"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "products" ADD CONSTRAINT "products_org_id_organizations_id_fk" FOREIGN KEY ("org_id") REFERENCES "public"."organizations"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "oauth_access_tokens" ADD CONSTRAINT "oauth_access_tokens_client_id_oauth_clients_client_id_fk" FOREIGN KEY ("client_id") REFERENCES "public"."oauth_clients"("client_id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "oauth_access_tokens" ADD CONSTRAINT "oauth_access_tokens_session_id_sessions_id_fk" FOREIGN KEY ("session_id") REFERENCES "public"."sessions"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "oauth_access_tokens" ADD CONSTRAINT "oauth_access_tokens_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
@@ -406,6 +492,23 @@ CREATE INDEX "passkeys_user_idx" ON "passkeys" USING btree ("user_id");--> state
 CREATE UNIQUE INDEX "sessions_token_idx" ON "sessions" USING btree ("token");--> statement-breakpoint
 CREATE INDEX "sessions_user_idx" ON "sessions" USING btree ("user_id");--> statement-breakpoint
 CREATE INDEX "verifications_identifier_idx" ON "verifications" USING btree ("identifier");--> statement-breakpoint
+CREATE UNIQUE INDEX "machines_org_code_idx" ON "machines" USING btree ("org_id","code");--> statement-breakpoint
+CREATE UNIQUE INDEX "machines_device_id_idx" ON "machines" USING btree ("device_id");--> statement-breakpoint
+CREATE INDEX "machines_org_location_idx" ON "machines" USING btree ("org_id","location_id","is_active");--> statement-breakpoint
+CREATE INDEX "machines_org_created_idx" ON "machines" USING btree ("org_id","created_at","id");--> statement-breakpoint
+CREATE UNIQUE INDEX "partners_org_code_idx" ON "partners" USING btree ("org_id","code");--> statement-breakpoint
+CREATE INDEX "partners_org_active_idx" ON "partners" USING btree ("org_id","is_active");--> statement-breakpoint
+CREATE INDEX "partners_org_created_idx" ON "partners" USING btree ("org_id","created_at","id");--> statement-breakpoint
+CREATE INDEX "partners_name_trgm_idx" ON "partners" USING gin ("name" gin_trgm_ops);--> statement-breakpoint
+CREATE UNIQUE INDEX "producers_org_code_idx" ON "producers" USING btree ("org_id","code");--> statement-breakpoint
+CREATE INDEX "producers_org_country_idx" ON "producers" USING btree ("org_id","country","region");--> statement-breakpoint
+CREATE INDEX "producers_org_partner_idx" ON "producers" USING btree ("org_id","partner_id");--> statement-breakpoint
+CREATE INDEX "producers_org_created_idx" ON "producers" USING btree ("org_id","created_at","id");--> statement-breakpoint
+CREATE INDEX "producers_name_trgm_idx" ON "producers" USING gin ("name" gin_trgm_ops);--> statement-breakpoint
+CREATE UNIQUE INDEX "products_org_sku_idx" ON "products" USING btree ("org_id","sku");--> statement-breakpoint
+CREATE INDEX "products_org_active_idx" ON "products" USING btree ("org_id","is_active","format");--> statement-breakpoint
+CREATE INDEX "products_org_barcode_idx" ON "products" USING btree ("org_id","barcode");--> statement-breakpoint
+CREATE INDEX "products_org_created_idx" ON "products" USING btree ("org_id","created_at","id");--> statement-breakpoint
 CREATE INDEX "oauth_access_tokens_client_id_idx" ON "oauth_access_tokens" USING btree ("client_id");--> statement-breakpoint
 CREATE INDEX "oauth_access_tokens_session_id_idx" ON "oauth_access_tokens" USING btree ("session_id");--> statement-breakpoint
 CREATE INDEX "oauth_access_tokens_user_id_idx" ON "oauth_access_tokens" USING btree ("user_id");--> statement-breakpoint

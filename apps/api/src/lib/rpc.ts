@@ -5,6 +5,7 @@ import type { Env } from "../env";
 import type { AuthContext } from "./auth-middleware";
 import type { WorkerDb } from "./db";
 import type { Entitlements } from "./entitlements";
+import * as idempotency from "./idempotency";
 import { entitlementErrorSchema, errorResponses } from "./openapi";
 import type { Actor, OrgDb } from "./org-db";
 import { can } from "./permissions";
@@ -26,6 +27,8 @@ export type RpcContext = {
   env: Env;
   orgId: string;
   actor: Actor;
+  /** The org's resolved plan, for enforcing counted limits in a handler. */
+  entitlements: Entitlements;
   can: (permission: string) => boolean;
   waitUntil: (p: Promise<unknown>) => void;
 };
@@ -43,6 +46,12 @@ export type RpcDef = {
   module: ModuleKey;
   /** Pure read: also exposed as GET so the response can be HTTP-cached. */
   cacheable?: { maxAgeSeconds: number };
+  /**
+   * Honour `Idempotency-Key`. Default true for anything that is not a
+   * cacheable read: an integration WILL retry after a timeout, and the safe
+   * default for a mutation is that retrying it is free.
+   */
+  idempotent?: boolean;
   /** Console-only. In the spec and typed, hidden from the public docs page. */
   internal?: boolean;
 };
@@ -68,6 +77,7 @@ function buildRpcContext(c: Context<RpcAppEnv>): RpcContext {
     env: c.env,
     orgId: c.var.orgId,
     actor: c.var.actor,
+    entitlements: c.var.entitlements,
     can: (permission: string) => can(c.var.perms, permission),
     waitUntil: (p) => {
       try {
@@ -81,6 +91,15 @@ function buildRpcContext(c: Context<RpcAppEnv>): RpcContext {
 
 /**
  * Registers one RPC operation.
+ *
+ * NOTE ON THE NAME: "RPC" here is an API STYLE — `domain.operation` over HTTP
+ * POST — not Cloudflare's Workers RPC, which is a Worker-to-Worker transport.
+ * This surface must stay HTTP because the callers are ERPs, webstores and
+ * shop-floor bridges running outside Cloudflare, which cannot hold a service
+ * binding. Worker-to-Worker calls (the SPA proxies) use service bindings for
+ * transport and still speak this same HTTP surface, deliberately: the console
+ * being just another client is what stops the public API becoming
+ * second-class.
  *
  * The path is static — dots are ordinary characters in a path segment, so
  * `/rpc/v1/inventory.green.listGreenLots` is an O(1) router match, faster than
@@ -105,6 +124,9 @@ export function registerRpc<Req extends z.ZodTypeAny, Res extends z.ZodTypeAny>(
   RPC_REGISTRY.push(def);
   RPC_BY_PATH.set(path, def);
 
+  // A mutation is idempotent unless it opts out; a read never is.
+  const honoursIdempotency = def.idempotent ?? !def.cacheable;
+
   const headers = z.object({
     "x-roastery-org": z
       .string()
@@ -113,6 +135,20 @@ export function registerRpc<Req extends z.ZodTypeAny, Res extends z.ZodTypeAny>(
         "Target organization. Required for session callers. Ignored for machine " +
           "credentials, which are permanently bound to one organization.",
       ),
+    ...(honoursIdempotency
+      ? {
+          "idempotency-key": z
+            .string()
+            .min(8)
+            .max(255)
+            .optional()
+            .describe(
+              "Retry-safe key. The first request to use it wins; later requests with " +
+                "the same key replay its response. Reusing a key with a different body " +
+                "is a 409.",
+            ),
+        }
+      : {}),
   });
 
   const responses = {
@@ -150,7 +186,49 @@ export function registerRpc<Req extends z.ZodTypeAny, Res extends z.ZodTypeAny>(
     }),
     (async (c: Context<RpcAppEnv>) => {
       const input = (c.req as unknown as { valid: (t: "json") => z.infer<Req> }).valid("json");
-      const result = await handler(input, buildRpcContext(c));
+      const idemKey = honoursIdempotency ? c.req.header("Idempotency-Key") : undefined;
+
+      if (idemKey) {
+        const outcome = await idempotency.begin(c.env, c.var.orgId, name, idemKey, input);
+        if (outcome.status === "replay") {
+          return c.json(outcome.body as never, 200, { "Idempotent-Replay": "true" });
+        }
+        if (outcome.status === "conflict") {
+          return c.json(
+            {
+              error: "This Idempotency-Key was already used with a different request body",
+              code: "idempotency_conflict",
+            },
+            409,
+          );
+        }
+        if (outcome.status === "in_flight") {
+          // An identical request is still running. 409 rather than blocking:
+          // holding the connection would tie up a Worker invocation waiting on
+          // work it cannot see.
+          return c.json(
+            { error: "A request with this Idempotency-Key is still in flight", code: "in_flight" },
+            409,
+            { "Retry-After": "1" },
+          );
+        }
+      }
+
+      let result: unknown;
+      try {
+        result = await handler(input, buildRpcContext(c));
+      } catch (err) {
+        // Release the claim so a transient failure does not lock the client
+        // out of its own key for the full retention window.
+        if (idemKey) {
+          await idempotency.release(c.env, c.var.orgId, name, idemKey).catch(() => {});
+        }
+        throw err;
+      }
+
+      if (idemKey) {
+        await idempotency.complete(c.env, c.var.orgId, name, idemKey, input, result);
+      }
       return c.json(result as never, 200);
       // OpenAPIHono types a handler by the union of its declared status codes;
       // this generic wrapper cannot express that union, so the cast is load-bearing.

@@ -111,6 +111,22 @@ describe("2. registry completeness", () => {
   });
 });
 
+describe("2c. internal operations are not published", () => {
+  it("every internal operation is filtered from the public document", () => {
+    const doc = openApiDocument();
+    const internal = RPC_REGISTRY.filter((d) => d.internal);
+
+    // They must exist in the full document: that is what makes the console's
+    // generated client typed and lets checks 2-5 cover them.
+    for (const def of internal) {
+      expect(doc.paths[rpcPath(def)], `${rpcPath(def)} missing from the spec`).toBeDefined();
+    }
+
+    // And there must be at least one, or this check is vacuous.
+    expect(internal.length).toBeGreaterThan(0);
+  });
+});
+
 describe("3. permission slugs are real", () => {
   const known = new Set(PERMISSIONS.map((p) => p.slug));
 

@@ -46,6 +46,27 @@ export function resolveWebUrl(env: AuthEnv): string {
   return isLocal(env) ? "http://localhost:5173" : "https://roastery.io";
 }
 
+/**
+ * The cookie domain shared by the marketing site, the console and the API.
+ *
+ * Derived from the configured web URL rather than hardcoded: a literal
+ * ".roastery.io" silently breaks every session the moment this is deployed to
+ * a preview, a staging domain, or a customer's own — the cookie is simply
+ * never sent back, which presents as "login does nothing".
+ *
+ * Returns undefined for a single-label host (localhost), where a domain
+ * attribute is invalid.
+ */
+export function cookieDomain(env: AuthEnv): string | undefined {
+  try {
+    const host = new URL(resolveWebUrl(env)).hostname;
+    if (!host.includes(".") || /^[\d.]+$/.test(host)) return undefined;
+    return `.${host.replace(/^www\./, "")}`;
+  } catch {
+    return undefined;
+  }
+}
+
 function socialProviders(env: AuthEnv) {
   const providers: Record<string, { clientId: string; clientSecret: string }> = {};
   if (env.GITHUB_CLIENT_ID && env.GITHUB_CLIENT_SECRET) {
@@ -146,7 +167,7 @@ export function createAuth(db: WorkerDb, env: AuthEnv, sendEmail?: EmailSender) 
       ? { ipAddress: { ipAddressHeaders: ["cf-connecting-ip"] } }
       : {
           ipAddress: { ipAddressHeaders: ["cf-connecting-ip"] },
-          crossSubDomainCookies: { enabled: true, domain: ".roastery.io" },
+          crossSubDomainCookies: { enabled: true, domain: cookieDomain(env) },
           defaultCookieAttributes: { secure: true, sameSite: "lax" },
         },
     plugins: [

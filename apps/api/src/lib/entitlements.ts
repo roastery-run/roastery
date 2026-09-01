@@ -101,3 +101,44 @@ export function limitFor(ents: Entitlements, key: string): number | null {
   if (raw === null || raw === undefined || raw === "unlimited") return null;
   return typeof raw === "number" ? raw : Number(raw);
 }
+
+/**
+ * Raised when an organization is at a plan limit.
+ *
+ * A 402, not a 403: the caller is permitted to do this, the plan is what
+ * stands in the way. Keeping the two apart is what lets the console show an
+ * upgrade path rather than a generic "forbidden", and it is why permission is
+ * checked FIRST — someone who could not perform the action anyway learns
+ * nothing about the plan.
+ */
+export class QuotaExceeded extends Error {
+  readonly status = 402 as const;
+  readonly code = "quota_exceeded" as const;
+
+  constructor(
+    readonly key: string,
+    readonly limit: number,
+    readonly current: number,
+  ) {
+    super(`Your plan allows ${limit} ${key}; this organization already has ${current}.`);
+    this.name = "QuotaExceeded";
+  }
+}
+
+/**
+ * Enforces a counted plan limit at the operation that grows the count.
+ *
+ * `count` is a callback rather than a number so the query is skipped entirely
+ * for an unlimited plan — the common case for the tiers that matter, and there
+ * is no reason to make them pay for a COUNT they can never fail.
+ */
+export async function requireQuota(
+  ctx: { entitlements: Entitlements },
+  key: string,
+  count: () => Promise<number>,
+): Promise<void> {
+  const limit = limitFor(ctx.entitlements, key);
+  if (limit === null) return;
+  const current = await count();
+  if (current >= limit) throw new QuotaExceeded(key, limit, current);
+}

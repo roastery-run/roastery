@@ -5,11 +5,12 @@
  * The order of `export *` is irrelevant (ES module bindings are hoisted). What
  * must stay acyclic is the IMPORT graph between the modules themselves:
  *
- *   enums -> auth -> oauth -> org -> (sourcing, inventory, production, ...)
+ *   enums -> auth -> oauth -> org -> catalog -> (sourcing, inventory, ...)
  *
  * A module may only import from modules earlier in that chain.
  */
 export * from "./auth";
+export * from "./catalog";
 export * from "./enums";
 export * from "./oauth";
 export * from "./org";

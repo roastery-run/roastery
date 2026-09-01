@@ -29,3 +29,54 @@ export const subscriptionStatusEnum = pgEnum("subscription_status", [
 ]);
 
 export const actorTypeEnum = pgEnum("actor_type", ["user", "api_key", "oauth_client", "system"]);
+
+/* ------------------------------------------------------------- catalog */
+
+export const partnerTypeEnum = pgEnum("partner_type", [
+  "supplier",
+  "importer",
+  "exporter",
+  "cooperative",
+  "producer",
+  "mill",
+  "broker",
+  "warehouse",
+  "customer",
+]);
+
+export const producerKindEnum = pgEnum("producer_kind", [
+  "farm",
+  "cooperative",
+  "washing_station",
+  "estate",
+  "smallholder_group",
+]);
+
+export const roastMachineTypeEnum = pgEnum("roast_machine_type", [
+  "drum",
+  "fluid_bed",
+  "recirculating",
+  "sample",
+  "tangential",
+  "centrifugal",
+]);
+
+export const machineConnectivityEnum = pgEnum("machine_connectivity", [
+  "none",
+  "artisan",
+  "bridge",
+  "modbus",
+  "serial",
+  "cloud_api",
+]);
+
+export const productFormatEnum = pgEnum("product_format", [
+  "whole_bean",
+  "ground_espresso",
+  "ground_filter",
+  "ground_french_press",
+  "capsule",
+  "instant",
+  "drip_bag",
+  "bulk",
+]);

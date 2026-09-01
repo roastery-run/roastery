@@ -7,12 +7,17 @@ import { secureHeaders } from "hono/secure-headers";
 import { assertProductionBindings } from "./env";
 import { authMiddleware } from "./lib/auth-middleware";
 import { closeWorkerDb, createWorkerDb, safeExecutionCtx } from "./lib/db";
+import { QuotaExceeded } from "./lib/entitlements";
 import { isHttpError } from "./lib/errors";
 import { orgScope } from "./lib/org-scope";
 import { rateLimit } from "./lib/rate-limit";
-import { RPC_REGISTRY, type RpcAppEnv } from "./lib/rpc";
+import { RPC_REGISTRY, type RpcAppEnv, rpcPath } from "./lib/rpc";
 import { rpcAuthorize } from "./lib/rpc-authorize";
 import { catalogLocation } from "./rpc/catalog-location";
+import { catalogMachine } from "./rpc/catalog-machine";
+import { catalogParty } from "./rpc/catalog-party";
+import { catalogProduct } from "./rpc/catalog-product";
+import { consoleRoutes } from "./rpc/console";
 
 /**
  * One error envelope for the whole API.
@@ -107,10 +112,14 @@ app.use("/rpc/v1/*", orgScope);
 app.use("/rpc/v1/*", rpcAuthorize);
 
 app.route("/", catalogLocation);
+app.route("/", catalogMachine);
+app.route("/", catalogParty);
+app.route("/", catalogProduct);
+app.route("/", consoleRoutes);
 
 /* --------------------------------------------------------------- metadata */
 
-app.doc("/openapi.json", {
+app.doc("/openapi.json", (c) => ({
   openapi: "3.1.0",
   info: {
     title: "Roastery API",
@@ -118,12 +127,40 @@ app.doc("/openapi.json", {
     description:
       "Domain-oriented RPC API for coffee operations. Every operation is a POST to " +
       "`/rpc/v1/{namespace}.{operation}`; pure reads are additionally available as GET " +
-      "with a URL-encoded `input` query parameter.",
+      "with a URL-encoded `input` query parameter.\n\n" +
+      "Authenticate with an OAuth 2.0 `client_credentials` token, or an `sk_` API key as " +
+      "`Authorization: Bearer`. Pass `resource` at the token endpoint to receive a JWT " +
+      "access token; without it the token is opaque.",
   },
-  servers: [{ url: "https://api.roastery.io", description: "Production" }],
+  // Derived from the request, so the docs point at the host you are reading
+  // them on rather than at production from a preview deployment.
+  servers: [{ url: new URL(c.req.url).origin, description: "This deployment" }],
+}));
+
+/**
+ * The public documentation surface.
+ *
+ * Console-only operations are in the OpenAPI document — so the console's
+ * generated client is typed and the authorization test can enumerate them —
+ * but they are not part of the product's integration contract, so publishing
+ * them would invite integrators to build on operations we may change freely.
+ */
+app.get("/openapi.public.json", async (c) => {
+  const doc = app.getOpenAPI31Document({
+    openapi: "3.1.0",
+    info: { title: "Roastery API", version: "1.0.0" },
+    servers: [{ url: new URL(c.req.url).origin }],
+  }) as { paths: Record<string, unknown> };
+
+  const internal = new Set(RPC_REGISTRY.filter((d) => d.internal).map((d) => rpcPath(d)));
+  const paths: Record<string, unknown> = {};
+  for (const [path, item] of Object.entries(doc.paths)) {
+    if (!internal.has(path)) paths[path] = item;
+  }
+  return c.json({ ...doc, paths });
 });
 
-app.get("/docs", Scalar({ url: "/openapi.json", pageTitle: "Roastery API" }));
+app.get("/docs", Scalar({ url: "/openapi.public.json", pageTitle: "Roastery API" }));
 
 app.get("/health", async (c) => {
   const deep = c.req.query("deep") === "1";
@@ -161,6 +198,19 @@ function causeChain(err: unknown, depth = 0): string[] {
 }
 
 app.onError((err, c) => {
+  if (err instanceof QuotaExceeded) {
+    return c.json(
+      {
+        error: err.message,
+        code: err.code,
+        key: err.key,
+        limit: err.limit,
+        current: err.current,
+        plan: c.var.entitlements?.planSlug,
+      },
+      402,
+    );
+  }
   if (isHttpError(err)) {
     return c.json({ error: err.message, code: err.code }, err.status as 400);
   }
