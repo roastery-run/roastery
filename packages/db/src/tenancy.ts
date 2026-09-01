@@ -83,6 +83,18 @@ export const TENANT_DIRECT = {
   },
   cost_components: { table: s.costComponents, column: s.costComponents.orgId, field: "orgId" },
   landed_costs: { table: s.landedCosts, column: s.landedCosts.orgId, field: "orgId" },
+  materials: { table: s.materials, column: s.materials.orgId, field: "orgId" },
+  material_transactions: {
+    table: s.materialTransactions,
+    column: s.materialTransactions.orgId,
+    field: "orgId",
+  },
+  bills_of_materials: {
+    table: s.billsOfMaterials,
+    column: s.billsOfMaterials.orgId,
+    field: "orgId",
+  },
+  bom_lines: { table: s.bomLines, column: s.bomLines.orgId, field: "orgId" },
   units_of_measure: { table: s.unitsOfMeasure, column: s.unitsOfMeasure.orgId, field: "orgId" },
   audit_events: { table: s.auditEvents, column: s.auditEvents.orgId, field: "orgId" },
   events: { table: s.events, column: s.events.orgId, field: "orgId" },

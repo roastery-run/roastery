@@ -156,3 +156,16 @@ export const costComponentKindEnum = pgEnum("cost_component_kind", [
   "certification",
   "other",
 ]);
+
+export const materialKindEnum = pgEnum("material_kind", [
+  "bag",
+  "label",
+  "valve",
+  "box",
+  "tin",
+  "capsule",
+  "tape",
+  "insert",
+  "merch",
+  "other",
+]);

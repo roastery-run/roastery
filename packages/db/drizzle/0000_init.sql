@@ -5,6 +5,7 @@ CREATE TYPE "public"."inventory_event" AS ENUM('receive', 'adjust', 'allocate', 
 CREATE TYPE "public"."location_kind" AS ENUM('roastery', 'warehouse', 'cafe', 'lab', 'transit', 'external');--> statement-breakpoint
 CREATE TYPE "public"."lot_status" AS ENUM('projected', 'in_transit', 'spot', 'available', 'reserved', 'quarantined', 'depleted', 'archived');--> statement-breakpoint
 CREATE TYPE "public"."machine_connectivity" AS ENUM('none', 'artisan', 'bridge', 'modbus', 'serial', 'cloud_api');--> statement-breakpoint
+CREATE TYPE "public"."material_kind" AS ENUM('bag', 'label', 'valve', 'box', 'tin', 'capsule', 'tape', 'insert', 'merch', 'other');--> statement-breakpoint
 CREATE TYPE "public"."partner_type" AS ENUM('supplier', 'importer', 'exporter', 'cooperative', 'producer', 'mill', 'broker', 'warehouse', 'customer');--> statement-breakpoint
 CREATE TYPE "public"."producer_kind" AS ENUM('farm', 'cooperative', 'washing_station', 'estate', 'smallholder_group');--> statement-breakpoint
 CREATE TYPE "public"."product_format" AS ENUM('whole_bean', 'ground_espresso', 'ground_filter', 'ground_french_press', 'capsule', 'instant', 'drip_bag', 'bulk');--> statement-breakpoint
@@ -277,6 +278,63 @@ CREATE TABLE "lot_location_balances" (
 	"location_id" uuid NOT NULL,
 	"weight_kg" numeric(14, 4) DEFAULT '0' NOT NULL,
 	"bag_count" integer,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "bills_of_materials" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"org_id" uuid NOT NULL,
+	"product_id" uuid NOT NULL,
+	"name" text NOT NULL,
+	"version" integer DEFAULT 1 NOT NULL,
+	"is_active" boolean DEFAULT true NOT NULL,
+	"yield_qty" integer DEFAULT 1 NOT NULL,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "bom_lines" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"org_id" uuid NOT NULL,
+	"bom_id" uuid NOT NULL,
+	"material_id" uuid NOT NULL,
+	"quantity" numeric(14, 4) NOT NULL,
+	"scrap_pct" numeric(5, 2) DEFAULT '0' NOT NULL,
+	"position" integer DEFAULT 0 NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "material_transactions" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"org_id" uuid NOT NULL,
+	"material_id" uuid NOT NULL,
+	"seq" bigint NOT NULL,
+	"event_type" "inventory_event" NOT NULL,
+	"location_id" uuid,
+	"qty_before" numeric(14, 4) NOT NULL,
+	"delta_qty" numeric(14, 4) NOT NULL,
+	"qty_after" numeric(14, 4) NOT NULL,
+	"comment" text,
+	"occurred_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"created_by" text,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "materials" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"org_id" uuid NOT NULL,
+	"sku" text NOT NULL,
+	"name" text NOT NULL,
+	"kind" "material_kind" NOT NULL,
+	"unit_id" uuid,
+	"unit_cost" numeric(18, 6),
+	"currency" text,
+	"on_hand_qty" numeric(14, 4) DEFAULT '0' NOT NULL,
+	"reorder_point" numeric(14, 4),
+	"reorder_qty" numeric(14, 4),
+	"lead_time_days" integer,
+	"supplier_partner_id" uuid,
+	"is_active" boolean DEFAULT true NOT NULL,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
@@ -605,6 +663,18 @@ ALTER TABLE "lot_consumption" ADD CONSTRAINT "lot_consumption_transaction_id_inv
 ALTER TABLE "lot_location_balances" ADD CONSTRAINT "lot_location_balances_org_id_organizations_id_fk" FOREIGN KEY ("org_id") REFERENCES "public"."organizations"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "lot_location_balances" ADD CONSTRAINT "lot_location_balances_green_lot_id_green_lots_id_fk" FOREIGN KEY ("green_lot_id") REFERENCES "public"."green_lots"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "lot_location_balances" ADD CONSTRAINT "lot_location_balances_location_id_locations_id_fk" FOREIGN KEY ("location_id") REFERENCES "public"."locations"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "bills_of_materials" ADD CONSTRAINT "bills_of_materials_org_id_organizations_id_fk" FOREIGN KEY ("org_id") REFERENCES "public"."organizations"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "bills_of_materials" ADD CONSTRAINT "bills_of_materials_product_id_products_id_fk" FOREIGN KEY ("product_id") REFERENCES "public"."products"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "bom_lines" ADD CONSTRAINT "bom_lines_org_id_organizations_id_fk" FOREIGN KEY ("org_id") REFERENCES "public"."organizations"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "bom_lines" ADD CONSTRAINT "bom_lines_bom_id_bills_of_materials_id_fk" FOREIGN KEY ("bom_id") REFERENCES "public"."bills_of_materials"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "bom_lines" ADD CONSTRAINT "bom_lines_material_id_materials_id_fk" FOREIGN KEY ("material_id") REFERENCES "public"."materials"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "material_transactions" ADD CONSTRAINT "material_transactions_org_id_organizations_id_fk" FOREIGN KEY ("org_id") REFERENCES "public"."organizations"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "material_transactions" ADD CONSTRAINT "material_transactions_material_id_materials_id_fk" FOREIGN KEY ("material_id") REFERENCES "public"."materials"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "material_transactions" ADD CONSTRAINT "material_transactions_location_id_locations_id_fk" FOREIGN KEY ("location_id") REFERENCES "public"."locations"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "material_transactions" ADD CONSTRAINT "material_transactions_created_by_users_id_fk" FOREIGN KEY ("created_by") REFERENCES "public"."users"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "materials" ADD CONSTRAINT "materials_org_id_organizations_id_fk" FOREIGN KEY ("org_id") REFERENCES "public"."organizations"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "materials" ADD CONSTRAINT "materials_unit_id_units_of_measure_id_fk" FOREIGN KEY ("unit_id") REFERENCES "public"."units_of_measure"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "materials" ADD CONSTRAINT "materials_supplier_partner_id_partners_id_fk" FOREIGN KEY ("supplier_partner_id") REFERENCES "public"."partners"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "oauth_access_tokens" ADD CONSTRAINT "oauth_access_tokens_client_id_oauth_clients_client_id_fk" FOREIGN KEY ("client_id") REFERENCES "public"."oauth_clients"("client_id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "oauth_access_tokens" ADD CONSTRAINT "oauth_access_tokens_session_id_sessions_id_fk" FOREIGN KEY ("session_id") REFERENCES "public"."sessions"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "oauth_access_tokens" ADD CONSTRAINT "oauth_access_tokens_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
@@ -683,6 +753,17 @@ CREATE INDEX "lot_consumption_tgt_idx" ON "lot_consumption" USING btree ("org_id
 CREATE INDEX "lot_consumption_txn_idx" ON "lot_consumption" USING btree ("transaction_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "lot_location_balances_lot_loc_idx" ON "lot_location_balances" USING btree ("green_lot_id","location_id");--> statement-breakpoint
 CREATE INDEX "lot_location_balances_org_loc_idx" ON "lot_location_balances" USING btree ("org_id","location_id");--> statement-breakpoint
+CREATE UNIQUE INDEX "bom_org_product_version_idx" ON "bills_of_materials" USING btree ("org_id","product_id","version");--> statement-breakpoint
+CREATE UNIQUE INDEX "bom_org_product_active_idx" ON "bills_of_materials" USING btree ("org_id","product_id") WHERE is_active;--> statement-breakpoint
+CREATE UNIQUE INDEX "bom_lines_bom_position_idx" ON "bom_lines" USING btree ("bom_id","position");--> statement-breakpoint
+CREATE INDEX "bom_lines_material_idx" ON "bom_lines" USING btree ("material_id");--> statement-breakpoint
+CREATE UNIQUE INDEX "material_txn_material_seq_idx" ON "material_transactions" USING btree ("material_id","seq");--> statement-breakpoint
+CREATE INDEX "material_txn_org_material_time_idx" ON "material_transactions" USING btree ("org_id","material_id","occurred_at");--> statement-breakpoint
+CREATE UNIQUE INDEX "materials_org_sku_idx" ON "materials" USING btree ("org_id","sku");--> statement-breakpoint
+CREATE INDEX "materials_org_kind_idx" ON "materials" USING btree ("org_id","kind","is_active");--> statement-breakpoint
+CREATE INDEX "materials_org_supplier_idx" ON "materials" USING btree ("org_id","supplier_partner_id");--> statement-breakpoint
+CREATE INDEX "materials_org_created_idx" ON "materials" USING btree ("org_id","created_at","id");--> statement-breakpoint
+CREATE INDEX "materials_org_reorder_idx" ON "materials" USING btree ("org_id","on_hand_qty") WHERE reorder_point is not null;--> statement-breakpoint
 CREATE INDEX "oauth_access_tokens_client_id_idx" ON "oauth_access_tokens" USING btree ("client_id");--> statement-breakpoint
 CREATE INDEX "oauth_access_tokens_session_id_idx" ON "oauth_access_tokens" USING btree ("session_id");--> statement-breakpoint
 CREATE INDEX "oauth_access_tokens_user_id_idx" ON "oauth_access_tokens" USING btree ("user_id");--> statement-breakpoint

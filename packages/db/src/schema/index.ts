@@ -13,5 +13,6 @@ export * from "./auth";
 export * from "./catalog";
 export * from "./enums";
 export * from "./inventory";
+export * from "./materials";
 export * from "./oauth";
 export * from "./org";

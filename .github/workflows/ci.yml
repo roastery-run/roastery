@@ -1,0 +1,61 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Lint, typecheck and build share a runner: they are fast, and splitting them
+  # costs a whole extra billable job for a few seconds of wall clock.
+  lint-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm check
+      - run: pnpm typecheck
+      - run: pnpm build
+
+  test:
+    runs-on: ubuntu-latest
+    services:
+      # Backs the ledger integration tests. Without it they SKIP, and a skipped
+      # suite still reports green — which is exactly how an unverified
+      # invariant reaches production. `integration test wiring` fails the run
+      # if CI is set and this database is missing.
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: roastery
+          POSTGRES_PASSWORD: roastery
+          POSTGRES_DB: roastery_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://roastery:roastery@localhost:5432/roastery_test
+      TEST_DATABASE_URL: postgresql://roastery:roastery@localhost:5432/roastery_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm db:migrate
+      - run: pnpm test
