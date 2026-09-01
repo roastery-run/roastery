@@ -235,37 +235,6 @@ export const apiKeys = pgTable(
   ],
 );
 
-/**
- * Binds a Better Auth OAuth client to one organization and one role.
- *
- * `@better-auth/oauth-provider` owns the client record itself (secret hashing,
- * client_credentials_scopes, rotation). It has no concept of a tenant, and a
- * machine credential must be permanently bound to exactly one — so that
- * binding lives here rather than being inferred at request time.
- */
-export const orgOauthClients = pgTable(
-  "org_oauth_clients",
-  {
-    id: uuid("id").primaryKey().defaultRandom(),
-    orgId: uuid("org_id")
-      .notNull()
-      .references(() => organizations.id, { onDelete: "cascade" }),
-    clientId: text("client_id").notNull(),
-    name: text("name").notNull(),
-    roleSlug: text("role_slug")
-      .notNull()
-      .references(() => roles.slug),
-    createdBy: text("created_by").references(() => users.id, { onDelete: "set null" }),
-    lastUsedAt: timestamp("last_used_at", { withTimezone: true }),
-    revokedAt: timestamp("revoked_at", { withTimezone: true }),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-  },
-  (t) => [
-    uniqueIndex("org_oauth_clients_client_id_idx").on(t.clientId),
-    index("org_oauth_clients_org_idx").on(t.orgId),
-  ],
-);
-
 /* ------------------------------------------------------------- entitlements */
 
 export const plans = pgTable("plans", {

@@ -107,10 +107,19 @@ export const passkeys = pgTable(
   ],
 );
 
-/** JWKS for the `jwt` plugin, which backs JWT-mode OAuth access tokens. */
+/**
+ * JWKS for the `jwt` plugin, which backs JWT-mode OAuth access tokens.
+ *
+ * Field list taken from the plugin's own schema, not guessed: a missing column
+ * here fails at request time with "The field X does not exist in the jwks
+ * Drizzle schema", which is how `alg` and `crv` were found missing.
+ */
 export const jwks = pgTable("jwks", {
   id: text("id").primaryKey(),
   publicKey: text("public_key").notNull(),
   privateKey: text("private_key").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  expiresAt: timestamp("expires_at", { withTimezone: true }),
+  alg: text("alg"),
+  crv: text("crv"),
 });

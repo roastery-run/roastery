@@ -1,4 +1,5 @@
 import { apiKey } from "@better-auth/api-key";
+import { oauthProvider } from "@better-auth/oauth-provider";
 import * as schema from "@roastery/db/schema";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
@@ -105,6 +106,13 @@ export function createAuth(db: WorkerDb, env: AuthEnv, sendEmail?: EmailSender) 
         // resolves fields by PROPERTY name, so the property names on the
         // Drizzle table must match the plugin's field names exactly.
         apikey: schema.apiKeys,
+        oauthClient: schema.oauthClients,
+        oauthResource: schema.oauthResources,
+        oauthClientResource: schema.oauthClientResources,
+        oauthAccessToken: schema.oauthAccessTokens,
+        oauthRefreshToken: schema.oauthRefreshTokens,
+        oauthConsent: schema.oauthConsents,
+        oauthClientAssertion: schema.oauthClientAssertions,
       },
     }),
     secret: env.BETTER_AUTH_SECRET,
@@ -129,9 +137,15 @@ export function createAuth(db: WorkerDb, env: AuthEnv, sendEmail?: EmailSender) 
       max: 60,
       customRules: { "/sign-in/magic-link": { window: 300, max: 3 } },
     },
+    // Without this Better Auth cannot determine a client IP on Workers and
+    // falls back to ONE shared bucket per path — meaning a single abusive
+    // caller rate-limits every other tenant. cf-connecting-ip is set by
+    // Cloudflare and cannot be spoofed by the client.
+    trustedOrigins: [resolveWebUrl(env), resolveConsoleUrl(env)],
     advanced: isLocal(env)
-      ? undefined
+      ? { ipAddress: { ipAddressHeaders: ["cf-connecting-ip"] } }
       : {
+          ipAddress: { ipAddressHeaders: ["cf-connecting-ip"] },
           crossSubDomainCookies: { enabled: true, domain: ".roastery.io" },
           defaultCookieAttributes: { secure: true, sameSite: "lax" },
         },
@@ -159,6 +173,37 @@ export function createAuth(db: WorkerDb, env: AuthEnv, sendEmail?: EmailSender) 
        * vocabulary is the permissions table, and a second one would be a
        * second source of truth. Role and scopes travel in `metadata`.
        */
+      /**
+       * OAuth 2.0 provider — the machine-authentication surface.
+       *
+       * `client_credentials` issues tokens to service integrations, which is
+       * how an ERP, a webstore or a roasting bridge talks to this API. In JWT
+       * mode validation is stateless, so a token check costs no database
+       * round-trip; that is what makes the documented request budget
+       * affordable at the edge.
+       *
+       * The grant is fail-closed by design: a client's user-delegated `scope`
+       * never authorizes machine access, and `clientCredentialsScopes` must be
+       * assigned deliberately. We set those to our own permission slugs, so
+       * the OAuth grant and the permissions table speak one vocabulary rather
+       * than two.
+       *
+       * A client_credentials JWT has no session to end, so a short lifetime is
+       * the only revocation control — hence one hour. Re-minting costs a
+       * machine client a single request.
+       */
+      oauthProvider({
+        // Required by the plugin even when only client_credentials is used:
+        // they are where the browser authorization-code flow sends a user.
+        loginPage: `${resolveConsoleUrl(env)}/login`,
+        consentPage: `${resolveConsoleUrl(env)}/oauth/consent`,
+        m2mAccessTokenExpiresIn: 3600,
+        accessTokenExpiresIn: 3600,
+        storeTokens: "hashed",
+        // Minting is a database read plus a constant-time compare, and it is
+        // the one endpoint an attacker will hammer.
+        rateLimit: { token: { window: 60, max: 20 } },
+      }),
       apiKey({
         defaultPrefix: "sk_",
         // 5 req/s sustained, matching the documented API budget. The Worker

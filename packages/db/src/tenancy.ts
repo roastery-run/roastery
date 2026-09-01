@@ -49,7 +49,6 @@ export const TENANT_DIRECT = {
   org_invitations: { table: s.orgInvitations, column: s.orgInvitations.orgId, field: "orgId" },
   // Shape dictated by @better-auth/api-key: the owner column is referenceId.
   api_keys: { table: s.apiKeys, column: s.apiKeys.referenceId, field: "referenceId" },
-  org_oauth_clients: { table: s.orgOauthClients, column: s.orgOauthClients.orgId, field: "orgId" },
   org_subscriptions: {
     table: s.orgSubscriptions,
     column: s.orgSubscriptions.orgId,
@@ -105,6 +104,26 @@ export const TENANT_GLOBAL = {
   role_permissions: s.rolePermissions,
   plans: s.plans,
   plan_entitlements: s.planEntitlements,
+
+  /**
+   * OAuth provider tables.
+   *
+   * Global because the plugin owns them and looks a client up by clientId
+   * BEFORE any tenant is known — a token request arrives with credentials and
+   * nothing else. Tenancy is carried on the row instead: `referenceId` holds
+   * the organization, and it is that value, not the caller's header, that
+   * `orgScope` binds the request to. So a token can only ever act on the
+   * organization its client was issued for.
+   *
+   * Nothing reads these through OrgDb; they are reached only by the plugin.
+   */
+  oauth_clients: s.oauthClients,
+  oauth_resources: s.oauthResources,
+  oauth_client_resources: s.oauthClientResources,
+  oauth_access_tokens: s.oauthAccessTokens,
+  oauth_refresh_tokens: s.oauthRefreshTokens,
+  oauth_consents: s.oauthConsents,
+  oauth_client_assertions: s.oauthClientAssertions,
 } satisfies Record<string, PgTable>;
 
 export type ScopedTable =

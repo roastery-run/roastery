@@ -1,11 +1,15 @@
 /**
- * Schema barrel. `drizzle.config.ts` points here, and it walks the exports, so
- * it is indifferent to how many files the schema is split across.
+ * Schema barrel. `drizzle.config.ts` points here and walks the exports, so it
+ * is indifferent to how many files the schema is split across.
  *
- * Import order encodes the dependency direction: a module may only import from
- * modules earlier in this list.
+ * The order of `export *` is irrelevant (ES module bindings are hoisted). What
+ * must stay acyclic is the IMPORT graph between the modules themselves:
+ *
+ *   enums -> auth -> oauth -> org -> (sourcing, inventory, production, ...)
+ *
+ * A module may only import from modules earlier in that chain.
  */
-
 export * from "./auth";
 export * from "./enums";
+export * from "./oauth";
 export * from "./org";

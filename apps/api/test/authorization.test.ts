@@ -178,6 +178,52 @@ describe("6. unsafeDb discipline", () => {
   });
 });
 
+describe("6b. escape-hatch discipline", () => {
+  /**
+   * `OrgDb.query()` hands the callback a raw Drizzle builder plus a `scope()`
+   * helper. That is necessary for joins and aggregates `find()` cannot express,
+   * but nothing forces the caller to USE scope() — which is precisely how
+   * revokeOAuthClient shipped briefly without a tenant predicate, letting one
+   * organization disable another's integration by guessing a client id.
+   *
+   * So every call site must either apply the scope helper or say, inline, why
+   * it does not. Tables classified TENANT_GLOBAL legitimately do not need it,
+   * but that is a claim a reviewer should see rather than infer.
+   */
+  it("every db.query() call applies scope() or is annotated", () => {
+    const offenders: string[] = [];
+
+    for (const file of [...walk(join(SRC, "rpc")), ...walk(join(SRC, "lib"))]) {
+      const source = readFileSync(file, "utf8");
+      const lines = source.split("\n");
+
+      lines.forEach((line, i) => {
+        if (!/\.query\(\s*async|\.query\(\(/.test(line)) return;
+
+        // The callback body: from here to the end of the statement. A rough
+        // window is enough — a scope() call always appears close by.
+        const window = lines.slice(i, i + 30).join("\n");
+        const usesScope = /scope\(/.test(window);
+        const annotated = /\/\/\s*unscoped-ok:/.test(
+          lines.slice(Math.max(0, i - 12), i + 4).join("\n"),
+        );
+        if (!usesScope && !annotated) {
+          offenders.push(`${file.replace(SRC, "src")}:${i + 1}: ${line.trim()}`);
+        }
+      });
+    }
+
+    expect(
+      offenders,
+      "These OrgDb.query() call sites neither apply scope() nor explain why they " +
+        "do not. Add the scope predicate, or annotate the call " +
+        "`// unscoped-ok: <reason>` (valid for TENANT_GLOBAL tables that carry " +
+        "their own tenant predicate explicitly):\n" +
+        offenders.join("\n"),
+    ).toEqual([]);
+  });
+});
+
 describe("7. tenancy classification is complete", () => {
   /** Drizzle marks its table objects with a well-known symbol. */
   function isDrizzleTable(v: unknown): boolean {

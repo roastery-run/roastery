@@ -2,6 +2,7 @@ import { createAuth } from "@roastery/auth";
 import { createMiddleware } from "hono/factory";
 import type { Env } from "../env";
 import { closeWorkerDb, createWorkerDb, safeExecutionCtx, type WorkerDb } from "./db";
+import { verifyOAuthToken } from "./oauth-token";
 
 export type Credential =
   | { type: "session" }
@@ -168,6 +169,20 @@ export const authMiddleware = createMiddleware<{ Bindings: Env; Variables: AuthV
           };
           userId = meta.createdBy ?? null;
         }
+      }
+    } else if (header?.startsWith("Bearer ")) {
+      // An OAuth access token from the client_credentials grant. Validation is
+      // stateless JWT verification, so this costs no database round-trip — the
+      // property that makes the documented request budget affordable.
+      const claims = await verifyOAuthToken(db, header.slice("Bearer ".length));
+      if (claims) {
+        credential = {
+          type: "oauth_client",
+          clientId: claims.clientId,
+          orgId: claims.orgId,
+          roleSlug: claims.roleSlug,
+          scopes: claims.scopes,
+        };
       }
     } else {
       userId = await resolveSessionUserId(db, c.env, c.req.raw.headers);
