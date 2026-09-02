@@ -1,0 +1,91 @@
+---
+title: Conventions
+description: Pagination, idempotency, units, and the shapes every operation shares.
+---
+
+The operations are consistent enough that learning one teaches you most of the
+others.
+
+## Lists
+
+Every `list*` operation takes `{filter?, page?}` and returns `{items, page}`:
+
+```json
+{
+  "filter": { "status": "available" },
+  "page": { "limit": 50, "cursor": "eyJ0Ijoi..." }
+}
+```
+
+```json
+{
+  "items": [ /* ... */ ],
+  "page": { "nextCursor": "eyJ0Ijoi...", "hasMore": true }
+}
+```
+
+Pagination is **keyset**, not offset. `OFFSET 50000` makes the database walk and
+discard fifty thousand rows, so a large tenant's last page would cost more than
+its first. The consequence for you: there is no page number and no way to jump
+to page 47. Follow `nextCursor` until `hasMore` is false.
+
+Treat the cursor as opaque. It encodes a position, and its format is not part of
+this contract.
+
+## Idempotency
+
+Every mutation accepts an `Idempotency-Key`:
+
+```bash
+-H "Idempotency-Key: 8f14e45f-ea0d-4d0f-9c40-2f1b2c3d4e5f"
+```
+
+The first request to use a key wins; later ones with the same key replay its
+response rather than acting again. Reusing a key with a *different* body is a
+`409` — that is a bug on your side, and failing loudly is better than guessing
+which body you meant.
+
+Send one. Your integration will time out somewhere eventually, and the safe
+default for a mutation is that retrying it is free.
+
+## Cacheable reads
+
+Some read operations are also exposed as `GET`, with the same input URL-encoded
+in an `input` query parameter:
+
+```
+GET /rpc/v1/catalog.location.listLocations?input=%7B%7D
+```
+
+Same schema, same handler, same authorization. Only the transport differs. Use
+it when you want an HTTP cache in front of a read; the reference marks which
+operations offer it.
+
+## Money and weight
+
+Both cross the wire as **decimal strings**, and both should be parsed with a
+decimal library rather than `parseFloat` if you intend to do arithmetic:
+
+```json
+{ "currentWeightKg": "1787.5000", "unitPrice": "4.482500", "total": "814.0000" }
+```
+
+- Weights are canonical **kilograms** at four decimal places.
+- Amounts carry four decimals; **unit prices carry six**, because coffee
+  differentials quote to four or more and rounding a price to cents before
+  multiplying it by 19,000 kg loses real money.
+- Espresso doses and yields are in **grams**, deliberately — see the
+  [introduction](/).
+
+### Bags are not a unit of mass
+
+A Colombian bag is 69 kg and a Brazilian one is 60. When a lot records a
+`bagWeightKg`, that is the factor for that lot and no other. There is no
+platform-wide bag weight, because any value we picked would misreport somebody's
+inventory by fifteen percent.
+
+## Time
+
+Timestamps are ISO 8601 with an offset. Roast telemetry is the exception: sample
+times are **seconds since charge**, a float, never wall clock — machine clocks
+drift, and roasts are compared by elapsed time.

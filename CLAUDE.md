@@ -20,9 +20,9 @@ pnpm + Turborepo workspace (`apps/*`, `packages/*`). Node ≥ 20.
 ```
 apps/
   api/       Cloudflare Worker — RPC API, Durable Objects, queues, cron
-  web/       React SPA — marketing site + the public /trace/$code QR page
-  console/   React SPA — the authenticated product
-  docs/      Astro + Starlight — API reference and guides
+  web/       TanStack Start (SSR) — marketing + the public /trace/$code QR page
+  console/   React SPA (client-only) — the authenticated product
+  docs/      Astro + Starlight — generated API reference and hand-written guides
 packages/
   db/        Drizzle schema (split per domain) + migrations + tenancy.ts
   auth/      Better Auth configuration, shared by api and console
@@ -233,7 +233,55 @@ feature can hit them too.
   for that human; `Actor` carries both `id` (the credential) and `userId` (the
   person). Conflating them collapsed three cuppers into one score.
 
-## 9. Tooling
+## 9. Frontend
+
+**Three apps, and the split is load-bearing.**
+
+- `web` is **server-rendered**. `/trace/$code` is the QR target on retail bags —
+  the most-loaded page in the system, opened on a phone on a bad connection and
+  shared as a link. Client-rendered it would download a framework, boot it,
+  fetch the certificate and only then paint, and a social scraper would see an
+  empty shell. The solution and pricing pages are the acquisition surface and
+  need the same treatment.
+- `console` is **client-only**. It is behind auth, must never be indexed, and
+  gains nothing from a render it cannot cache.
+- Console-only weight — TanStack Table, the virtualizer, uPlot — must never
+  reach `web`. `apps/web/src/bundle.test.ts` reads the built output and fails
+  if it does, because tree-shaking is what actually decides and only the
+  bundler knows.
+
+**shadcn/ui, vendored.** Components live in `packages/ui/src/ui` and we own
+them. After `shadcn add`, run `pnpm --filter @roastery/ui normalize` — the CLI
+writes `@/…` imports, and this package is consumed as SOURCE, so at compile
+time `@/` resolves to the CONSUMING app's src. Then `pnpm check:fix`, since the
+generated code is not formatted to our config.
+
+**The palette is tested, not asserted.** `tokens.test.ts` parses `styles.css`
+and checks every foreground/background pair against WCAG AA, plus lightness
+separation between chart series. A comment claiming "AA verified" rots the
+moment someone nudges a token.
+
+**Content is data, rendered once.** The seven solution pages are one typed
+module and one renderer; the header nav derives its entries from that same
+registry; pricing shares the `ModuleKey` union the API gates on and
+`pricing.test.ts` asserts its prices, limits and modules match the seed. Seven
+bespoke pages is how a marketing site ends up contradicting itself.
+
+**Status is never colour-only.** `StatusBadge` carries a shape glyph; the
+pricing table pairs every tick with a visually-hidden sentence. These get
+printed and forwarded.
+
+**Never write defaults into the URL.** Route search schemas use
+`.optional().catch()`, and defaults are applied on read with
+`withSearchDefaults`. TanStack Router writes the validated object back, so
+defaulting in the schema turns every plain list into
+`?q=&sort=&dir=desc&limit=50&…`.
+
+**Menus are disclosures, not menubars.** No `role="menu"`: that role promises
+arrow-key roving focus and typeahead, and a component that claims it without
+implementing it is worse for a screen-reader user than plain buttons.
+
+## 10. Tooling
 
 - **Biome** (not ESLint/Prettier): 2-space indent, 100 columns, double quotes,
   semicolons, trailing commas. `packages/db/drizzle/` is generated — never
@@ -243,3 +291,7 @@ feature can hit them too.
 - Prefer a pure function with a unit test over a method that needs a database.
   The scheduling, costing, cupping-aggregation and retry-policy logic are all
   pure for exactly this reason.
+- Generated output is not linted or committed: `apps/docs/src/content/docs/
+  reference/` and `.astro/` are produced by a build step. Anything generated
+  gets a test asserting it matches its source — see `partitioning.test.ts` and
+  `pricing.test.ts`.

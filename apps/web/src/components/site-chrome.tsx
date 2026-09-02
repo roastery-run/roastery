@@ -1,17 +1,12 @@
-import {
-  Button,
-  cn,
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@roastery/ui";
+import { Button, cn } from "@roastery/ui";
 import { Link } from "@tanstack/react-router";
-import { ChevronDown } from "lucide-react";
 import type * as React from "react";
+import { HeaderNav } from "@/components/header-nav";
+import { HEADER_NAV } from "@/content/nav";
 import { SOLUTIONS } from "@/content/solutions";
 
 const CONSOLE_URL = import.meta.env.VITE_CONSOLE_URL ?? "http://localhost:5174";
+const DOCS_URL = import.meta.env.VITE_DOCS_URL ?? "http://localhost:4321";
 
 function Mark({ className }: { className?: string }) {
   return (
@@ -34,43 +29,17 @@ function Mark({ className }: { className?: string }) {
 
 export function SiteHeader() {
   return (
-    <header className="sticky top-0 z-40 border-border border-b bg-background/85 backdrop-blur">
-      <div className="mx-auto flex h-14 max-w-6xl items-center gap-6 px-6">
+    // `relative` sits on the HEADER, not the centred container: the mega-menu
+    // panel is `left-0 w-full`, so anchoring it to a max-width container would
+    // stop the panel and its border at the container's edges rather than
+    // spanning the viewport. The panel centres its own content separately.
+    <header className="sticky top-0 z-40 border-border border-b bg-background/85 backdrop-blur relative">
+      <div className="mx-auto flex h-14 max-w-6xl items-center gap-4 px-6">
         <Link to="/" aria-label="Roastery home">
           <Mark />
         </Link>
 
-        <nav aria-label="Main" className="hidden items-center gap-1 md:flex">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="sm" className="gap-1">
-                Solutions
-                <ChevronDown className="size-3 opacity-60" aria-hidden="true" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="w-72">
-              {SOLUTIONS.map((solution) => (
-                <DropdownMenuItem key={solution.slug} asChild>
-                  <Link
-                    to="/solutions/$slug"
-                    params={{ slug: solution.slug }}
-                    className="flex flex-col items-start gap-0.5"
-                  >
-                    <span className="font-medium">{solution.label}</span>
-                    <span className="text-muted-foreground text-xs">{solution.summary}</span>
-                  </Link>
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
-
-          <Button variant="ghost" size="sm" asChild>
-            <Link to="/pricing">Pricing</Link>
-          </Button>
-          <Button variant="ghost" size="sm" asChild>
-            <a href="http://localhost:8787/docs">API</a>
-          </Button>
-        </nav>
+        <HeaderNav items={HEADER_NAV} />
 
         <div className="ml-auto flex items-center gap-2">
           <Button variant="ghost" size="sm" asChild>
@@ -115,10 +84,7 @@ export function SiteFooter() {
         <FooterColumn title="Product">
           <FooterLink to="/pricing">Pricing</FooterLink>
           <li>
-            <a
-              href="http://localhost:8787/docs"
-              className="text-muted-foreground text-sm hover:text-foreground"
-            >
+            <a href={DOCS_URL} className="text-muted-foreground text-sm hover:text-foreground">
               API reference
             </a>
           </li>

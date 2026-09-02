@@ -1,0 +1,75 @@
+---
+title: Machine telemetry
+description: Streaming roast curves and espresso shots from shop-floor hardware.
+---
+
+Telemetry does not go through `/rpc/v1`. It carries a different credential,
+routes to a different backend, and needs a rate budget two orders of magnitude
+higher than the business API.
+
+## Bridge tokens
+
+A shop-floor bridge holds a **machine bridge token**: 24 hours, scoped to one
+machine, able to do nothing but stream.
+
+That scoping is the point. The realistic threat is a shop-floor PC that is
+physically accessible and rarely patched, so the credential on it must not be
+able to touch anything else in your organization.
+
+```bash
+curl -X POST https://api.roastery.run/ingest/v1/roast/$BATCH_ID/samples \
+  -H "Authorization: Bearer rb_..." \
+  -d '{"seq": 412, "samples": [[412.0, 191.4, 214.8, 8.2]]}'
+```
+
+Issue one with `catalog.machine.issueMachineBridgeToken`.
+
+## Roast samples
+
+`t` is **seconds since charge**, a float — never wall clock. Machine clocks
+drift, and roasts are compared by elapsed time.
+
+The response is:
+
+```json
+{ "ok": true, "ackSeq": 412, "resumeFrom": null }
+```
+
+When `resumeFrom` is not null, the server is missing samples from that sequence
+onward. **Replay from your local ring buffer starting there.** This is what
+makes a roast survive a twenty-second Wi-Fi dropout, and it is the difference
+between a real ingest endpoint and a demo.
+
+Replayed samples carry their **original** sequence numbers, which will be lower
+than ones already accepted. That is expected and handled; do not renumber them.
+
+## Espresso shots
+
+Batched, and posted to a different path:
+
+```bash
+curl -X POST https://api.roastery.run/ingest/v1/cafe/shots \
+  -H "Authorization: Bearer rb_..." \
+  -d '{"siteId":"...","shots":[{"externalId":"m1-99213","pulledAt":"2026-09-01T14:22:03Z","doseG":18.2,"yieldG":36.4,"durationS":28.5}]}'
+```
+
+`externalId` is **your** id for the shot, and it is the deduplication key.
+A bridge that loses its uplink should replay its buffer freely: re-posting a
+shot it already sent is a no-op, not a duplicate. Without that, a reconnect
+doubles the day's numbers — the quiet failure that makes a café dashboard
+untrustworthy.
+
+The machine comes from the token, not the body. Chunk at 500 shots per request.
+
+A `200` means the batch was **accepted**, not stored. That is the honest
+contract for a queue, and dedupe on your own id is what makes it safe.
+
+## Watching a roast live
+
+```
+wss://api.roastery.run/stream/v1/roast/{batchId}
+```
+
+Frames are columnar — a `schema` array naming the channels and rows as arrays —
+which is roughly six times smaller than an array of objects and deserializes
+straight into a chart series.

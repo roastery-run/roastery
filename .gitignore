@@ -12,3 +12,8 @@ coverage/
 
 # Local verification artifacts
 /tmp/
+
+# Astro's generated types and the generated API reference.
+.astro/
+apps/docs/src/content/docs/reference/
+apps/web/.output/

@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as PricingRouteImport } from './routes/pricing'
+import { Route as PricingDotmdRouteImport } from './routes/pricing[.]md'
 import { Route as SolutionsSlugRouteImport } from './routes/solutions.$slug'
 import { Route as TraceCodeRouteImport } from './routes/trace.$code'
 
@@ -22,6 +23,11 @@ const IndexRoute = IndexRouteImport.update({
 const PricingRoute = PricingRouteImport.update({
   id: '/pricing',
   path: '/pricing',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PricingDotmdRoute = PricingDotmdRouteImport.update({
+  id: '/pricing.md',
+  path: '/pricing.md',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SolutionsSlugRoute = SolutionsSlugRouteImport.update({
@@ -38,12 +44,14 @@ const TraceCodeRoute = TraceCodeRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/pricing': typeof PricingRoute
+  '/pricing.md': typeof PricingDotmdRoute
   '/solutions/$slug': typeof SolutionsSlugRoute
   '/trace/$code': typeof TraceCodeRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/pricing': typeof PricingRoute
+  '/pricing.md': typeof PricingDotmdRoute
   '/solutions/$slug': typeof SolutionsSlugRoute
   '/trace/$code': typeof TraceCodeRoute
 }
@@ -51,20 +59,29 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/pricing': typeof PricingRoute
+  '/pricing.md': typeof PricingDotmdRoute
   '/solutions/$slug': typeof SolutionsSlugRoute
   '/trace/$code': typeof TraceCodeRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/pricing' | '/solutions/$slug' | '/trace/$code'
+  fullPaths:
+    '/' | '/pricing' | '/pricing.md' | '/solutions/$slug' | '/trace/$code'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/pricing' | '/solutions/$slug' | '/trace/$code'
-  id: '__root__' | '/' | '/pricing' | '/solutions/$slug' | '/trace/$code'
+  to: '/' | '/pricing' | '/pricing.md' | '/solutions/$slug' | '/trace/$code'
+  id:
+    | '__root__'
+    | '/'
+    | '/pricing'
+    | '/pricing.md'
+    | '/solutions/$slug'
+    | '/trace/$code'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   PricingRoute: typeof PricingRoute
+  PricingDotmdRoute: typeof PricingDotmdRoute
   SolutionsSlugRoute: typeof SolutionsSlugRoute
   TraceCodeRoute: typeof TraceCodeRoute
 }
@@ -83,6 +100,13 @@ declare module '@tanstack/react-router' {
       path: '/pricing'
       fullPath: '/pricing'
       preLoaderRoute: typeof PricingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/pricing.md': {
+      id: '/pricing.md'
+      path: '/pricing.md'
+      fullPath: '/pricing.md'
+      preLoaderRoute: typeof PricingDotmdRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/solutions/$slug': {
@@ -105,6 +129,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   PricingRoute: PricingRoute,
+  PricingDotmdRoute: PricingDotmdRoute,
   SolutionsSlugRoute: SolutionsSlugRoute,
   TraceCodeRoute: TraceCodeRoute,
 }

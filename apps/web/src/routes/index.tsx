@@ -66,18 +66,23 @@ function Home() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-border border-b text-muted-foreground text-xs">
-                  <th className="pb-2 text-left font-medium">Lot</th>
-                  <th className="pb-2 text-left font-medium">Code</th>
-                  <th className="pb-2 text-right font-medium">On hand</th>
+                  <th className="pb-2 pr-3 text-left font-medium">Lot</th>
+                  <th className="pb-2 pr-3 text-left font-medium">Code</th>
+                  {/* Padded rather than left to abut: a right-aligned numeric
+                      column running straight into the next header reads as one
+                      word ("On handStatus"). */}
+                  <th className="pb-2 pr-4 text-right font-medium">On hand</th>
                   <th className="pb-2 text-left font-medium">Status</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
                 {DEMO_LOTS.map((lot) => (
                   <tr key={lot.code}>
-                    <td className="py-2 font-medium">{lot.name}</td>
-                    <td className="py-2 font-mono text-muted-foreground text-xs">{lot.code}</td>
-                    <td className="py-2 text-right tabular-nums">{formatWeight(lot.kg)}</td>
+                    <td className="py-2 pr-3 font-medium">{lot.name}</td>
+                    <td className="py-2 pr-3 font-mono text-muted-foreground text-xs">
+                      {lot.code}
+                    </td>
+                    <td className="py-2 pr-4 text-right tabular-nums">{formatWeight(lot.kg)}</td>
                     <td className="py-2">
                       <StatusBadge status={lot.status} />
                     </td>

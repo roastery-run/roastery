@@ -1,0 +1,68 @@
+---
+title: Authentication
+description: API keys, OAuth client credentials, and which one you want.
+---
+
+Every request needs two things: a credential, and — for user credentials — the
+organization you are acting in.
+
+## API keys
+
+The simplest option, and the right one for a script, a scheduled job, or an
+integration you control end to end.
+
+```bash
+curl -X POST https://api.roastery.run/rpc/v1/orders.listOrders \
+  -H "Authorization: Bearer sk_live_..." \
+  -H "X-Roastery-Org: 0d4f...c21a"
+```
+
+A key is created in the console under **Settings → API keys**, bound to one
+organization, and carries a role. It can be scoped down further, but never up:
+its effective permissions are the intersection of its role and its scopes.
+
+:::caution
+The key is shown once, when it is created. It is stored hashed, so there is no
+way to recover it — a lost key is rotated, not retrieved.
+:::
+
+## OAuth client credentials
+
+For an application acting on behalf of an organization — a third-party
+integration, or your own service running elsewhere.
+
+```bash
+curl -X POST https://api.roastery.run/api/auth/oauth2/token \
+  -u "$CLIENT_ID:$CLIENT_SECRET" \
+  -d "grant_type=client_credentials" \
+  -d "resource=https://api.roastery.run"
+```
+
+Passing `resource` returns a JWT that we validate statelessly — no database
+round trip per request. Without it the token is opaque and introspected.
+
+A `client_credentials` token expires in **one hour**. That is shorter than you
+may expect and it is deliberate: such a token has no session to end, so short
+expiry is the only revocation control there is. Re-minting is one request for a
+machine client, so it costs an integrator nothing.
+
+## Choosing the organization
+
+A user credential must say which organization it is acting in:
+
+```
+X-Roastery-Org: 0d4f8f2e-...-c21a
+```
+
+A machine credential — an API key or an OAuth client — is permanently bound to
+one organization. Sending a *different* `X-Roastery-Org` with one is a `403`,
+never a silent switch to the one it is bound to.
+
+## Rate limits
+
+Two windows, checked together: **300 requests per 60 seconds** sustained, and
+**60 per 10 seconds** to absorb bursts. Machine telemetry (`/ingest/v1/*`) has
+its own, much larger budget, so a busy shop floor cannot exhaust your API quota.
+
+A `429` carries `Retry-After` and `RateLimit-*` headers. Honour them; retrying
+immediately makes it worse for you and everyone else on the key.

@@ -1,0 +1,79 @@
+---
+title: Errors
+description: One envelope, and what each status actually means.
+---
+
+Every failure has the same shape:
+
+```json
+{
+  "error": "A human-readable message",
+  "code": "machine_readable_code",
+  "fields": { "weightKg": "Expected a positive number" }
+}
+```
+
+Branch on `code`, not on `error` — the message is written for a person and may
+be reworded.
+
+## Statuses
+
+| Status | Means | What to do |
+| --- | --- | --- |
+| `400` | The request is malformed. `fields` maps each problem to its input. | Fix the request. Retrying will not help. |
+| `401` | No credential, or an invalid one. | Check the `Authorization` header. |
+| `402` | Your plan does not include this module, or a limit is reached. | Upgrade, or stop calling it. |
+| `403` | Authenticated, but not permitted. | The credential's role lacks the permission. |
+| `404` | No such resource — or none you can see. | See the note below. |
+| `409` | A conflict: a duplicate code, a state that has moved on, an idempotency-key mismatch. | Read `code` and decide. |
+| `429` | Rate limited. | Wait for `Retry-After`. |
+| `5xx` | Ours. `correlationId` identifies the request. | Retry with backoff; quote the id to support. |
+
+## 402 is not 403
+
+They are genuinely different, and conflating them makes for a confusing
+integration:
+
+- **`403`** — you may not do this. A different role could.
+- **`402`** — nobody in your organization can do this, because the plan does not
+  include it. A 402 carries `module`, and for a counted limit also `key`,
+  `limit` and `current`.
+
+```json
+{
+  "error": "Your plan does not include the cafe module.",
+  "code": "entitlement_required",
+  "module": "cafe",
+  "plan": "scale"
+}
+```
+
+## 404 and 403 are deliberately blurred
+
+Asking for an organization you are not a member of returns `403` with the same
+body whether or not that organization exists. Distinguishing them would let
+anyone enumerate which organization ids are real.
+
+The same applies within an organization: a resource belonging to another tenant
+is `404`, not `403`, for the same reason.
+
+## Validation errors map to your form
+
+`fields` is a flat path-to-message map, which is what makes it directly usable:
+
+```json
+{
+  "error": "Invalid request",
+  "code": "validation_failed",
+  "fields": {
+    "lines.0.weightKg": "Expected a positive number",
+    "customerId": "Expected a UUID"
+  }
+}
+```
+
+## Authorization runs before validation
+
+A request with no credential **and** a malformed body returns `401`, not `400`.
+That ordering is deliberate: a `400` describing the request schema would hand
+the API's shape to anyone who asks.

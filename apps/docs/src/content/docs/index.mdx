@@ -1,0 +1,50 @@
+---
+title: Roastery API
+description: RPC over HTTP. One surface, used by the product itself.
+---
+
+Roastery is a coffee operations platform: green contracts, inventory, roasting,
+quality, production planning, orders and cafés, in one data model.
+
+This is the API the product itself uses. There is no separate internal API and
+no screen that can do something you cannot — the console is another client of
+these same operations, which is what makes that gap structurally impossible
+rather than merely unlikely.
+
+## The shape of it
+
+Every operation is a `POST` to `/rpc/v1/{namespace}.{operation}`.
+
+```bash
+curl -X POST https://api.roastery.run/rpc/v1/inventory.green.listGreenLots \
+  -H "Authorization: Bearer $ROASTERY_API_KEY" \
+  -H "X-Roastery-Org: $ORG_ID" \
+  -H "Content-Type: application/json" \
+  -d '{"filter":{"status":"available"},"page":{"limit":50}}'
+```
+
+Dots are ordinary characters in a path segment, so each operation is a static
+route rather than something dispatched at runtime.
+
+## Where to start
+
+- **[Authentication](/guides/authentication/)** — API keys and OAuth client
+  credentials, and which to use.
+- **[Conventions](/guides/conventions/)** — pagination, idempotency, units and
+  how money and weight cross the wire.
+- **[Errors](/guides/errors/)** — one envelope, and what each status means.
+- **[Webhooks](/guides/webhooks/)** — signature verification and the retry
+  schedule.
+
+## Units, briefly
+
+Two things catch people out, so they are worth stating on the first page:
+
+**Weights are decimal strings in kilograms.** Not numbers — a JSON number is a
+float by the time it reaches you, and `0.1 + 0.2` is where a reconcilable ledger
+stops reconciling. Parse them with a decimal library, not `parseFloat`, if you
+intend to add them up.
+
+**Espresso is the exception.** Shot doses and yields are in grams, because a
+barista reads 18.5 g off a scale and forcing `0.0185` into a bar integration
+guarantees somebody eventually forgets the conversion.

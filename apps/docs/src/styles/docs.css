@@ -1,0 +1,43 @@
+/**
+ * The Kiln palette, mapped onto Starlight's own token names.
+ *
+ * Starlight has its own theming system rather than Tailwind, so the values are
+ * restated here rather than imported. They are the same OKLCH values as
+ * packages/ui/src/styles.css — kept in step by hand, because a docs site that
+ * looks like a different product undermines the credibility the reference is
+ * supposed to build.
+ */
+:root {
+  --sl-color-accent-low: oklch(0.268 0.02 45);
+  --sl-color-accent: oklch(0.545 0.163 45);
+  --sl-color-accent-high: oklch(0.83 0.11 55);
+
+  --sl-color-white: oklch(0.986 0.003 75);
+  --sl-color-gray-1: oklch(0.945 0.004 75);
+  --sl-color-gray-2: oklch(0.83 0.006 75);
+  --sl-color-gray-3: oklch(0.715 0.008 75);
+  --sl-color-gray-4: oklch(0.487 0.008 75);
+  --sl-color-gray-5: oklch(0.295 0.006 75);
+  --sl-color-gray-6: oklch(0.248 0.006 75);
+  --sl-color-black: oklch(0.175 0.006 75);
+
+  --sl-font: "Inter Variable", ui-sans-serif, system-ui, sans-serif;
+  --sl-font-mono: "Geist Mono Variable", ui-monospace, monospace;
+}
+
+:root[data-theme="light"] {
+  --sl-color-accent-low: oklch(0.955 0.012 60);
+  --sl-color-accent: oklch(0.545 0.163 45);
+  --sl-color-accent-high: oklch(0.34 0.09 45);
+}
+
+/* Operators and integrators both read columns of numbers here. */
+:root {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Squared, like the product. */
+.sl-markdown-content pre,
+.sl-markdown-content code {
+  border-radius: 0.25rem;
+}

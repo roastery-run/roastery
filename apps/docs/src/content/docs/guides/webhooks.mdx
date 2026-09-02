@@ -1,0 +1,120 @@
+---
+title: Webhooks
+description: Verifying a signature, and what the retry schedule guarantees.
+---
+
+Register an endpoint under **Settings → Webhooks**, or with
+`webhooks.createEndpoint`. The signing secret is returned **once**, when the
+endpoint is created.
+
+## Verifying a delivery
+
+Compute `HMAC-SHA256` over `` `${timestamp}.${rawBody}` `` and compare against
+any value in the `Roastery-Signature` header.
+
+```js
+import { createHmac, timingSafeEqual } from "node:crypto";
+
+function verify(secret, header, timestampHeader, rawBody) {
+  const timestamp = Number(timestampHeader);
+  // Reject anything outside a five-minute window, so a captured request
+  // cannot be replayed later. The timestamp is inside the signed material,
+  // so it cannot be advanced to escape this.
+  if (Math.abs(Date.now() / 1000 - timestamp) > 300) return false;
+
+  const expected = createHmac("sha256", secret)
+    .update(`${timestamp}.${rawBody}`)
+    .digest("hex");
+
+  return header
+    .split(",")
+    .map((part) => part.trim())
+    .filter((part) => part.startsWith("v1="))
+    .map((part) => part.slice(3))
+    .some(
+      (candidate) =>
+        candidate.length === expected.length &&
+        timingSafeEqual(Buffer.from(candidate), Buffer.from(expected)),
+    );
+}
+```
+
+Use the **raw** body, before any JSON parsing. Re-serializing changes bytes —
+key order, whitespace — and the signature will not match.
+
+:::note
+`Roastery-Signature` may carry **two** values, comma-separated, during a secret
+rotation. Either verifying is a valid delivery. That overlap is what lets you
+deploy a new secret whenever you get to it rather than at the same instant we
+start using it.
+:::
+
+## Headers
+
+| Header | Meaning |
+| --- | --- |
+| `Roastery-Event-Id` | The event. Stable across retries — **deduplicate on this**. |
+| `Roastery-Event-Type` | e.g. `orders.order.confirmed` |
+| `Roastery-Delivery-Id` | This attempt's delivery row |
+| `Roastery-Timestamp` | Unix seconds, inside the signed material |
+| `Roastery-Signature` | `v1=<hex>`, possibly twice |
+| `Roastery-Attempt` | 1-based |
+
+## The payload
+
+```json
+{
+  "id": "8f14e45f-...",
+  "type": "orders.order.confirmed",
+  "sequence": 84213,
+  "occurredAt": "2026-09-01T14:22:03.918Z",
+  "organizationId": "0d4f8f2e-...",
+  "data": {
+    "resourceType": "sales_order",
+    "resourceId": "3a91...",
+    "attributes": { "orderNumber": "SO-1042" }
+  }
+}
+```
+
+`attributes` carries the identifying fields and what changed — not the whole
+record. A webhook is a notification, not a replication feed; fetch the resource
+if you need all of it.
+
+## Ordering is not guaranteed
+
+Retries and per-endpoint backoff mean you can see event 9 before event 7. Every
+payload carries `sequence`, monotonically increasing, so you can tell.
+
+Compare it **per resource**: seeing a lower sequence than one you already
+processed for the same `resourceId` means the message is stale and should be
+discarded.
+
+## Retries
+
+`[10s, 1m, 5m, 30m, 2h, 6h]` — about eight hours of coverage.
+
+- **2xx** is success. Anything else is not.
+- **3xx** is not followed. A redirect on a POST would deliver a signed payload
+  to a host you never registered, and a wrong URL will not fix itself.
+- **410 Gone** disables the endpoint immediately.
+- Other **4xx** is not retried. A `404` from a route you deleted will be a `404`
+  in six hours too.
+- **408**, **429** and every **5xx** get the full schedule.
+
+Twenty consecutive failures disables the endpoint. Any success resets the count,
+so that means twenty in a row, not twenty ever.
+
+Return quickly — under ten seconds — and do your work afterwards. A slow
+endpoint is indistinguishable from a broken one.
+
+## If you cannot expose a URL
+
+`webhooks.listEvents` is the same feed, polled. It is keyed on `sequence`:
+
+```json
+{ "filter": { "afterSequence": 84213 }, "limit": 100 }
+```
+
+Store the `nextSequence` you get back and pass it next time. A firewalled ERP is
+not shut out of the platform.
