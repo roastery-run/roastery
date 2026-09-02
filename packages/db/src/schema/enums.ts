@@ -169,3 +169,98 @@ export const materialKindEnum = pgEnum("material_kind", [
   "merch",
   "other",
 ]);
+
+/* ------------------------------------------------------------- sourcing */
+
+export const contractStatusEnum = pgEnum("contract_status", [
+  "draft",
+  "pending",
+  "confirmed",
+  "partially_shipped",
+  "shipped",
+  "arrived",
+  "closed",
+  "canceled",
+  "defaulted",
+]);
+
+/**
+ * How a price is set.
+ *
+ * `differential` and `to_be_fixed` are why unit prices carry six decimals: a
+ * differential is quoted against a futures contract in fractions of a cent per
+ * pound, and is not known in full until it is fixed.
+ */
+export const contractPriceTypeEnum = pgEnum("contract_price_type", [
+  "fixed",
+  "differential",
+  "to_be_fixed",
+  "formula",
+]);
+
+export const milestoneKindEnum = pgEnum("milestone_kind", [
+  "contract_signed",
+  "fixation",
+  "shipment",
+  "vessel_departure",
+  "vessel_arrival",
+  "customs_clearance",
+  "warehouse_receipt",
+  "sample_approval",
+  "payment",
+]);
+
+export const milestoneStatusEnum = pgEnum("milestone_status", [
+  "pending",
+  "on_track",
+  "at_risk",
+  "completed",
+  "missed",
+]);
+
+/** ICC Incoterms 2020. Fixed by standard, revised each decade. */
+export const incotermEnum = pgEnum("incoterm", [
+  "EXW",
+  "FCA",
+  "FAS",
+  "FOB",
+  "CFR",
+  "CIF",
+  "CPT",
+  "CIP",
+  "DAP",
+  "DPU",
+  "DDP",
+]);
+
+export const shipmentStatusEnum = pgEnum("shipment_status", [
+  "booked",
+  "loaded",
+  "in_transit",
+  "arrived",
+  "cleared",
+  "delivered",
+  "delayed",
+  "canceled",
+]);
+
+export const sampleTypeEnum = pgEnum("sample_type", [
+  "offer",
+  "pre_shipment",
+  "arrival",
+  "type",
+  "spot",
+  "production",
+  "competition",
+]);
+
+export const sampleStatusEnum = pgEnum("sample_status", [
+  "requested",
+  "in_transit",
+  "received",
+  "roasted",
+  "cupped",
+  "approved",
+  "rejected",
+  "archived",
+]);

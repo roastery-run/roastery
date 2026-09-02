@@ -21,6 +21,8 @@ import { consoleRoutes } from "./rpc/console";
 import { inventoryCosting } from "./rpc/inventory-costing";
 import { inventoryGreen } from "./rpc/inventory-green";
 import { inventoryMaterial } from "./rpc/inventory-material";
+import { sourcingContract } from "./rpc/sourcing-contract";
+import { sourcingSample } from "./rpc/sourcing-sample";
 
 /**
  * One error envelope for the whole API.
@@ -122,6 +124,8 @@ app.route("/", consoleRoutes);
 app.route("/", inventoryGreen);
 app.route("/", inventoryCosting);
 app.route("/", inventoryMaterial);
+app.route("/", sourcingContract);
+app.route("/", sourcingSample);
 
 /* --------------------------------------------------------------- metadata */
 

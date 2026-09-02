@@ -73,6 +73,8 @@ export type TransactionInput = {
   groupId?: string | null;
   counterpartyLotId?: string | null;
   roastBatchId?: string | null;
+  /** The contract line this movement draws down, for traceability. */
+  contractLineId?: string | null;
   comment?: string | null;
   occurredAt?: Date;
   /** Skip the non-negative check. Only a recount may legitimately go below. */
@@ -158,6 +160,7 @@ async function applyOnce(tx: OrgDb, input: TransactionInput): Promise<AppliedTra
     groupId: input.groupId ?? null,
     counterpartyLotId: input.counterpartyLotId ?? null,
     roastBatchId: input.roastBatchId ?? null,
+    contractLineId: input.contractLineId ?? null,
     comment: input.comment ?? null,
     occurredAt: input.occurredAt ?? new Date(),
     createdBy: tx.actor.type === "user" ? tx.actor.id : null,
