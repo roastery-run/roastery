@@ -33,6 +33,7 @@ import { Route as AppOrdersCustomersRouteImport } from './routes/_app/orders/cus
 import { Route as AppQualityIndexRouteImport } from './routes/_app/quality/index'
 import { Route as AppQualityGradingsRouteImport } from './routes/_app/quality/gradings'
 import { Route as AppReportsIndexRouteImport } from './routes/_app/reports/index'
+import { Route as AppReportsLabelsRouteImport } from './routes/_app/reports/labels'
 import { Route as AppReportsTraceabilityRouteImport } from './routes/_app/reports/traceability'
 import { Route as AppRoastingIndexRouteImport } from './routes/_app/roasting/index'
 import { Route as AppRoastingBatchIdRouteImport } from './routes/_app/roasting/$batchId'
@@ -168,6 +169,11 @@ const AppReportsIndexRoute = AppReportsIndexRouteImport.update({
   path: '/reports/',
   getParentRoute: () => AppRoute,
 } as any)
+const AppReportsLabelsRoute = AppReportsLabelsRouteImport.update({
+  id: '/reports/labels',
+  path: '/reports/labels',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppReportsTraceabilityRoute = AppReportsTraceabilityRouteImport.update({
   id: '/reports/traceability',
   path: '/reports/traceability',
@@ -262,6 +268,7 @@ export interface FileRoutesByFullPath {
   '/orders/$orderId': typeof AppOrdersOrderIdRoute
   '/orders/customers': typeof AppOrdersCustomersRoute
   '/quality/gradings': typeof AppQualityGradingsRoute
+  '/reports/labels': typeof AppReportsLabelsRoute
   '/reports/traceability': typeof AppReportsTraceabilityRoute
   '/roasting/$batchId': typeof AppRoastingBatchIdRoute
   '/roasting/machines': typeof AppRoastingMachinesRoute
@@ -302,6 +309,7 @@ export interface FileRoutesByTo {
   '/orders/$orderId': typeof AppOrdersOrderIdRoute
   '/orders/customers': typeof AppOrdersCustomersRoute
   '/quality/gradings': typeof AppQualityGradingsRoute
+  '/reports/labels': typeof AppReportsLabelsRoute
   '/reports/traceability': typeof AppReportsTraceabilityRoute
   '/roasting/$batchId': typeof AppRoastingBatchIdRoute
   '/roasting/machines': typeof AppRoastingMachinesRoute
@@ -344,6 +352,7 @@ export interface FileRoutesById {
   '/_app/orders/$orderId': typeof AppOrdersOrderIdRoute
   '/_app/orders/customers': typeof AppOrdersCustomersRoute
   '/_app/quality/gradings': typeof AppQualityGradingsRoute
+  '/_app/reports/labels': typeof AppReportsLabelsRoute
   '/_app/reports/traceability': typeof AppReportsTraceabilityRoute
   '/_app/roasting/$batchId': typeof AppRoastingBatchIdRoute
   '/_app/roasting/machines': typeof AppRoastingMachinesRoute
@@ -386,6 +395,7 @@ export interface FileRouteTypes {
     | '/orders/$orderId'
     | '/orders/customers'
     | '/quality/gradings'
+    | '/reports/labels'
     | '/reports/traceability'
     | '/roasting/$batchId'
     | '/roasting/machines'
@@ -426,6 +436,7 @@ export interface FileRouteTypes {
     | '/orders/$orderId'
     | '/orders/customers'
     | '/quality/gradings'
+    | '/reports/labels'
     | '/reports/traceability'
     | '/roasting/$batchId'
     | '/roasting/machines'
@@ -467,6 +478,7 @@ export interface FileRouteTypes {
     | '/_app/orders/$orderId'
     | '/_app/orders/customers'
     | '/_app/quality/gradings'
+    | '/_app/reports/labels'
     | '/_app/reports/traceability'
     | '/_app/roasting/$batchId'
     | '/_app/roasting/machines'
@@ -667,6 +679,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppReportsIndexRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/reports/labels': {
+      id: '/_app/reports/labels'
+      path: '/reports/labels'
+      fullPath: '/reports/labels'
+      preLoaderRoute: typeof AppReportsLabelsRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/reports/traceability': {
       id: '/_app/reports/traceability'
       path: '/reports/traceability'
@@ -790,6 +809,7 @@ interface AppRouteChildren {
   AppOrdersOrderIdRoute: typeof AppOrdersOrderIdRoute
   AppOrdersCustomersRoute: typeof AppOrdersCustomersRoute
   AppQualityGradingsRoute: typeof AppQualityGradingsRoute
+  AppReportsLabelsRoute: typeof AppReportsLabelsRoute
   AppReportsTraceabilityRoute: typeof AppReportsTraceabilityRoute
   AppRoastingBatchIdRoute: typeof AppRoastingBatchIdRoute
   AppRoastingMachinesRoute: typeof AppRoastingMachinesRoute
@@ -828,6 +848,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppOrdersOrderIdRoute: AppOrdersOrderIdRoute,
   AppOrdersCustomersRoute: AppOrdersCustomersRoute,
   AppQualityGradingsRoute: AppQualityGradingsRoute,
+  AppReportsLabelsRoute: AppReportsLabelsRoute,
   AppReportsTraceabilityRoute: AppReportsTraceabilityRoute,
   AppRoastingBatchIdRoute: AppRoastingBatchIdRoute,
   AppRoastingMachinesRoute: AppRoastingMachinesRoute,

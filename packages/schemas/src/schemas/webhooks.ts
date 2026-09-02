@@ -55,6 +55,7 @@ export const eventTypeSchema = z.enum([
 
   "traceability.certificate.issued",
   "reporting.report.ready",
+  "reporting.label_template.published",
 ]);
 export type EventType = z.infer<typeof eventTypeSchema>;
 

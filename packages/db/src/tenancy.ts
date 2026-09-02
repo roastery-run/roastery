@@ -126,6 +126,11 @@ export const TENANT_DIRECT = {
     field: "orgId",
   },
   form_templates: { table: s.formTemplates, column: s.formTemplates.orgId, field: "orgId" },
+  label_templates: {
+    table: s.labelTemplates,
+    column: s.labelTemplates.orgId,
+    field: "orgId",
+  },
   cupping_sessions: { table: s.cuppingSessions, column: s.cuppingSessions.orgId, field: "orgId" },
   cupping_session_samples: {
     table: s.cuppingSessionSamples,

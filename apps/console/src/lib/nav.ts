@@ -140,6 +140,7 @@ export const NAV: NavSection[] = [
     module: "core",
     children: [
       { label: "Reports", to: "/reports", permission: "reporting.read" },
+      { label: "Label designer", to: "/reports/labels", permission: "reporting.read" },
       { label: "Traceability", to: "/reports/traceability", permission: "traceability.read" },
     ],
   },

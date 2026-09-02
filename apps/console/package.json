@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@hookform/resolvers": "catalog:",
+    "@paulmillr/qr": "0.3.0",
     "@roastery/schemas": "workspace:*",
     "@roastery/ui": "workspace:*",
     "@roastery/units": "workspace:*",
@@ -27,6 +28,7 @@
     "zod": "catalog:"
   },
   "devDependencies": {
+    "@roastery/db": "workspace:*",
     "@roastery/tsconfig": "workspace:*",
     "@tailwindcss/vite": "catalog:",
     "@tanstack/router-plugin": "catalog:",
@@ -36,7 +38,6 @@
     "tailwindcss": "catalog:",
     "typescript": "catalog:",
     "vite": "catalog:",
-    "vitest": "catalog:",
-    "@roastery/db": "workspace:*"
+    "vitest": "catalog:"
   }
 }

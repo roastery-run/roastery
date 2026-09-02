@@ -28,7 +28,8 @@ import { productionRoast } from "./production/roast";
 import { productionSchedule } from "./production/schedule";
 import { qualityCupping } from "./quality/cupping";
 import { qualityGrading } from "./quality/grading";
-import { reporting } from "./reporting";
+import { reportingLabels } from "./reporting/labels";
+import { reporting } from "./reporting/reports";
 import { sourcingContract } from "./sourcing/contract";
 import { sourcingSample } from "./sourcing/sample";
 import { traceability } from "./traceability";
@@ -53,6 +54,7 @@ const MODULES = [
   qualityCupping,
   qualityGrading,
   reporting,
+  reportingLabels,
   sourcingContract,
   sourcingSample,
   traceability,

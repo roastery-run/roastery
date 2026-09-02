@@ -38,7 +38,10 @@ export default defineConfig({
       "/rpc": "http://localhost:8787",
       "/session": "http://localhost:8787",
       "/stream": { target: "http://localhost:8787", ws: true },
-      "/reports": "http://localhost:8787",
+      // Only the API's signed download path, never the whole prefix: the
+      // console owns /reports itself, and a bare "/reports" rule proxies its
+      // own pages away to a 404 that looks like a routing bug.
+      "/reports/v1": "http://localhost:8787",
       "/openapi.json": "http://localhost:8787",
     },
   },

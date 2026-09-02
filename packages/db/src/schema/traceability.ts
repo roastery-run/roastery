@@ -5,8 +5,11 @@
  * polymorphic edge table. What lives here is the MATERIALIZED result: a
  * certificate that was true at the moment coffee shipped.
  */
+import { sql } from "drizzle-orm";
 import {
+  boolean,
   index,
+  integer,
   jsonb,
   numeric,
   pgTable,
@@ -106,3 +109,69 @@ export const reports = pgTable(
 
 /** Re-exported so callers can name a node kind without reaching into enums. */
 export { traceNodeKindEnum };
+
+/**
+ * A retail label design.
+ *
+ * Versioned rather than mutated, for the same reason a certificate is frozen:
+ * a bag printed in March must stay reproducible after somebody redesigns the
+ * label in June, or a recall cannot identify which bags carried which claim.
+ */
+export const labelTemplates = pgTable(
+  "label_templates",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    orgId: uuid("org_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    version: integer("version").notNull().default(1),
+
+    /** Millimetres. A label is a physical object and pixels are not a size. */
+    widthMm: numeric("width_mm", { precision: 8, scale: 2 }).notNull(),
+    heightMm: numeric("height_mm", { precision: 8, scale: 2 }).notNull(),
+    marginMm: numeric("margin_mm", { precision: 8, scale: 2 }).notNull(),
+    qrSizeMm: numeric("qr_size_mm", { precision: 8, scale: 2 }).notNull(),
+    qrPosition: text("qr_position").notNull(),
+
+    /** Ordered blocks. Shape is validated by Zod, not the database. */
+    layout: jsonb("layout").$type<{
+      blocks: {
+        id: string;
+        kind: "field" | "text" | "rule";
+        /** A path into the certificate snapshot. Kept in step with
+         *  `labelBindingSchema`; a value outside it renders as blank. */
+        binding?:
+          | "coffee.name"
+          | "coffee.lotCode"
+          | "coffee.roastLevel"
+          | "coffee.roastedAt"
+          | "origin.producer"
+          | "origin.country"
+          | "origin.region"
+          | "origin.altitude"
+          | "origin.process"
+          | "origin.varieties"
+          | "roast.batchNumber"
+          | "quality.cuppingScore"
+          | "quality.notes";
+        text?: string;
+        caption?: string;
+        size: "xs" | "sm" | "md" | "lg" | "xl";
+        weight: "regular" | "medium" | "bold";
+        align: "left" | "center" | "right";
+      }[];
+    }>(),
+
+    isDefault: boolean("is_default").notNull().default(false),
+    archivedAt: timestamp("archived_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    // Versions are immutable; editing publishes a new one.
+    uniqueIndex("label_templates_org_name_version_idx").on(t.orgId, t.name, t.version),
+    // At most one default, or "which label do we print" is ambiguous.
+    uniqueIndex("label_templates_org_default_idx").on(t.orgId).where(sql`is_default`),
+    index("label_templates_org_created_idx").on(t.orgId, t.createdAt, t.id),
+  ],
+);
