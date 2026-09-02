@@ -20,10 +20,10 @@ import {
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { ArrowDown, ArrowUp, ChevronsUpDown } from "lucide-react";
 import * as React from "react";
-import { cn } from "@/lib/utils";
-import { Button } from "@/ui/button";
-import { Skeleton } from "@/ui/skeleton";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/ui/table";
+import { cn } from "../lib/utils";
+import { Button } from "../ui/button";
+import { Skeleton } from "../ui/skeleton";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../ui/table";
 
 /**
  * Per-column presentation, carried as DATA.

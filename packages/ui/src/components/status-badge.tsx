@@ -1,6 +1,6 @@
 import { humanize } from "@roastery/units";
-import { cn } from "@/lib/utils";
-import { Badge } from "@/ui/badge";
+import { cn } from "../lib/utils";
+import { Badge } from "../ui/badge";
 
 /**
  * A status, shown so it survives being printed in greyscale.

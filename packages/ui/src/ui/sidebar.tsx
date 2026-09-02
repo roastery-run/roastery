@@ -4,14 +4,14 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { PanelLeftIcon } from "lucide-react";
 import { Slot } from "radix-ui";
 import * as React from "react";
-import { useIsMobile } from "@/hooks/use-mobile";
-import { cn } from "@/lib/utils";
-import { Button } from "@/ui/button";
-import { Input } from "@/ui/input";
-import { Separator } from "@/ui/separator";
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/ui/sheet";
-import { Skeleton } from "@/ui/skeleton";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/ui/tooltip";
+import { useIsMobile } from "../hooks/use-mobile";
+import { cn } from "../lib/utils";
+import { Button } from "./button";
+import { Input } from "./input";
+import { Separator } from "./separator";
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "./sheet";
+import { Skeleton } from "./skeleton";
+import { Tooltip, TooltipContent, TooltipTrigger } from "./tooltip";
 
 const SIDEBAR_COOKIE_NAME = "sidebar_state";
 const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 7;
@@ -41,8 +41,26 @@ function useSidebar() {
   return context;
 }
 
+/**
+ * The persisted collapse state.
+ *
+ * Diverges from stock shadcn, which writes this cookie and reads it back on the
+ * SERVER — its example passes the value into `defaultOpen` from a Next.js
+ * layout. These apps are SPAs with no server render, so nothing ever read it
+ * and the sidebar sprang open again on every refresh.
+ *
+ * Read synchronously so React's first commit already has the right value; a
+ * `useEffect` would paint expanded and then snap shut.
+ */
+function readSidebarCookie(): boolean | null {
+  if (typeof document === "undefined") return null;
+  const match = new RegExp(`(?:^|;\\s*)${SIDEBAR_COOKIE_NAME}=([^;]*)`).exec(document.cookie);
+  if (!match?.[1]) return null;
+  return match[1] === "true";
+}
+
 function SidebarProvider({
-  defaultOpen = true,
+  defaultOpen,
   open: openProp,
   onOpenChange: setOpenProp,
   className,
@@ -59,7 +77,9 @@ function SidebarProvider({
 
   // This is the internal state of the sidebar.
   // We use openProp and setOpenProp for control from outside the component.
-  const [_open, _setOpen] = React.useState(defaultOpen);
+  // An explicit `defaultOpen` still wins; otherwise the last choice this
+  // browser made is restored, falling back to expanded for a first visit.
+  const [_open, _setOpen] = React.useState(() => defaultOpen ?? readSidebarCookie() ?? true);
   const open = openProp ?? _open;
   const setOpen = React.useCallback(
     (value: boolean | ((value: boolean) => boolean)) => {

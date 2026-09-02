@@ -6,6 +6,8 @@ import {
   createOAuthClientInput,
   createOAuthClientOutput,
   entitlementsOutput,
+  getAccessInput,
+  getAccessOutput,
   getEntitlementsInput,
   listApiKeysInput,
   listApiKeysOutput,
@@ -379,6 +381,51 @@ registerRpc(
       status: ctx.entitlements.status,
       modules,
       limits,
+    };
+  },
+);
+
+/**
+ * Everything the console needs to render itself for the active organization.
+ *
+ * One call rather than three, because the shell cannot draw anything until it
+ * has all of it — the navigation needs entitlements to know what to lock, and
+ * every action needs the permission set to know what to offer. Three round
+ * trips would mean three chances to render a half-formed shell.
+ *
+ * Granted to every built-in role, viewer included: this is not privileged
+ * information, it is the answer to "what can I do here", and a user who cannot
+ * ask it cannot be shown a working product.
+ */
+registerRpc(
+  consoleRoutes,
+  {
+    namespace: "console",
+    operation: "getAccess",
+    summary: "Your role, permissions and plan in this organization",
+    input: getAccessInput,
+    output: getAccessOutput,
+    permission: "console.self.read",
+    module: "core",
+    internal: true,
+  },
+  async (_input, ctx) => {
+    // Entitlements are stored as one flat `module:x` / `limit:y` map. Split
+    // here rather than in the client so both surfaces cannot disagree about
+    // what a key prefix means.
+    const modules: Record<string, boolean> = {};
+    const limits: Record<string, number | null> = {};
+    for (const [key, value] of Object.entries(ctx.entitlements.values)) {
+      if (key.startsWith("module:")) modules[key.slice(7)] = value === true;
+      else if (key.startsWith("limit:")) {
+        limits[key.slice(6)] = typeof value === "number" ? value : null;
+      }
+    }
+
+    return {
+      orgId: ctx.orgId,
+      permissions: [...ctx.permissions],
+      entitlements: { planSlug: ctx.entitlements.planSlug, modules, limits },
     };
   },
 );

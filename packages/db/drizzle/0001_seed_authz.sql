@@ -54,6 +54,7 @@ INSERT INTO permissions (slug, resource, action, module, description) VALUES
   ('console.billing.read', 'console.billing', 'read', 'core', 'View plan and entitlements'),
   ('console.billing.write', 'console.billing', 'write', 'core', 'Change plan'),
   ('console.audit.read', 'console.audit', 'read', 'core', 'View the audit log'),
+  ('console.self.read', 'console.self', 'read', 'core', 'Read your own role, permissions and plan'),
   ('console.credentials.read', 'console.credentials', 'read', 'api', 'View API keys and machine credentials'),
   ('console.credentials.write', 'console.credentials', 'write', 'api', 'Create and revoke API keys and machine credentials')
 ON CONFLICT (slug) DO UPDATE SET module = EXCLUDED.module, description = EXCLUDED.description;
@@ -68,6 +69,8 @@ ON CONFLICT (slug) DO UPDATE SET name = EXCLUDED.name, description = EXCLUDED.de
 
 INSERT INTO role_permissions (role_slug, permission_slug) VALUES
   ('owner', '*'),
+  ('manager', 'console.self.read'),
+  ('manager', 'console.self.read'),
   ('manager', 'catalog.*'),
   ('manager', 'inventory.*'),
   ('manager', 'sourcing.*'),
@@ -81,6 +84,7 @@ INSERT INTO role_permissions (role_slug, permission_slug) VALUES
   ('manager', 'console.members.read'),
   ('manager', 'console.settings.read'),
   ('manager', 'console.audit.read'),
+  ('roaster', 'console.self.read'),
   ('roaster', 'production.*'),
   ('roaster', 'inventory.roast.*'),
   ('roaster', 'inventory.blend.read'),
@@ -90,6 +94,7 @@ INSERT INTO role_permissions (role_slug, permission_slug) VALUES
   ('roaster', 'catalog.machine.read'),
   ('roaster', 'quality.grading.read'),
   ('roaster', 'quality.cupping.read'),
+  ('qc', 'console.self.read'),
   ('qc', 'quality.*'),
   ('qc', 'sourcing.sample.*'),
   ('qc', 'inventory.green.read'),
@@ -101,6 +106,7 @@ INSERT INTO role_permissions (role_slug, permission_slug) VALUES
   ('qc', 'catalog.product.read'),
   ('qc', 'catalog.party.read'),
   ('qc', 'reporting.read'),
+  ('viewer', 'console.self.read'),
   ('viewer', 'catalog.location.read'),
   ('viewer', 'catalog.product.read'),
   ('viewer', 'catalog.party.read'),

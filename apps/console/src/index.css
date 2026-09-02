@@ -1,0 +1,6 @@
+@import "@roastery/ui/styles.css";
+
+/* Sources Tailwind scans. The design system is consumed as source, so its
+   classes are not in this app's own tree and would otherwise be purged. */
+@source "../../../packages/ui/src";
+@source "./";

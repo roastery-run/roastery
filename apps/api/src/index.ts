@@ -20,6 +20,7 @@ import type {
 import { assertProductionBindings } from "./env";
 import { ingestRoutes } from "./http/ingest";
 import { publicRoutes } from "./http/public";
+import { sessionRoutes } from "./http/session";
 import { streamRoutes } from "./http/stream";
 import { isHttpError } from "./lib/api/errors";
 import { rateLimit } from "./lib/api/rate-limit";
@@ -124,6 +125,16 @@ app.on(["GET", "POST"], "/api/auth/*", async (c) => {
 // Order is load-bearing. Authorization must precede Hono's Zod validators,
 // which run as part of the route itself — otherwise an unauthenticated caller
 // sending a malformed body gets a 400 describing the request schema.
+/**
+ * The bootstrap call: authenticated, but deliberately NOT org-scoped.
+ *
+ * "Which organizations may I act in?" has no organization to scope to, so it
+ * sits above the org middleware. Everything else on /rpc/v1 requires a tenant.
+ */
+app.use("/session/v1/*", rateLimit("SESSION_RATE_LIMITER", { limit: 300, windowMs: 60_000 }));
+app.use("/session/v1/*", authMiddleware);
+app.route("/", sessionRoutes);
+
 app.use("/rpc/v1/*", rateLimit("RPC_SUSTAINED_LIMITER", { limit: 300, windowMs: 60_000 }));
 app.use("/rpc/v1/*", rateLimit("RPC_BURST_LIMITER", { limit: 60, windowMs: 10_000 }));
 app.use("/rpc/v1/*", authMiddleware);

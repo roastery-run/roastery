@@ -1,7 +1,7 @@
 import type { LucideIcon } from "lucide-react";
 import type * as React from "react";
-import { cn } from "@/lib/utils";
-import { Button } from "@/ui/button";
+import { cn } from "../lib/utils";
+import { Button } from "../ui/button";
 
 /**
  * What a screen shows when there is genuinely nothing.

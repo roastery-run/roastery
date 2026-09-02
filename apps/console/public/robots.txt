@@ -1,0 +1,3 @@
+# The console is authenticated product. Nothing here is for a crawler.
+User-agent: *
+Disallow: /

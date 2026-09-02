@@ -38,19 +38,19 @@ const isLocal = (env: AuthEnv) => env.BETTER_AUTH_URL.includes("localhost");
 
 export function resolveConsoleUrl(env: AuthEnv): string {
   if (env.CONSOLE_URL) return env.CONSOLE_URL.replace(/\/$/, "");
-  return isLocal(env) ? "http://localhost:5174" : "https://app.roastery.io";
+  return isLocal(env) ? "http://localhost:5174" : "https://app.roastery.run";
 }
 
 export function resolveWebUrl(env: AuthEnv): string {
   if (env.WEB_URL) return env.WEB_URL.replace(/\/$/, "");
-  return isLocal(env) ? "http://localhost:5173" : "https://roastery.io";
+  return isLocal(env) ? "http://localhost:5173" : "https://roastery.run";
 }
 
 /**
  * The cookie domain shared by the marketing site, the console and the API.
  *
  * Derived from the configured web URL rather than hardcoded: a literal
- * ".roastery.io" silently breaks every session the moment this is deployed to
+ * ".roastery.run" silently breaks every session the moment this is deployed to
  * a preview, a staging domain, or a customer's own — the cookie is simply
  * never sent back, which presents as "login does nothing".
  *

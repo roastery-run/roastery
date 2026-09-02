@@ -32,6 +32,8 @@ export type RpcContext = {
   /** The org's resolved plan, for enforcing counted limits in a handler. */
   entitlements: Entitlements;
   can: (permission: string) => boolean;
+  /** The resolved permission set, for the console to render its own affordances. */
+  permissions: ReadonlySet<string>;
   waitUntil: (p: Promise<unknown>) => void;
 };
 
@@ -116,6 +118,7 @@ function buildRpcContext(c: Context<RpcAppEnv>): RpcContext {
     actor: c.var.actor,
     entitlements: c.var.entitlements,
     can: (permission: string) => can(c.var.perms, permission),
+    permissions: c.var.perms,
     waitUntil: (p) => {
       try {
         c.executionCtx.waitUntil(p);

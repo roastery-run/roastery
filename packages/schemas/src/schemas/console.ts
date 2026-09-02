@@ -114,3 +114,23 @@ export const entitlementsOutput = z.object({
   limits: z.record(z.string(), z.number().nullable()),
 });
 export const getEntitlementsInput = z.object({});
+
+/**
+ * The console's bootstrap for one organization.
+ *
+ * Not privileged: it answers "what can I do here", which every role needs in
+ * order to be shown a working product rather than a shell full of actions that
+ * turn out to 403.
+ */
+export const getAccessInput = z.object({});
+
+export const getAccessOutput = z.object({
+  orgId: uuidSchema,
+  /** Resolved, wildcards included — the client matches them the same way. */
+  permissions: z.array(z.string()),
+  entitlements: z.object({
+    planSlug: z.string(),
+    modules: z.record(z.string(), z.boolean()),
+    limits: z.record(z.string(), z.number().nullable()),
+  }),
+});

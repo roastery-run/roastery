@@ -16,8 +16,8 @@
 import * as React from "react";
 import uPlot from "uplot";
 import "uplot/dist/uPlot.min.css";
-import { SERIES_DASH, useChartTokens } from "@/hooks/use-chart-tokens";
-import { cn } from "@/lib/utils";
+import { SERIES_DASH, useChartTokens } from "../../hooks/use-chart-tokens";
+import { cn } from "../../lib/utils";
 
 export type ChartSeries = {
   label: string;

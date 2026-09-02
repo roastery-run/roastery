@@ -146,6 +146,14 @@ export const PERMISSIONS: PermissionSeed[] = [
     ["write", "Change plan"],
   ]),
   ...perm("console.audit", "core", [["read", "View the audit log"]]),
+  /**
+   * What the signed-in user may do HERE. Granted to every built-in role,
+   * including viewer: a console that cannot ask which modules are locked
+   * cannot render its own navigation, and gating that behind a billing
+   * permission would leave a read-only user staring at a shell that never
+   * resolves.
+   */
+  ...perm("console.self", "core", [["read", "Read your own role, permissions and plan"]]),
   ...perm("console.credentials", "api", [
     ["read", "View API keys and machine credentials"],
     ["write", "Create and revoke API keys and machine credentials"],
@@ -185,6 +193,8 @@ export const ROLES: RoleSeed[] = [
     description: "Runs day-to-day operations across every module.",
     rank: 40,
     grants: [
+      "console.self.read",
+      "console.self.read",
       "catalog.*",
       "inventory.*",
       "sourcing.*",
@@ -206,6 +216,7 @@ export const ROLES: RoleSeed[] = [
     description: "Runs production. Reads green stock, owns roasted output.",
     rank: 30,
     grants: [
+      "console.self.read",
       "production.*",
       "inventory.roast.*",
       "inventory.blend.read",
@@ -223,6 +234,7 @@ export const ROLES: RoleSeed[] = [
     description: "Owns cupping and grading; reads everything it evaluates.",
     rank: 30,
     grants: [
+      "console.self.read",
       "quality.*",
       "sourcing.sample.*",
       "inventory.green.read",
@@ -242,6 +254,7 @@ export const ROLES: RoleSeed[] = [
     description: "Read-only across every module the plan includes.",
     rank: 10,
     grants: [
+      "console.self.read",
       "catalog.location.read",
       "catalog.product.read",
       "catalog.party.read",

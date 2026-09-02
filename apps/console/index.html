@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Roastery Console</title>
+    <meta name="description" content="Coffee operations, end to end." />
+    <!--
+      Authenticated product. It must never be indexed and must not claim the
+      marketing site's metadata; robots.txt backs this up, since a robots meta
+      tag only applies to a page a crawler actually fetches.
+    -->
+    <meta name="robots" content="noindex, nofollow" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <script>
+      // Runs before any stylesheet or module, so a dark-mode user never sees a
+      // white flash. Reads a cookie rather than localStorage because the same
+      // value has to be legible to the Worker for server-rendered surfaces.
+      //
+      // Deliberately duplicated in each app's index.html rather than imported:
+      // nothing that needs bundling can run this early.
+      (() => {
+        try {
+          const match = document.cookie.match(/(?:^|;\s*)roastery-theme=([^;]*)/);
+          const stored = match ? decodeURIComponent(match[1]) : null;
+          const dark =
+            stored === "dark" ||
+            ((stored === "system" || !stored) &&
+              window.matchMedia("(prefers-color-scheme: dark)").matches);
+          if (dark) document.documentElement.classList.add("dark");
+          document.documentElement.style.colorScheme = dark ? "dark" : "light";
+        } catch {
+          // Cookies disabled, or a sandboxed context. Falling through to the
+          // stylesheet's own default is the correct degradation.
+        }
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

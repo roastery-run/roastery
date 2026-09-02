@@ -10,7 +10,9 @@
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "normalize": "node scripts/normalize-imports.mjs",
+    "ui:add": "shadcn add"
   },
   "dependencies": {
     "@fontsource-variable/geist-mono": "^5.2.5",
