@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { add, compare, divide, multiply, parseDecimal, round, subtract, sum } from "./decimal";
 import { developmentRatio, formatElapsed, parseElapsed } from "./duration";
-import { formatRelative, formatWeight, humanize } from "./format";
+import { formatCountry, formatRelative, formatWeight, humanize } from "./format";
 import { formatUnitPrice } from "./money";
 import { convertRateOfRise, fromCelsius, toCelsius } from "./temperature";
 import { fromKg, grossUpForLoss, naturalWeightUnit, toKg, weightLossPct } from "./weight";
@@ -167,5 +167,27 @@ describe("formatting", () => {
 
   it("formats a relative time", () => {
     expect(formatRelative(new Date(Date.now() + 3 * 86_400_000))).toContain("3 days");
+  });
+});
+
+describe("formatCountry", () => {
+  it("shows a country name, not the code a customer cannot read", () => {
+    // "CO" on a retail bag means nothing to the person holding it.
+    expect(formatCountry("CO")).toBe("Colombia");
+    expect(formatCountry("ET")).toBe("Ethiopia");
+    expect(formatCountry("br")).toBe("Brazil");
+  });
+
+  it("falls back to the code rather than to an em dash", () => {
+    // An em dash would imply the origin was never recorded, which is a
+    // different and worse claim than "we cannot name this code". QQ is
+    // genuinely unassigned; ZZ is not — ICU defines it as "Unknown Region".
+    expect(formatCountry("QQ")).toBe("QQ");
+    expect(formatCountry("Colombia")).toBe("Colombia");
+  });
+
+  it("shows an em dash only when there is genuinely nothing", () => {
+    expect(formatCountry(null)).toBe("—");
+    expect(formatCountry("")).toBe("—");
   });
 });

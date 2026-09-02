@@ -111,3 +111,29 @@ export function humanize(value: string | null | undefined): string {
   const spaced = value.replace(/[_-]+/g, " ").trim();
   return spaced.charAt(0).toUpperCase() + spaced.slice(1);
 }
+
+/**
+ * An ISO-3166 alpha-2 code as a country name.
+ *
+ * Storage is the code — it is stable, unambiguous and what every trade
+ * document uses. Display is the name, because "CO" on a retail bag means
+ * nothing to the person holding it. `Intl.DisplayNames` does the translation
+ * and localizes it for free.
+ */
+export function formatCountry(code: string | null | undefined, locale = "en-US"): string {
+  if (!code) return EM_DASH;
+  if (code.length !== 2) return code;
+  try {
+    // `fallback: "code"` matters: without it an unrecognized code renders as
+    // "Unknown Region", which is worse than the code — it reads as a fact
+    // about the coffee rather than a gap in our country table.
+    const name = new Intl.DisplayNames([locale], { type: "region", fallback: "code" }).of(
+      code.toUpperCase(),
+    );
+    return name ?? code;
+  } catch {
+    // Showing the code is more honest than an em dash, which would imply the
+    // origin was never recorded.
+    return code;
+  }
+}

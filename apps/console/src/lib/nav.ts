@@ -73,7 +73,7 @@ export const NAV: NavSection[] = [
       { label: "Roasted", to: "/inventory/roasted", permission: "inventory.roast.read" },
       { label: "Blends", to: "/inventory/blends", permission: "inventory.blend.read" },
       { label: "Materials", to: "/inventory/materials", permission: "inventory.material.read" },
-      { label: "Landed costs", to: "/inventory/costs", permission: "inventory.costing.read" },
+      { label: "Landed costs", to: "/inventory/costs", permission: "inventory.green.read" },
     ],
   },
   {
@@ -151,7 +151,7 @@ export const NAV: NavSection[] = [
     children: [
       { label: "Organization", to: "/settings", permission: "console.members.read" },
       { label: "Members & roles", to: "/settings/members", permission: "console.members.read" },
-      { label: "API keys", to: "/settings/api-keys", permission: "console.api_keys.read" },
+      { label: "API keys", to: "/settings/api-keys", permission: "console.credentials.read" },
       { label: "Webhooks", to: "/settings/webhooks", permission: "webhooks.read" },
       { label: "Locations", to: "/settings/locations", permission: "catalog.location.read" },
       { label: "Products", to: "/settings/products", permission: "catalog.product.read" },
