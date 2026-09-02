@@ -1,3 +1,4 @@
+export * from "./schemas/alerts";
 export * from "./schemas/cafe";
 export * from "./schemas/common";
 export * from "./schemas/console";

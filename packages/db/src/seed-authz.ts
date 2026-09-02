@@ -122,11 +122,18 @@ export const PERMISSIONS: PermissionSeed[] = [
   ]),
 
   // --- cross-cutting
+  ...perm("quality.form", "quality", [
+    ["read", "View cupping and grading form templates"],
+    ["write", "Design and publish form templates"],
+  ]),
   ...perm("reporting", "core", [
     ["read", "View and request reports"],
     ["write", "Create and schedule report templates"],
   ]),
   ...perm("traceability", "core", [["read", "Trace coffee forward and backward"]]),
+  // Alerts span contracts, green coffee and materials, so no single domain
+  // permission is the right gate for reading the list.
+  ...perm("alerts", "core", [["read", "See what needs attention"]]),
   ...perm("webhooks", "api", [
     ["read", "View webhook endpoints and deliveries"],
     ["write", "Create, edit and replay webhooks"],
@@ -226,6 +233,10 @@ export const ROLES: RoleSeed[] = [
       "catalog.machine.read",
       "quality.grading.read",
       "quality.cupping.read",
+      // A roaster acts on what needs attention; designing the sheets is a QC job.
+      "alerts.read",
+      "quality.form.read",
+      "reporting.read",
     ],
   },
   {
@@ -242,6 +253,7 @@ export const ROLES: RoleSeed[] = [
       "inventory.blend.read",
       "production.roast.read",
       "production.profile.read",
+      "alerts.read",
       "catalog.location.read",
       "catalog.product.read",
       "catalog.party.read",
@@ -274,6 +286,8 @@ export const ROLES: RoleSeed[] = [
       "cafe.read",
       "reporting.read",
       "traceability.read",
+      "alerts.read",
+      "quality.form.read",
     ],
   },
 ];

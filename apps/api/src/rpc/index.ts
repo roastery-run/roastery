@@ -11,6 +11,7 @@
  */
 import type { OpenAPIHono } from "@hono/zod-openapi";
 import type { RpcAppEnv } from "../lib/api/rpc";
+import { alerts } from "./alerts";
 import { cafePos } from "./cafe/pos";
 import { cafeShots } from "./cafe/shots";
 import { cafeSitesRoutes } from "./cafe/sites";
@@ -36,6 +37,7 @@ import { traceability } from "./traceability";
 import { webhooks } from "./webhooks";
 
 const MODULES = [
+  alerts,
   cafePos,
   cafeShots,
   cafeSitesRoutes,

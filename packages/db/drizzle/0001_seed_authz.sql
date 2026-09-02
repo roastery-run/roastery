@@ -42,9 +42,12 @@ INSERT INTO permissions (slug, resource, action, module, description) VALUES
   ('cafe.read', 'cafe', 'read', 'cafe', 'View cafés, machines and shots'),
   ('cafe.write', 'cafe', 'write', 'cafe', 'Manage cafés, machines and recipes'),
   ('cafe.ingest', 'cafe', 'ingest', 'cafe', 'Stream shots and POS data from a café'),
+  ('quality.form.read', 'quality.form', 'read', 'quality', 'View cupping and grading form templates'),
+  ('quality.form.write', 'quality.form', 'write', 'quality', 'Design and publish form templates'),
   ('reporting.read', 'reporting', 'read', 'core', 'View and request reports'),
   ('reporting.write', 'reporting', 'write', 'core', 'Create and schedule report templates'),
   ('traceability.read', 'traceability', 'read', 'core', 'Trace coffee forward and backward'),
+  ('alerts.read', 'alerts', 'read', 'core', 'See what needs attention'),
   ('webhooks.read', 'webhooks', 'read', 'api', 'View webhook endpoints and deliveries'),
   ('webhooks.write', 'webhooks', 'write', 'api', 'Create, edit and replay webhooks'),
   ('console.members.read', 'console.members', 'read', 'core', 'View organization members'),
@@ -94,6 +97,9 @@ INSERT INTO role_permissions (role_slug, permission_slug) VALUES
   ('roaster', 'catalog.machine.read'),
   ('roaster', 'quality.grading.read'),
   ('roaster', 'quality.cupping.read'),
+  ('roaster', 'alerts.read'),
+  ('roaster', 'quality.form.read'),
+  ('roaster', 'reporting.read'),
   ('qc', 'console.self.read'),
   ('qc', 'quality.*'),
   ('qc', 'sourcing.sample.*'),
@@ -102,6 +108,7 @@ INSERT INTO role_permissions (role_slug, permission_slug) VALUES
   ('qc', 'inventory.blend.read'),
   ('qc', 'production.roast.read'),
   ('qc', 'production.profile.read'),
+  ('qc', 'alerts.read'),
   ('qc', 'catalog.location.read'),
   ('qc', 'catalog.product.read'),
   ('qc', 'catalog.party.read'),
@@ -125,7 +132,9 @@ INSERT INTO role_permissions (role_slug, permission_slug) VALUES
   ('viewer', 'orders.read'),
   ('viewer', 'cafe.read'),
   ('viewer', 'reporting.read'),
-  ('viewer', 'traceability.read')
+  ('viewer', 'traceability.read'),
+  ('viewer', 'alerts.read'),
+  ('viewer', 'quality.form.read')
 ON CONFLICT DO NOTHING;
 
 INSERT INTO plans (slug, name, rank, is_public, price_monthly, currency) VALUES

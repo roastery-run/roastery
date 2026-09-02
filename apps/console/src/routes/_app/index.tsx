@@ -33,6 +33,13 @@ type RoastBatch = {
   dropWeightKg: string | null;
   startedAt: string | null;
 };
+type Alert = {
+  ruleId: string;
+  subjectId: string;
+  severity: "info" | "warning" | "critical";
+  message: string;
+  notifiedAt: string | null;
+};
 type Order = {
   id: string;
   orderNumber: string;
@@ -47,7 +54,7 @@ function Dashboard() {
 
   // One `useQueries` rather than three hooks, so these read in parallel and a
   // slow one does not serialize behind a fast one.
-  const [lots, batches, orders] = useQueries({
+  const [lots, batches, orders, alerts] = useQueries({
     queries: [
       {
         queryKey: ["dashboard.greenLots", org?.orgId],
@@ -69,6 +76,15 @@ function Dashboard() {
             page: { limit: 5 },
           }),
         enabled: Boolean(org) && can("orders.read"),
+      },
+      {
+        queryKey: ["dashboard.alerts", org?.orgId],
+        queryFn: () =>
+          rpc<{ items: Alert[]; counts: { critical: number; warning: number } }>(
+            "alerts.listAlerts",
+            {},
+          ),
+        enabled: Boolean(org) && can("alerts.read"),
       },
     ],
   });
@@ -107,9 +123,13 @@ function Dashboard() {
           hint="Confirmed, not yet fulfilled"
         />
         <Metric
-          label="Your role"
-          value={<span className="text-lg">{org?.roleSlug ?? "—"}</span>}
-          hint="In this organization"
+          label="Needs attention"
+          value={alerts.isLoading ? "—" : (alerts.data?.items.length ?? 0)}
+          hint={
+            alerts.data?.counts.critical
+              ? `${alerts.data.counts.critical} critical`
+              : "Nothing overdue"
+          }
         />
       </div>
 
@@ -175,24 +195,40 @@ function Dashboard() {
           ))}
         </PanelCard>
 
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="flex items-center gap-2 text-sm">
-              <AlertTriangle className="size-4 text-muted-foreground" aria-hidden="true" />
-              Needs attention
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-muted-foreground text-sm">
-              Overdue contract milestones and lots approaching their minimum appear here once the
-              daily scan has run.
-            </p>
-          </CardContent>
-        </Card>
+        <PanelCard
+          title="Needs attention"
+          icon={AlertTriangle}
+          // No link: these span contracts, green coffee and materials, and
+          // sending all three to one of them would be wrong twice.
+          isLoading={alerts.isLoading}
+          isEmpty={(alerts.data?.items.length ?? 0) === 0}
+          emptyLabel="Nothing overdue or below minimum."
+        >
+          {/* Critical first, then by rule, so an overdue milestone is never
+              below a material that is merely at its reorder point. */}
+          {[...(alerts.data?.items ?? [])]
+            .sort((a, b) => SEVERITY_RANK[b.severity] - SEVERITY_RANK[a.severity])
+            .slice(0, 5)
+            .map((alert) => (
+              <Row
+                key={`${alert.ruleId}:${alert.subjectId}`}
+                primary={alert.message}
+                secondary={
+                  // Saying whether it was already emailed stops the console
+                  // and the digest looking like two disagreeing systems.
+                  alert.notifiedAt ? `Digest sent ${formatDate(alert.notifiedAt)}` : "Not yet sent"
+                }
+                value=""
+                badge={<StatusBadge status={alert.severity} />}
+              />
+            ))}
+        </PanelCard>
       </div>
     </div>
   );
 }
+
+const SEVERITY_RANK = { critical: 3, warning: 2, info: 1 } as const;
 
 function PanelCard({
   title,
@@ -205,7 +241,8 @@ function PanelCard({
 }: {
   title: string;
   icon: LucideIcon;
-  to: string;
+  /** Omitted where no single destination is right for the panel's contents. */
+  to?: string;
   isLoading: boolean;
   isEmpty: boolean;
   emptyLabel: string;
@@ -218,9 +255,11 @@ function PanelCard({
           <Icon className="size-4 text-muted-foreground" aria-hidden="true" />
           {title}
         </CardTitle>
-        <Link to={to} className="text-muted-foreground text-xs hover:text-foreground">
-          View all
-        </Link>
+        {to ? (
+          <Link to={to} className="text-muted-foreground text-xs hover:text-foreground">
+            View all
+          </Link>
+        ) : null}
       </CardHeader>
       <CardContent className="pt-0">
         {isLoading ? (
