@@ -12,14 +12,18 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as AppRouteImport } from './routes/_app'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as AppIndexRouteImport } from './routes/_app/index'
+import { Route as CupSessionIdRouteImport } from './routes/cup.$sessionId'
 import { Route as RoastBatchIdRouteImport } from './routes/roast.$batchId'
 import { Route as AppInventoryIndexRouteImport } from './routes/_app/inventory/index'
 import { Route as AppInventoryLotIdRouteImport } from './routes/_app/inventory/$lotId'
 import { Route as AppInventoryBlendsRouteImport } from './routes/_app/inventory/blends'
 import { Route as AppOrdersIndexRouteImport } from './routes/_app/orders/index'
 import { Route as AppOrdersOrderIdRouteImport } from './routes/_app/orders/$orderId'
+import { Route as AppQualityIndexRouteImport } from './routes/_app/quality/index'
+import { Route as AppQualityGradingsRouteImport } from './routes/_app/quality/gradings'
 import { Route as AppRoastingIndexRouteImport } from './routes/_app/roasting/index'
 import { Route as AppRoastingBatchIdRouteImport } from './routes/_app/roasting/$batchId'
+import { Route as AppRoastingScheduleRouteImport } from './routes/_app/roasting/schedule'
 import { Route as AppSamplesIndexRouteImport } from './routes/_app/samples/index'
 
 const AppRoute = AppRouteImport.update({
@@ -35,6 +39,11 @@ const AppIndexRoute = AppIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => AppRoute,
+} as any)
+const CupSessionIdRoute = CupSessionIdRouteImport.update({
+  id: '/cup/$sessionId',
+  path: '/cup/$sessionId',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const RoastBatchIdRoute = RoastBatchIdRouteImport.update({
   id: '/roast/$batchId',
@@ -66,6 +75,16 @@ const AppOrdersOrderIdRoute = AppOrdersOrderIdRouteImport.update({
   path: '/orders/$orderId',
   getParentRoute: () => AppRoute,
 } as any)
+const AppQualityIndexRoute = AppQualityIndexRouteImport.update({
+  id: '/quality/',
+  path: '/quality/',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppQualityGradingsRoute = AppQualityGradingsRouteImport.update({
+  id: '/quality/gradings',
+  path: '/quality/gradings',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppRoastingIndexRoute = AppRoastingIndexRouteImport.update({
   id: '/roasting/',
   path: '/roasting/',
@@ -74,6 +93,11 @@ const AppRoastingIndexRoute = AppRoastingIndexRouteImport.update({
 const AppRoastingBatchIdRoute = AppRoastingBatchIdRouteImport.update({
   id: '/roasting/$batchId',
   path: '/roasting/$batchId',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppRoastingScheduleRoute = AppRoastingScheduleRouteImport.update({
+  id: '/roasting/schedule',
+  path: '/roasting/schedule',
   getParentRoute: () => AppRoute,
 } as any)
 const AppSamplesIndexRoute = AppSamplesIndexRouteImport.update({
@@ -85,26 +109,34 @@ const AppSamplesIndexRoute = AppSamplesIndexRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
   '/login': typeof LoginRoute
+  '/cup/$sessionId': typeof CupSessionIdRoute
   '/roast/$batchId': typeof RoastBatchIdRoute
   '/inventory/$lotId': typeof AppInventoryLotIdRoute
   '/inventory/blends': typeof AppInventoryBlendsRoute
   '/orders/$orderId': typeof AppOrdersOrderIdRoute
+  '/quality/gradings': typeof AppQualityGradingsRoute
   '/roasting/$batchId': typeof AppRoastingBatchIdRoute
+  '/roasting/schedule': typeof AppRoastingScheduleRoute
   '/inventory/': typeof AppInventoryIndexRoute
   '/orders/': typeof AppOrdersIndexRoute
+  '/quality/': typeof AppQualityIndexRoute
   '/roasting/': typeof AppRoastingIndexRoute
   '/samples/': typeof AppSamplesIndexRoute
 }
 export interface FileRoutesByTo {
   '/login': typeof LoginRoute
+  '/cup/$sessionId': typeof CupSessionIdRoute
   '/roast/$batchId': typeof RoastBatchIdRoute
   '/': typeof AppIndexRoute
   '/inventory/$lotId': typeof AppInventoryLotIdRoute
   '/inventory/blends': typeof AppInventoryBlendsRoute
   '/orders/$orderId': typeof AppOrdersOrderIdRoute
+  '/quality/gradings': typeof AppQualityGradingsRoute
   '/roasting/$batchId': typeof AppRoastingBatchIdRoute
+  '/roasting/schedule': typeof AppRoastingScheduleRoute
   '/inventory': typeof AppInventoryIndexRoute
   '/orders': typeof AppOrdersIndexRoute
+  '/quality': typeof AppQualityIndexRoute
   '/roasting': typeof AppRoastingIndexRoute
   '/samples': typeof AppSamplesIndexRoute
 }
@@ -112,14 +144,18 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_app': typeof AppRouteWithChildren
   '/login': typeof LoginRoute
+  '/cup/$sessionId': typeof CupSessionIdRoute
   '/roast/$batchId': typeof RoastBatchIdRoute
   '/_app/': typeof AppIndexRoute
   '/_app/inventory/$lotId': typeof AppInventoryLotIdRoute
   '/_app/inventory/blends': typeof AppInventoryBlendsRoute
   '/_app/orders/$orderId': typeof AppOrdersOrderIdRoute
+  '/_app/quality/gradings': typeof AppQualityGradingsRoute
   '/_app/roasting/$batchId': typeof AppRoastingBatchIdRoute
+  '/_app/roasting/schedule': typeof AppRoastingScheduleRoute
   '/_app/inventory/': typeof AppInventoryIndexRoute
   '/_app/orders/': typeof AppOrdersIndexRoute
+  '/_app/quality/': typeof AppQualityIndexRoute
   '/_app/roasting/': typeof AppRoastingIndexRoute
   '/_app/samples/': typeof AppSamplesIndexRoute
 }
@@ -128,40 +164,52 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/login'
+    | '/cup/$sessionId'
     | '/roast/$batchId'
     | '/inventory/$lotId'
     | '/inventory/blends'
     | '/orders/$orderId'
+    | '/quality/gradings'
     | '/roasting/$batchId'
+    | '/roasting/schedule'
     | '/inventory/'
     | '/orders/'
+    | '/quality/'
     | '/roasting/'
     | '/samples/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/login'
+    | '/cup/$sessionId'
     | '/roast/$batchId'
     | '/'
     | '/inventory/$lotId'
     | '/inventory/blends'
     | '/orders/$orderId'
+    | '/quality/gradings'
     | '/roasting/$batchId'
+    | '/roasting/schedule'
     | '/inventory'
     | '/orders'
+    | '/quality'
     | '/roasting'
     | '/samples'
   id:
     | '__root__'
     | '/_app'
     | '/login'
+    | '/cup/$sessionId'
     | '/roast/$batchId'
     | '/_app/'
     | '/_app/inventory/$lotId'
     | '/_app/inventory/blends'
     | '/_app/orders/$orderId'
+    | '/_app/quality/gradings'
     | '/_app/roasting/$batchId'
+    | '/_app/roasting/schedule'
     | '/_app/inventory/'
     | '/_app/orders/'
+    | '/_app/quality/'
     | '/_app/roasting/'
     | '/_app/samples/'
   fileRoutesById: FileRoutesById
@@ -169,6 +217,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   AppRoute: typeof AppRouteWithChildren
   LoginRoute: typeof LoginRoute
+  CupSessionIdRoute: typeof CupSessionIdRoute
   RoastBatchIdRoute: typeof RoastBatchIdRoute
 }
 
@@ -194,6 +243,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/'
       preLoaderRoute: typeof AppIndexRouteImport
       parentRoute: typeof AppRoute
+    }
+    '/cup/$sessionId': {
+      id: '/cup/$sessionId'
+      path: '/cup/$sessionId'
+      fullPath: '/cup/$sessionId'
+      preLoaderRoute: typeof CupSessionIdRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/roast/$batchId': {
       id: '/roast/$batchId'
@@ -237,6 +293,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppOrdersOrderIdRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/quality/': {
+      id: '/_app/quality/'
+      path: '/quality'
+      fullPath: '/quality/'
+      preLoaderRoute: typeof AppQualityIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/quality/gradings': {
+      id: '/_app/quality/gradings'
+      path: '/quality/gradings'
+      fullPath: '/quality/gradings'
+      preLoaderRoute: typeof AppQualityGradingsRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/roasting/': {
       id: '/_app/roasting/'
       path: '/roasting'
@@ -249,6 +319,13 @@ declare module '@tanstack/react-router' {
       path: '/roasting/$batchId'
       fullPath: '/roasting/$batchId'
       preLoaderRoute: typeof AppRoastingBatchIdRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/roasting/schedule': {
+      id: '/_app/roasting/schedule'
+      path: '/roasting/schedule'
+      fullPath: '/roasting/schedule'
+      preLoaderRoute: typeof AppRoastingScheduleRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/samples/': {
@@ -266,9 +343,12 @@ interface AppRouteChildren {
   AppInventoryLotIdRoute: typeof AppInventoryLotIdRoute
   AppInventoryBlendsRoute: typeof AppInventoryBlendsRoute
   AppOrdersOrderIdRoute: typeof AppOrdersOrderIdRoute
+  AppQualityGradingsRoute: typeof AppQualityGradingsRoute
   AppRoastingBatchIdRoute: typeof AppRoastingBatchIdRoute
+  AppRoastingScheduleRoute: typeof AppRoastingScheduleRoute
   AppInventoryIndexRoute: typeof AppInventoryIndexRoute
   AppOrdersIndexRoute: typeof AppOrdersIndexRoute
+  AppQualityIndexRoute: typeof AppQualityIndexRoute
   AppRoastingIndexRoute: typeof AppRoastingIndexRoute
   AppSamplesIndexRoute: typeof AppSamplesIndexRoute
 }
@@ -278,9 +358,12 @@ const AppRouteChildren: AppRouteChildren = {
   AppInventoryLotIdRoute: AppInventoryLotIdRoute,
   AppInventoryBlendsRoute: AppInventoryBlendsRoute,
   AppOrdersOrderIdRoute: AppOrdersOrderIdRoute,
+  AppQualityGradingsRoute: AppQualityGradingsRoute,
   AppRoastingBatchIdRoute: AppRoastingBatchIdRoute,
+  AppRoastingScheduleRoute: AppRoastingScheduleRoute,
   AppInventoryIndexRoute: AppInventoryIndexRoute,
   AppOrdersIndexRoute: AppOrdersIndexRoute,
+  AppQualityIndexRoute: AppQualityIndexRoute,
   AppRoastingIndexRoute: AppRoastingIndexRoute,
   AppSamplesIndexRoute: AppSamplesIndexRoute,
 }
@@ -290,6 +373,7 @@ const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
 const rootRouteChildren: RootRouteChildren = {
   AppRoute: AppRouteWithChildren,
   LoginRoute: LoginRoute,
+  CupSessionIdRoute: CupSessionIdRoute,
   RoastBatchIdRoute: RoastBatchIdRoute,
 }
 export const routeTree = rootRouteImport
