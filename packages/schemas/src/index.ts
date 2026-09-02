@@ -2,6 +2,7 @@ export * from "./schemas/alerts";
 export * from "./schemas/cafe";
 export * from "./schemas/common";
 export * from "./schemas/console";
+export * from "./schemas/forms";
 export * from "./schemas/inventory";
 export * from "./schemas/labels";
 export * from "./schemas/location";

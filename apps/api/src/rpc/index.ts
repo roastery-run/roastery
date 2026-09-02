@@ -28,6 +28,7 @@ import { orders } from "./orders/orders";
 import { productionRoast } from "./production/roast";
 import { productionSchedule } from "./production/schedule";
 import { qualityCupping } from "./quality/cupping";
+import { qualityForm } from "./quality/forms";
 import { qualityGrading } from "./quality/grading";
 import { reportingLabels } from "./reporting/labels";
 import { reporting } from "./reporting/reports";
@@ -54,6 +55,7 @@ const MODULES = [
   productionRoast,
   productionSchedule,
   qualityCupping,
+  qualityForm,
   qualityGrading,
   reporting,
   reportingLabels,

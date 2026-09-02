@@ -42,6 +42,7 @@ export const eventTypeSchema = z.enum([
 
   "quality.cupping_session.finalized",
   "quality.grading.recorded",
+  "quality.form_template.published",
 
   "orders.order.created",
   "orders.order.confirmed",

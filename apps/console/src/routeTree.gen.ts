@@ -31,6 +31,7 @@ import { Route as AppOrdersIndexRouteImport } from './routes/_app/orders/index'
 import { Route as AppOrdersOrderIdRouteImport } from './routes/_app/orders/$orderId'
 import { Route as AppOrdersCustomersRouteImport } from './routes/_app/orders/customers'
 import { Route as AppQualityIndexRouteImport } from './routes/_app/quality/index'
+import { Route as AppQualityFormsRouteImport } from './routes/_app/quality/forms'
 import { Route as AppQualityGradingsRouteImport } from './routes/_app/quality/gradings'
 import { Route as AppReportsIndexRouteImport } from './routes/_app/reports/index'
 import { Route as AppReportsLabelsRouteImport } from './routes/_app/reports/labels'
@@ -159,6 +160,11 @@ const AppQualityIndexRoute = AppQualityIndexRouteImport.update({
   path: '/quality/',
   getParentRoute: () => AppRoute,
 } as any)
+const AppQualityFormsRoute = AppQualityFormsRouteImport.update({
+  id: '/quality/forms',
+  path: '/quality/forms',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppQualityGradingsRoute = AppQualityGradingsRouteImport.update({
   id: '/quality/gradings',
   path: '/quality/gradings',
@@ -267,6 +273,7 @@ export interface FileRoutesByFullPath {
   '/inventory/roasted': typeof AppInventoryRoastedRoute
   '/orders/$orderId': typeof AppOrdersOrderIdRoute
   '/orders/customers': typeof AppOrdersCustomersRoute
+  '/quality/forms': typeof AppQualityFormsRoute
   '/quality/gradings': typeof AppQualityGradingsRoute
   '/reports/labels': typeof AppReportsLabelsRoute
   '/reports/traceability': typeof AppReportsTraceabilityRoute
@@ -308,6 +315,7 @@ export interface FileRoutesByTo {
   '/inventory/roasted': typeof AppInventoryRoastedRoute
   '/orders/$orderId': typeof AppOrdersOrderIdRoute
   '/orders/customers': typeof AppOrdersCustomersRoute
+  '/quality/forms': typeof AppQualityFormsRoute
   '/quality/gradings': typeof AppQualityGradingsRoute
   '/reports/labels': typeof AppReportsLabelsRoute
   '/reports/traceability': typeof AppReportsTraceabilityRoute
@@ -351,6 +359,7 @@ export interface FileRoutesById {
   '/_app/inventory/roasted': typeof AppInventoryRoastedRoute
   '/_app/orders/$orderId': typeof AppOrdersOrderIdRoute
   '/_app/orders/customers': typeof AppOrdersCustomersRoute
+  '/_app/quality/forms': typeof AppQualityFormsRoute
   '/_app/quality/gradings': typeof AppQualityGradingsRoute
   '/_app/reports/labels': typeof AppReportsLabelsRoute
   '/_app/reports/traceability': typeof AppReportsTraceabilityRoute
@@ -394,6 +403,7 @@ export interface FileRouteTypes {
     | '/inventory/roasted'
     | '/orders/$orderId'
     | '/orders/customers'
+    | '/quality/forms'
     | '/quality/gradings'
     | '/reports/labels'
     | '/reports/traceability'
@@ -435,6 +445,7 @@ export interface FileRouteTypes {
     | '/inventory/roasted'
     | '/orders/$orderId'
     | '/orders/customers'
+    | '/quality/forms'
     | '/quality/gradings'
     | '/reports/labels'
     | '/reports/traceability'
@@ -477,6 +488,7 @@ export interface FileRouteTypes {
     | '/_app/inventory/roasted'
     | '/_app/orders/$orderId'
     | '/_app/orders/customers'
+    | '/_app/quality/forms'
     | '/_app/quality/gradings'
     | '/_app/reports/labels'
     | '/_app/reports/traceability'
@@ -665,6 +677,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppQualityIndexRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/quality/forms': {
+      id: '/_app/quality/forms'
+      path: '/quality/forms'
+      fullPath: '/quality/forms'
+      preLoaderRoute: typeof AppQualityFormsRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/quality/gradings': {
       id: '/_app/quality/gradings'
       path: '/quality/gradings'
@@ -808,6 +827,7 @@ interface AppRouteChildren {
   AppInventoryRoastedRoute: typeof AppInventoryRoastedRoute
   AppOrdersOrderIdRoute: typeof AppOrdersOrderIdRoute
   AppOrdersCustomersRoute: typeof AppOrdersCustomersRoute
+  AppQualityFormsRoute: typeof AppQualityFormsRoute
   AppQualityGradingsRoute: typeof AppQualityGradingsRoute
   AppReportsLabelsRoute: typeof AppReportsLabelsRoute
   AppReportsTraceabilityRoute: typeof AppReportsTraceabilityRoute
@@ -847,6 +867,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppInventoryRoastedRoute: AppInventoryRoastedRoute,
   AppOrdersOrderIdRoute: AppOrdersOrderIdRoute,
   AppOrdersCustomersRoute: AppOrdersCustomersRoute,
+  AppQualityFormsRoute: AppQualityFormsRoute,
   AppQualityGradingsRoute: AppQualityGradingsRoute,
   AppReportsLabelsRoute: AppReportsLabelsRoute,
   AppReportsTraceabilityRoute: AppReportsTraceabilityRoute,

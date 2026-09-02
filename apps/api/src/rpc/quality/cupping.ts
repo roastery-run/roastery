@@ -11,6 +11,7 @@ import {
   cuppingScores,
   cuppingSessionSamples,
   cuppingSessions,
+  formTemplates,
   greenLots,
   samples,
 } from "@roastery/db/schema";
@@ -26,7 +27,7 @@ import {
   listCuppingSessionsOutput,
   submitCuppingScoreInput,
 } from "@roastery/schemas";
-import { and, asc, eq, type SQL, sql } from "drizzle-orm";
+import { and, asc, eq, isNull, type SQL, sql } from "drizzle-orm";
 import { BadRequest, Conflict, NotFound } from "../../lib/api/errors";
 import { type RpcAppEnv, type RpcContext, registerRpc } from "../../lib/api/rpc";
 import { isUniqueViolation } from "../../lib/db/db";
@@ -82,6 +83,8 @@ registerRpc(
         scheduledAt: s.scheduledAt?.toISOString() ?? null,
         finalizedAt: s.finalizedAt?.toISOString() ?? null,
         sampleCount: bySession.get(s.id) ?? 0,
+        templateId: s.templateId ?? null,
+        templateVersion: s.templateVersion ?? null,
         createdAt: s.createdAt.toISOString(),
       })),
       page,
@@ -107,12 +110,31 @@ registerRpc(
   async (input, ctx) => {
     const id = await ctx.db.transaction(async (tx) => {
       let session: typeof cuppingSessions.$inferSelect | undefined;
+      // Pinned at creation, with the version frozen alongside the id: the
+      // template can be edited mid-season, and a session has to keep asking
+      // the questions its cuppers actually answered.
+      const template = input.templateId
+        ? await tx.findOne(formTemplates, eq(formTemplates.id, input.templateId))
+        : (
+            await tx.find(formTemplates, {
+              where: and(
+                eq(formTemplates.kind, "cupping_sheet"),
+                eq(formTemplates.isDefault, true),
+                isNull(formTemplates.archivedAt),
+              ),
+              limit: 1,
+            })
+          ).items[0];
+      if (input.templateId && !template) throw new NotFound("No form template with that id");
+
       try {
         [session] = await tx.insert(cuppingSessions, {
           sessionNumber: input.sessionNumber,
           name: input.name,
           mode: input.mode,
           status: "scheduled",
+          templateId: template?.id ?? null,
+          templateVersion: template?.version ?? null,
           scheduledAt: input.scheduledAt ? new Date(input.scheduledAt) : null,
         });
       } catch (err) {
@@ -150,6 +172,8 @@ registerRpc(
       scheduledAt: session.scheduledAt?.toISOString() ?? null,
       finalizedAt: session.finalizedAt?.toISOString() ?? null,
       sampleCount: input.samples.length,
+      templateId: session.templateId ?? null,
+      templateVersion: session.templateVersion ?? null,
       createdAt: session.createdAt.toISOString(),
     };
   },
@@ -205,6 +229,7 @@ registerRpc(
       sessionId: session.id,
       mode: session.mode,
       status: session.status,
+      templateId: session.templateId ?? null,
       samples: rows.map((r) => ({
         id: r.id,
         position: r.position,
@@ -272,6 +297,11 @@ registerRpc(
         defectsPenalty: input.defectsPenalty.toFixed(2),
         descriptors: input.descriptors ?? [],
         notes: input.notes ?? null,
+        // Stored verbatim against the session's pinned template version. Not
+        // re-validated here: the template that governs them may since have
+        // been superseded, and rejecting a valid answer because the CURRENT
+        // version dropped the field would lose the cupper's work.
+        responses: input.responses ?? null,
       });
     } catch (err) {
       if (isUniqueViolation(err)) {

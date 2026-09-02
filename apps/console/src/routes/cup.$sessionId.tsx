@@ -1,9 +1,11 @@
+import { type FormTemplate, firstResponseProblem } from "@roastery/schemas";
 import { Badge, Button, cn, Input, rpc, rpcMutate, Textarea } from "@roastery/ui";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import * as React from "react";
 import { toast } from "sonner";
+import { CustomFields } from "@/components/custom-fields";
 import { FocusShell } from "@/components/focus-shell";
 import { requireAuth } from "@/lib/require-auth";
 
@@ -36,6 +38,7 @@ type CuppingTable = {
   sessionId: string;
   mode: string;
   status: string;
+  templateId: string | null;
   samples: TableSample[];
 };
 
@@ -86,6 +89,7 @@ function Scoresheet() {
   const [penalty, setPenalty] = React.useState(0);
   const [notes, setNotes] = React.useState("");
   const [cupperName, setCupperName] = React.useState("");
+  const [responses, setResponses] = React.useState<Record<string, unknown>>({});
 
   const table = useQuery({
     queryKey: ["quality.cupping.getCuppingTable", sessionId],
@@ -95,6 +99,22 @@ function Scoresheet() {
   const samples = table.data?.samples ?? [];
   const current = samples[index];
 
+  // The sheet the SESSION was opened against, not whatever is current: the
+  // template can be edited mid-season, and every cupper on a panel has to be
+  // asked the same questions or their scores are not comparable.
+  const template = useQuery({
+    queryKey: ["quality.form.getFormTemplate", table.data?.templateId],
+    queryFn: () =>
+      rpc<FormTemplate>("quality.form.getFormTemplate", { id: table.data?.templateId }),
+    enabled: Boolean(table.data?.templateId),
+  });
+  const customFields = template.data?.fields ?? [];
+
+  const responseError = React.useMemo(
+    () => firstResponseProblem(customFields, responses),
+    [customFields, responses],
+  );
+
   const submit = useMutation({
     mutationFn: () =>
       rpcMutate("quality.cupping.submitCuppingScore", {
@@ -103,6 +123,7 @@ function Scoresheet() {
         scores,
         defectsPenalty: penalty,
         notes: notes.trim() || undefined,
+        responses: customFields.length ? responses : undefined,
       }),
     onSuccess: () => {
       toast.success(`${current?.blindCode} scored ${total.toFixed(2)}`);
@@ -114,6 +135,7 @@ function Scoresheet() {
       setScores(DEFAULT_SCORES);
       setPenalty(0);
       setNotes("");
+      setResponses({});
       if (index < samples.length - 1) setIndex(index + 1);
     },
     onError: (error) =>
@@ -231,6 +253,21 @@ function Scoresheet() {
             ))}
           </section>
 
+          {customFields.length ? (
+            <section className="space-y-2">
+              <h2 className="font-medium text-sm uppercase tracking-wide">
+                {template.data?.name ?? "Additional"}
+              </h2>
+              <CustomFields
+                fields={customFields}
+                values={responses}
+                onChange={(key, value) =>
+                  setResponses((previous) => ({ ...previous, [key]: value }))
+                }
+              />
+            </section>
+          ) : null}
+
           <section className="space-y-2">
             <h2 className="font-medium text-sm uppercase tracking-wide">Notes</h2>
             <Textarea
@@ -289,10 +326,18 @@ function Scoresheet() {
             size="lg"
             className="w-full"
             onClick={() => submit.mutate()}
-            disabled={submit.isPending}
+            disabled={submit.isPending || responseError !== null}
           >
             Submit {current.blindCode}
           </Button>
+
+          {/* Named on the button rather than surfaced only on the failed
+              request: a cupper is standing at a table with a spoon, and a
+              round trip to learn a required field is blank is a round trip
+              too many. */}
+          {responseError ? (
+            <p className="text-center text-destructive text-xs">{responseError}</p>
+          ) : null}
 
           {current.scoreCount > 0 ? (
             <p className="text-center text-muted-foreground text-xs">

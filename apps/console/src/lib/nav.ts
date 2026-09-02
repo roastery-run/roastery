@@ -98,6 +98,7 @@ export const NAV: NavSection[] = [
     module: "quality",
     children: [
       { label: "Cupping sessions", to: "/quality", permission: "quality.cupping.read" },
+      { label: "Form templates", to: "/quality/forms", permission: "quality.form.read" },
       { label: "Gradings", to: "/quality/gradings", permission: "quality.grading.read" },
     ],
   },

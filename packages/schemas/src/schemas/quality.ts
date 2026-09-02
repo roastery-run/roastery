@@ -44,6 +44,8 @@ export const cuppingSessionSchema = z.object({
   scheduledAt: z.string().nullable(),
   finalizedAt: z.string().nullable(),
   sampleCount: z.number().int(),
+  templateId: uuidSchema.nullable(),
+  templateVersion: z.number().int().nullable(),
   createdAt: z.string(),
 });
 
@@ -57,6 +59,8 @@ export const createCuppingSessionInput = z.object({
   sessionNumber: codeSchema,
   name: z.string().min(1).max(200),
   mode: cuppingModeSchema.default("blind"),
+  /** Omitted uses the org's default cupping sheet, if it has one. */
+  templateId: uuidSchema.optional(),
   scheduledAt: z.iso.datetime().optional(),
   samples: z
     .array(
@@ -82,6 +86,8 @@ export const cuppingTableSchema = z.object({
   sessionId: uuidSchema,
   mode: cuppingModeSchema,
   status: cuppingSessionStatusSchema,
+  /** The custom sheet this session was opened against, if any. */
+  templateId: uuidSchema.nullable(),
   samples: z.array(
     z.object({
       id: uuidSchema,
@@ -112,6 +118,12 @@ export const submitCuppingScoreInput = z.object({
   defectsPenalty: z.number().min(0).max(40).default(0),
   descriptors: z.array(z.string().max(80)).max(20).optional(),
   notes: z.string().max(2000).optional(),
+  /**
+   * Answers to the session's custom fields. The template is pinned on the
+   * SESSION, not here, so every cupper answers the same questions and the
+   * results stay comparable — which is the entire point of a panel.
+   */
+  responses: z.record(z.string(), z.unknown()).optional(),
 });
 
 export const cuppingScoreSchema = z.object({
