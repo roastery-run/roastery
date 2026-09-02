@@ -1,5 +1,5 @@
 {
-  "id": "ac608c34-62d7-4686-9003-e500aecf6cc1",
+  "id": "333afb39-3cc5-49f7-bcdf-be032e6db9c6",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -6920,6 +6920,14 @@
           "type": "numeric(14, 4)",
           "primaryKey": false,
           "notNull": true
+        },
+        "price_unit": {
+          "name": "price_unit",
+          "type": "price_unit",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'unit'"
         },
         "weight_kg": {
           "name": "weight_kg",
@@ -15188,6 +15196,14 @@
         "shot_missing",
         "sale_missing",
         "quantity_mismatch"
+      ]
+    },
+    "public.price_unit": {
+      "name": "price_unit",
+      "schema": "public",
+      "values": [
+        "unit",
+        "kg"
       ]
     },
     "public.producer_kind": {

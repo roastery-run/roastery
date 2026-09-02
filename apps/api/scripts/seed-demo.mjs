@@ -247,6 +247,8 @@ for (let i = 0; i < 18; i++) {
         quantity: "1.0000",
         weightKg: String(5 + ((i * 7) % 40)),
         unitPrice: "18.500000",
+        // Wholesale coffee is quoted per kilogram, not per item.
+        priceUnit: "kg",
       },
     ],
   });

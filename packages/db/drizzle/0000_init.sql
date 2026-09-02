@@ -23,6 +23,7 @@ CREATE TYPE "public"."milestone_kind" AS ENUM('contract_signed', 'fixation', 'sh
 CREATE TYPE "public"."milestone_status" AS ENUM('pending', 'on_track', 'at_risk', 'completed', 'missed');--> statement-breakpoint
 CREATE TYPE "public"."partner_type" AS ENUM('supplier', 'importer', 'exporter', 'cooperative', 'producer', 'mill', 'broker', 'warehouse', 'customer');--> statement-breakpoint
 CREATE TYPE "public"."pos_reconciliation_status" AS ENUM('pending', 'matched', 'shot_missing', 'sale_missing', 'quantity_mismatch');--> statement-breakpoint
+CREATE TYPE "public"."price_unit" AS ENUM('unit', 'kg');--> statement-breakpoint
 CREATE TYPE "public"."producer_kind" AS ENUM('farm', 'cooperative', 'washing_station', 'estate', 'smallholder_group');--> statement-breakpoint
 CREATE TYPE "public"."product_format" AS ENUM('whole_bean', 'ground_espresso', 'ground_filter', 'ground_french_press', 'capsule', 'instant', 'drip_bag', 'bulk');--> statement-breakpoint
 CREATE TYPE "public"."report_kind" AS ENUM('traceability_certificate', 'inventory_valuation', 'production_summary', 'quality_summary', 'cafe_performance');--> statement-breakpoint
@@ -661,6 +662,7 @@ CREATE TABLE "sales_order_lines" (
 	"blend_id" uuid,
 	"description" text NOT NULL,
 	"quantity" numeric(14, 4) NOT NULL,
+	"price_unit" "price_unit" DEFAULT 'unit' NOT NULL,
 	"weight_kg" numeric(14, 4) NOT NULL,
 	"unit_price" numeric(18, 6),
 	"line_total" numeric(18, 4),

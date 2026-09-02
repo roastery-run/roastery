@@ -36,6 +36,7 @@ export function lineDto(l: typeof salesOrderLines.$inferSelect) {
     allocatedWeightKg: l.allocatedWeightKg,
     outstandingWeightKg: kg.sub(l.weightKg, l.allocatedWeightKg),
     unitPrice: l.unitPrice ?? null,
+    priceUnit: l.priceUnit,
   };
 }
 

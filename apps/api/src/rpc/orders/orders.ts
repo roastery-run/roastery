@@ -192,9 +192,13 @@ registerRpc(
       await tx.insert(
         salesOrderLines,
         input.lines.map((l, i) => {
+          // Priced against whichever basis the line declares. Multiplying a
+          // per-kilogram price by a quantity of 1 is how a 44 kg wholesale
+          // line and a 4 kg one both came out at $18.50.
+          const basis = l.priceUnit === "kg" ? l.weightKg : l.quantity;
           const lineTotal =
             l.unitPrice !== undefined
-              ? (Number.parseFloat(l.unitPrice) * Number.parseFloat(l.quantity)).toFixed(4)
+              ? (Number.parseFloat(l.unitPrice) * Number.parseFloat(basis)).toFixed(4)
               : null;
           if (lineTotal) total = kg.add(total, lineTotal);
           return {
@@ -206,6 +210,7 @@ registerRpc(
             quantity: l.quantity,
             weightKg: l.weightKg,
             unitPrice: l.unitPrice ?? null,
+            priceUnit: l.priceUnit,
             lineTotal,
           };
         }),

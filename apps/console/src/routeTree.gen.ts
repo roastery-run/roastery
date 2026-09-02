@@ -12,6 +12,14 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as AppRouteImport } from './routes/_app'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as AppIndexRouteImport } from './routes/_app/index'
+import { Route as AppInventoryIndexRouteImport } from './routes/_app/inventory/index'
+import { Route as AppInventoryLotIdRouteImport } from './routes/_app/inventory/$lotId'
+import { Route as AppInventoryBlendsRouteImport } from './routes/_app/inventory/blends'
+import { Route as AppOrdersIndexRouteImport } from './routes/_app/orders/index'
+import { Route as AppOrdersOrderIdRouteImport } from './routes/_app/orders/$orderId'
+import { Route as AppRoastingIndexRouteImport } from './routes/_app/roasting/index'
+import { Route as AppRoastingBatchIdRouteImport } from './routes/_app/roasting/$batchId'
+import { Route as AppSamplesIndexRouteImport } from './routes/_app/samples/index'
 
 const AppRoute = AppRouteImport.update({
   id: '/_app',
@@ -27,27 +35,123 @@ const AppIndexRoute = AppIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AppRoute,
 } as any)
+const AppInventoryIndexRoute = AppInventoryIndexRouteImport.update({
+  id: '/inventory/',
+  path: '/inventory/',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppInventoryLotIdRoute = AppInventoryLotIdRouteImport.update({
+  id: '/inventory/$lotId',
+  path: '/inventory/$lotId',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppInventoryBlendsRoute = AppInventoryBlendsRouteImport.update({
+  id: '/inventory/blends',
+  path: '/inventory/blends',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppOrdersIndexRoute = AppOrdersIndexRouteImport.update({
+  id: '/orders/',
+  path: '/orders/',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppOrdersOrderIdRoute = AppOrdersOrderIdRouteImport.update({
+  id: '/orders/$orderId',
+  path: '/orders/$orderId',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppRoastingIndexRoute = AppRoastingIndexRouteImport.update({
+  id: '/roasting/',
+  path: '/roasting/',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppRoastingBatchIdRoute = AppRoastingBatchIdRouteImport.update({
+  id: '/roasting/$batchId',
+  path: '/roasting/$batchId',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppSamplesIndexRoute = AppSamplesIndexRouteImport.update({
+  id: '/samples/',
+  path: '/samples/',
+  getParentRoute: () => AppRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
   '/login': typeof LoginRoute
+  '/inventory/$lotId': typeof AppInventoryLotIdRoute
+  '/inventory/blends': typeof AppInventoryBlendsRoute
+  '/orders/$orderId': typeof AppOrdersOrderIdRoute
+  '/roasting/$batchId': typeof AppRoastingBatchIdRoute
+  '/inventory/': typeof AppInventoryIndexRoute
+  '/orders/': typeof AppOrdersIndexRoute
+  '/roasting/': typeof AppRoastingIndexRoute
+  '/samples/': typeof AppSamplesIndexRoute
 }
 export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/': typeof AppIndexRoute
+  '/inventory/$lotId': typeof AppInventoryLotIdRoute
+  '/inventory/blends': typeof AppInventoryBlendsRoute
+  '/orders/$orderId': typeof AppOrdersOrderIdRoute
+  '/roasting/$batchId': typeof AppRoastingBatchIdRoute
+  '/inventory': typeof AppInventoryIndexRoute
+  '/orders': typeof AppOrdersIndexRoute
+  '/roasting': typeof AppRoastingIndexRoute
+  '/samples': typeof AppSamplesIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_app': typeof AppRouteWithChildren
   '/login': typeof LoginRoute
   '/_app/': typeof AppIndexRoute
+  '/_app/inventory/$lotId': typeof AppInventoryLotIdRoute
+  '/_app/inventory/blends': typeof AppInventoryBlendsRoute
+  '/_app/orders/$orderId': typeof AppOrdersOrderIdRoute
+  '/_app/roasting/$batchId': typeof AppRoastingBatchIdRoute
+  '/_app/inventory/': typeof AppInventoryIndexRoute
+  '/_app/orders/': typeof AppOrdersIndexRoute
+  '/_app/roasting/': typeof AppRoastingIndexRoute
+  '/_app/samples/': typeof AppSamplesIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/login'
+  fullPaths:
+    | '/'
+    | '/login'
+    | '/inventory/$lotId'
+    | '/inventory/blends'
+    | '/orders/$orderId'
+    | '/roasting/$batchId'
+    | '/inventory/'
+    | '/orders/'
+    | '/roasting/'
+    | '/samples/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/login' | '/'
-  id: '__root__' | '/_app' | '/login' | '/_app/'
+  to:
+    | '/login'
+    | '/'
+    | '/inventory/$lotId'
+    | '/inventory/blends'
+    | '/orders/$orderId'
+    | '/roasting/$batchId'
+    | '/inventory'
+    | '/orders'
+    | '/roasting'
+    | '/samples'
+  id:
+    | '__root__'
+    | '/_app'
+    | '/login'
+    | '/_app/'
+    | '/_app/inventory/$lotId'
+    | '/_app/inventory/blends'
+    | '/_app/orders/$orderId'
+    | '/_app/roasting/$batchId'
+    | '/_app/inventory/'
+    | '/_app/orders/'
+    | '/_app/roasting/'
+    | '/_app/samples/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -78,15 +182,87 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppIndexRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/inventory/': {
+      id: '/_app/inventory/'
+      path: '/inventory'
+      fullPath: '/inventory/'
+      preLoaderRoute: typeof AppInventoryIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/inventory/$lotId': {
+      id: '/_app/inventory/$lotId'
+      path: '/inventory/$lotId'
+      fullPath: '/inventory/$lotId'
+      preLoaderRoute: typeof AppInventoryLotIdRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/inventory/blends': {
+      id: '/_app/inventory/blends'
+      path: '/inventory/blends'
+      fullPath: '/inventory/blends'
+      preLoaderRoute: typeof AppInventoryBlendsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/orders/': {
+      id: '/_app/orders/'
+      path: '/orders'
+      fullPath: '/orders/'
+      preLoaderRoute: typeof AppOrdersIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/orders/$orderId': {
+      id: '/_app/orders/$orderId'
+      path: '/orders/$orderId'
+      fullPath: '/orders/$orderId'
+      preLoaderRoute: typeof AppOrdersOrderIdRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/roasting/': {
+      id: '/_app/roasting/'
+      path: '/roasting'
+      fullPath: '/roasting/'
+      preLoaderRoute: typeof AppRoastingIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/roasting/$batchId': {
+      id: '/_app/roasting/$batchId'
+      path: '/roasting/$batchId'
+      fullPath: '/roasting/$batchId'
+      preLoaderRoute: typeof AppRoastingBatchIdRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/samples/': {
+      id: '/_app/samples/'
+      path: '/samples'
+      fullPath: '/samples/'
+      preLoaderRoute: typeof AppSamplesIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
   }
 }
 
 interface AppRouteChildren {
   AppIndexRoute: typeof AppIndexRoute
+  AppInventoryLotIdRoute: typeof AppInventoryLotIdRoute
+  AppInventoryBlendsRoute: typeof AppInventoryBlendsRoute
+  AppOrdersOrderIdRoute: typeof AppOrdersOrderIdRoute
+  AppRoastingBatchIdRoute: typeof AppRoastingBatchIdRoute
+  AppInventoryIndexRoute: typeof AppInventoryIndexRoute
+  AppOrdersIndexRoute: typeof AppOrdersIndexRoute
+  AppRoastingIndexRoute: typeof AppRoastingIndexRoute
+  AppSamplesIndexRoute: typeof AppSamplesIndexRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
   AppIndexRoute: AppIndexRoute,
+  AppInventoryLotIdRoute: AppInventoryLotIdRoute,
+  AppInventoryBlendsRoute: AppInventoryBlendsRoute,
+  AppOrdersOrderIdRoute: AppOrdersOrderIdRoute,
+  AppRoastingBatchIdRoute: AppRoastingBatchIdRoute,
+  AppInventoryIndexRoute: AppInventoryIndexRoute,
+  AppOrdersIndexRoute: AppOrdersIndexRoute,
+  AppRoastingIndexRoute: AppRoastingIndexRoute,
+  AppSamplesIndexRoute: AppSamplesIndexRoute,
 }
 
 const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)

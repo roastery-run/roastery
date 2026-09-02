@@ -30,6 +30,7 @@ import {
   allocationStrategyEnum,
   customerTypeEnum,
   fulfillmentStatusEnum,
+  priceUnitEnum,
   salesChannelKindEnum,
   salesOrderStatusEnum,
   scheduleStatusEnum,
@@ -122,6 +123,8 @@ export const salesOrderLines = pgTable(
     blendId: uuid("blend_id").references(() => blends.id, { onDelete: "set null" }),
     description: text("description").notNull(),
     quantity: numeric("quantity", { precision: 14, scale: 4 }).notNull(),
+    /** What `unitPrice` is quoted against. See the enum for why it is needed. */
+    priceUnit: priceUnitEnum("price_unit").notNull().default("unit"),
     /** Roasted weight this line represents; what scheduling actually needs. */
     weightKg: numeric("weight_kg", { precision: 14, scale: 4 }).notNull(),
     unitPrice: numeric("unit_price", { precision: 18, scale: 6 }),

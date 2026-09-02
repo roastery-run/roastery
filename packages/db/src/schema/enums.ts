@@ -510,3 +510,12 @@ export const reportKindEnum = pgEnum("report_kind", [
 ]);
 
 export const reportStatusEnum = pgEnum("report_status", ["queued", "rendering", "ready", "failed"]);
+
+/**
+ * What a line's unit price is quoted against.
+ *
+ * A roastery sells both: a 250 g retail bag is priced per unit, a 25 kg
+ * wholesale sack is priced per kilogram. Without this the total has to guess,
+ * and guessing "per unit" prices a 44 kg line the same as a 4 kg one.
+ */
+export const priceUnitEnum = pgEnum("price_unit", ["unit", "kg"]);

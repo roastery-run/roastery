@@ -2,6 +2,9 @@ import { z } from "zod";
 import { codeSchema, listOutput, pageInputSchema, uuidSchema } from "./common";
 import { positiveWeightKgSchema } from "./inventory";
 
+/** What a line's unit price is quoted against. */
+export const priceUnitSchema = z.enum(["unit", "kg"]);
+
 export const customerTypeSchema = z.enum([
   "wholesale",
   "cafe",
@@ -72,6 +75,8 @@ export const orderLineSchema = z.object({
   /** weight − allocated: what production still has to cover. */
   outstandingWeightKg: z.string(),
   unitPrice: z.string().nullable(),
+  /** What `unitPrice` is quoted against. */
+  priceUnit: priceUnitSchema,
 });
 
 export const salesOrderSchema = z.object({
@@ -118,6 +123,12 @@ export const createOrderInput = z.object({
         quantity: z.string(),
         weightKg: positiveWeightKgSchema,
         unitPrice: z.string().optional(),
+        /**
+         * Defaults to `unit`, which is what a retail bag is. Wholesale coffee
+         * is almost always `kg` — quoting a per-kilogram price and leaving this
+         * at `unit` prices a 44 kg line as though it were one item.
+         */
+        priceUnit: priceUnitSchema.default("unit"),
       }),
     )
     .min(1)
