@@ -48,7 +48,7 @@ function render(): string {
   const out: string[] = [];
   const names = PLANS.map((plan) => plan.name);
 
-  out.push("# Roastery pricing");
+  out.push("# ROASTERY pricing");
   out.push("");
   out.push(
     "Coffee operations platform: green contracts, inventory, roasting, quality, " +

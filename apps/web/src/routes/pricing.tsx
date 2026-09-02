@@ -7,13 +7,13 @@ import { EVERY_PLAN, FAQS, PLANS } from "@/content/pricing";
 export const Route = createFileRoute("/pricing")({
   head: () => ({
     meta: [
-      { title: "Pricing — Roastery" },
+      { title: "Pricing — ROASTERY" },
       {
         name: "description",
         content:
           "Four plans, from a single-machine roastery to one buying its own green and running its own bars. Every plan includes the public API for the modules it covers.",
       },
-      { property: "og:title", content: "Roastery pricing" },
+      { property: "og:title", content: "ROASTERY pricing" },
     ],
     links: [
       { rel: "canonical", href: "https://roastery.run/pricing" },

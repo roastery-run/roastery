@@ -92,7 +92,7 @@ export function LoginForm({
             both, since a provider or an email link creates the account on first
             use. A returning-user greeting would be wrong for half the people
             who see it. */}
-        <h1 className="font-semibold text-xl tracking-tight">Sign in to Roastery</h1>
+        <h1 className="font-semibold text-xl tracking-tight">Sign in to ROASTERY</h1>
         <p className="text-muted-foreground text-sm">
           Continue with a provider, or we will email you a link.
         </p>

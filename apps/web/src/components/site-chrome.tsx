@@ -12,7 +12,7 @@ function Mark({ className }: { className?: string }) {
   return (
     <span className={cn("inline-flex items-center gap-2", className)}>
       <svg viewBox="0 0 32 32" className="size-6 shrink-0" aria-hidden="true">
-        <title>Roastery</title>
+        <title>ROASTERY</title>
         <rect width="32" height="32" rx="4" className="fill-primary" />
         <path
           d="M9 10h11a5 5 0 0 1 0 10h-1v1a3 3 0 0 1-3 3h-4a3 3 0 0 1-3-3V10z"
@@ -22,7 +22,7 @@ function Mark({ className }: { className?: string }) {
           strokeLinejoin="round"
         />
       </svg>
-      <span className="font-semibold tracking-tight">Roastery</span>
+      <span className="font-semibold tracking-[0.06em]">ROASTERY</span>
     </span>
   );
 }
@@ -35,7 +35,7 @@ export function SiteHeader() {
     // spanning the viewport. The panel centres its own content separately.
     <header className="sticky top-0 z-40 border-border border-b bg-background/85 backdrop-blur relative">
       <div className="mx-auto flex h-14 max-w-6xl items-center gap-4 px-6">
-        <Link to="/" aria-label="Roastery home">
+        <Link to="/" aria-label="ROASTERY home">
           <Mark />
         </Link>
 

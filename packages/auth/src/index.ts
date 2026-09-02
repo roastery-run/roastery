@@ -241,9 +241,9 @@ export function createAuth(db: WorkerDb, env: AuthEnv, sendEmail?: EmailSender) 
           }
           await sendEmail({
             to: email,
-            subject: "Sign in to Roastery",
+            subject: "Sign in to ROASTERY",
             text: `Sign in: ${url}\n\nThis link expires in 5 minutes.`,
-            html: `<p>Sign in to Roastery.</p><p><a href="${url}">Sign in</a></p><p>This link expires in 5 minutes.</p>`,
+            html: `<p>Sign in to ROASTERY.</p><p><a href="${url}">Sign in</a></p><p>This link expires in 5 minutes.</p>`,
           });
         },
       }),

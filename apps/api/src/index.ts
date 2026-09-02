@@ -167,7 +167,7 @@ app.route("/", publicRoutes);
 app.doc("/openapi.json", (c) => ({
   openapi: "3.1.0",
   info: {
-    title: "Roastery API",
+    title: "ROASTERY API",
     version: "1.0.0",
     description:
       "Domain-oriented RPC API for coffee operations. Every operation is a POST to " +
@@ -193,7 +193,7 @@ app.doc("/openapi.json", (c) => ({
 app.get("/openapi.public.json", async (c) => {
   const doc = app.getOpenAPI31Document({
     openapi: "3.1.0",
-    info: { title: "Roastery API", version: "1.0.0" },
+    info: { title: "ROASTERY API", version: "1.0.0" },
     servers: [{ url: new URL(c.req.url).origin }],
   }) as { paths: Record<string, unknown> };
 
@@ -205,7 +205,7 @@ app.get("/openapi.public.json", async (c) => {
   return c.json({ ...doc, paths });
 });
 
-app.get("/docs", Scalar({ url: "/openapi.public.json", pageTitle: "Roastery API" }));
+app.get("/docs", Scalar({ url: "/openapi.public.json", pageTitle: "ROASTERY API" }));
 
 app.get("/health", async (c) => {
   const deep = c.req.query("deep") === "1";

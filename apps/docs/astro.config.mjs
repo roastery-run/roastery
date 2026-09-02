@@ -13,7 +13,7 @@ export default defineConfig({
   site: "https://docs.roastery.run",
   integrations: [
     starlight({
-      title: "Roastery",
+      title: "ROASTERY",
       description: "Coffee operations API — RPC over HTTP, one surface for every client.",
       social: [],
       customCss: ["./src/styles/docs.css"],

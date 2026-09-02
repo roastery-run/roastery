@@ -18,13 +18,13 @@ export const Route = createRootRouteWithContext<RouterContext>()({
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Roastery — coffee operations, from the contract to the cup" },
+      { title: "ROASTERY — coffee operations, from the contract to the cup" },
       {
         name: "description",
         content:
           "Green contracts, inventory, roasting, quality, planning, orders and cafés in one system of record, on a public API the product itself uses.",
       },
-      { property: "og:site_name", content: "Roastery" },
+      { property: "og:site_name", content: "ROASTERY" },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
     ],

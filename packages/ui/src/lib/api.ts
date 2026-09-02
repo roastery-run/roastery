@@ -107,7 +107,7 @@ export async function rpc<TOut = unknown, TIn = unknown>(
     // A network failure is not an API error and must not be reported as one:
     // the retry policy and the message a user sees are both different.
     if (cause instanceof DOMException && cause.name === "AbortError") throw cause;
-    throw new ApiError("Could not reach the Roastery API", 0, {
+    throw new ApiError("Could not reach the ROASTERY API", 0, {
       error: "network_error",
       code: "network_error",
     });

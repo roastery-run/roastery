@@ -1,7 +1,7 @@
 {
   "openapi": "3.1.0",
   "info": {
-    "title": "Roastery API",
+    "title": "ROASTERY API",
     "version": "1.0.0"
   },
   "servers": [
@@ -463,6 +463,695 @@
                     "variancePct",
                     "notes",
                     "createdAt"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "402": {
+            "description": "The organization's plan does not include this module, or a limit is exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string",
+                      "enum": [
+                        "entitlement_required",
+                        "quota_exceeded"
+                      ]
+                    },
+                    "module": {
+                      "type": "string"
+                    },
+                    "plan": {
+                      "type": "string"
+                    },
+                    "requiredPlans": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "key": {
+                      "type": "string"
+                    },
+                    "limit": {
+                      "type": "number"
+                    },
+                    "current": {
+                      "type": "number"
+                    }
+                  },
+                  "required": [
+                    "error",
+                    "code"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller's role does not grant this permission",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited — see Retry-After",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "correlationId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/rpc/v1/cafe.listReconciliations": {
+      "post": {
+        "tags": [
+          "cafe"
+        ],
+        "operationId": "cafe_listReconciliations",
+        "summary": "Past reconciliations",
+        "description": "A single day's variance says little on its own. A consistent 8% is a process problem; one bad Tuesday is a bad Tuesday, and only the history distinguishes them.\n\nRequires permission `cafe.read` and the `cafe` module on the organization's plan.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "description": "Target organization. Required for session callers. Ignored for machine credentials, which are permanently bound to one organization."
+            },
+            "required": false,
+            "description": "Target organization. Required for session callers. Ignored for machine credentials, which are permanently bound to one organization.",
+            "name": "x-roastery-org",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "filter": {
+                    "type": "object",
+                    "properties": {
+                      "siteId": {
+                        "type": "string",
+                        "format": "uuid"
+                      },
+                      "status": {
+                        "type": "string",
+                        "enum": [
+                          "pending",
+                          "matched",
+                          "shot_missing",
+                          "sale_missing",
+                          "quantity_mismatch"
+                        ]
+                      }
+                    }
+                  },
+                  "page": {
+                    "type": "object",
+                    "properties": {
+                      "cursor": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 512
+                      },
+                      "limit": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 200,
+                        "default": 50
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Past reconciliations",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "siteId": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "businessDate": {
+                            "type": "string"
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "pending",
+                              "matched",
+                              "shot_missing",
+                              "sale_missing",
+                              "quantity_mismatch"
+                            ]
+                          },
+                          "shotCount": {
+                            "type": "integer"
+                          },
+                          "saleShotEquivalents": {
+                            "type": "integer"
+                          },
+                          "variance": {
+                            "type": "integer"
+                          },
+                          "variancePct": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "notes": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "createdAt": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "siteId",
+                          "businessDate",
+                          "status",
+                          "shotCount",
+                          "saleShotEquivalents",
+                          "variance",
+                          "variancePct",
+                          "notes",
+                          "createdAt"
+                        ]
+                      }
+                    },
+                    "page": {
+                      "type": "object",
+                      "properties": {
+                        "nextCursor": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "hasMore": {
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "nextCursor",
+                        "hasMore"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "items",
+                    "page"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "402": {
+            "description": "The organization's plan does not include this module, or a limit is exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string",
+                      "enum": [
+                        "entitlement_required",
+                        "quota_exceeded"
+                      ]
+                    },
+                    "module": {
+                      "type": "string"
+                    },
+                    "plan": {
+                      "type": "string"
+                    },
+                    "requiredPlans": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "key": {
+                      "type": "string"
+                    },
+                    "limit": {
+                      "type": "number"
+                    },
+                    "current": {
+                      "type": "number"
+                    }
+                  },
+                  "required": [
+                    "error",
+                    "code"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller's role does not grant this permission",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited — see Retry-After",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "correlationId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "cafe"
+        ],
+        "operationId": "cafe_listReconciliations_get",
+        "summary": "Past reconciliations",
+        "description": "A single day's variance says little on its own. A consistent 8% is a process problem; one bad Tuesday is a bad Tuesday, and only the history distinguishes them.\n\nRequires permission `cafe.read` and the `cafe` module on the organization's plan.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "description": "URL-encoded JSON, identical in shape to the POST body."
+            },
+            "required": false,
+            "description": "URL-encoded JSON, identical in shape to the POST body.",
+            "name": "input",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "description": "Target organization. Required for session callers. Ignored for machine credentials, which are permanently bound to one organization."
+            },
+            "required": false,
+            "description": "Target organization. Required for session callers. Ignored for machine credentials, which are permanently bound to one organization.",
+            "name": "x-roastery-org",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Past reconciliations",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "siteId": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "businessDate": {
+                            "type": "string"
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "pending",
+                              "matched",
+                              "shot_missing",
+                              "sale_missing",
+                              "quantity_mismatch"
+                            ]
+                          },
+                          "shotCount": {
+                            "type": "integer"
+                          },
+                          "saleShotEquivalents": {
+                            "type": "integer"
+                          },
+                          "variance": {
+                            "type": "integer"
+                          },
+                          "variancePct": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "notes": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "createdAt": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "siteId",
+                          "businessDate",
+                          "status",
+                          "shotCount",
+                          "saleShotEquivalents",
+                          "variance",
+                          "variancePct",
+                          "notes",
+                          "createdAt"
+                        ]
+                      }
+                    },
+                    "page": {
+                      "type": "object",
+                      "properties": {
+                        "nextCursor": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "hasMore": {
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "nextCursor",
+                        "hasMore"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "items",
+                    "page"
                   ]
                 }
               }

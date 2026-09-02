@@ -85,7 +85,9 @@ function AppSidebar() {
                 {/* Hidden outright when collapsed. Left to `truncate` alone it
                     renders a clipped "R" beside the mark, which reads as a
                     rendering fault rather than a deliberate icon rail. */}
-                <span className="font-semibold group-data-[collapsible=icon]:hidden">Roastery</span>
+                <span className="font-semibold tracking-[0.06em] group-data-[collapsible=icon]:hidden">
+                  ROASTERY
+                </span>
               </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>

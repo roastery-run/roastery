@@ -235,6 +235,16 @@ feature can hit them too.
 
 ## 9. Frontend
 
+**The name is ROASTERY, uppercase, wherever a person reads it** — wordmarks,
+page titles, headings, marketing copy, email subjects, the docs title, the
+OpenAPI title. It is a wordmark, not a common noun; written "Roastery" it reads
+as the generic word for the building, which is what the product is sold TO.
+
+Machine-facing spellings are contracts, not branding, and stay as they are:
+`@roastery/*` package names, the `X-Roastery-Org` request header and the
+`Roastery-*` response headers, the `roastery-theme` cookie, the `roastery.run`
+domain, and TypeScript identifiers such as `RoasteryColumnMeta`.
+
 **Three apps, and the split is load-bearing.**
 
 - `web` is **server-rendered**. `/trace/$code` is the QR target on retail bags —
