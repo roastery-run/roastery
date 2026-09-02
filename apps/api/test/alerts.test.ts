@@ -1,9 +1,9 @@
 import { contractMilestones, contracts, greenLots, partners } from "@roastery/db/schema";
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { recordNewAlerts, scanAlerts } from "../src/lib/alerts";
-import type { WorkerDb } from "../src/lib/db";
-import type { OrgDb } from "../src/lib/org-db";
+import type { WorkerDb } from "../src/lib/db/db";
+import type { OrgDb } from "../src/lib/db/org-db";
+import { recordNewAlerts, scanAlerts } from "../src/lib/domain/alerts";
 import { connect, createTestOrg, dropTestOrg, hasTestDb, orgDb, seedLot } from "./helpers/db";
 
 /**

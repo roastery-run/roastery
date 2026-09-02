@@ -161,6 +161,19 @@ export const TENANT_DIRECT = {
   units_of_measure: { table: s.unitsOfMeasure, column: s.unitsOfMeasure.orgId, field: "orgId" },
   audit_events: { table: s.auditEvents, column: s.auditEvents.orgId, field: "orgId" },
   events: { table: s.events, column: s.events.orgId, field: "orgId" },
+  webhook_endpoints: {
+    table: s.webhookEndpoints,
+    column: s.webhookEndpoints.orgId,
+    field: "orgId",
+  },
+  // Directly scoped rather than reached through its endpoint: the deliveries
+  // list is a per-org screen filtered by status and date, and a semi-join
+  // through endpoints on the hottest support query is a needless cost.
+  webhook_deliveries: {
+    table: s.webhookDeliveries,
+    column: s.webhookDeliveries.orgId,
+    field: "orgId",
+  },
 } satisfies Record<string, DirectTenancy>;
 
 /**

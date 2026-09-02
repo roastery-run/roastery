@@ -9,7 +9,8 @@
     "deploy": "wrangler deploy",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "verify:orders": "node scripts/verify-orders-scheduling.mjs"
+    "verify:orders": "node scripts/verify-orders-scheduling.mjs",
+    "verify:webhooks": "node scripts/verify-webhooks.mjs"
   },
   "dependencies": {
     "@better-auth/api-key": "1.7.2",

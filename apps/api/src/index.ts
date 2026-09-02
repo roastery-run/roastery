@@ -1,34 +1,29 @@
+import type {
+  ExecutionContext,
+  MessageBatch,
+  ScheduledController,
+} from "@cloudflare/workers-types";
 import { OpenAPIHono } from "@hono/zod-openapi";
 import { createAuth } from "@roastery/auth";
 import { Scalar } from "@scalar/hono-api-reference";
 import { bodyLimit } from "hono/body-limit";
 import { cors } from "hono/cors";
 import { secureHeaders } from "hono/secure-headers";
+import { handleScheduled } from "./cron";
+import type { Env, EventQueueMessage, WebhookQueueMessage } from "./env";
 import { assertProductionBindings } from "./env";
-import { authMiddleware } from "./lib/auth-middleware";
-import { closeWorkerDb, createWorkerDb, safeExecutionCtx } from "./lib/db";
-import { QuotaExceeded } from "./lib/entitlements";
-import { isHttpError } from "./lib/errors";
-import { orgScope } from "./lib/org-scope";
-import { rateLimit } from "./lib/rate-limit";
-import { RPC_REGISTRY, type RpcAppEnv, rpcPath } from "./lib/rpc";
-import { rpcAuthorize } from "./lib/rpc-authorize";
-import { ingestRoutes } from "./routes/ingest";
-import { streamRoutes } from "./routes/stream";
-import { catalogLocation } from "./rpc/catalog-location";
-import { catalogMachine } from "./rpc/catalog-machine";
-import { catalogParty } from "./rpc/catalog-party";
-import { catalogProduct } from "./rpc/catalog-product";
-import { consoleRoutes } from "./rpc/console";
-import { inventoryCosting } from "./rpc/inventory-costing";
-import { inventoryGreen } from "./rpc/inventory-green";
-import { inventoryMaterial } from "./rpc/inventory-material";
-import { inventoryRoast } from "./rpc/inventory-roast";
-import { orders } from "./rpc/orders";
-import { productionRoast } from "./rpc/production-roast";
-import { quality } from "./rpc/quality";
-import { sourcingContract } from "./rpc/sourcing-contract";
-import { sourcingSample } from "./rpc/sourcing-sample";
+import { ingestRoutes } from "./http/ingest";
+import { streamRoutes } from "./http/stream";
+import { isHttpError } from "./lib/api/errors";
+import { rateLimit } from "./lib/api/rate-limit";
+import { RPC_REGISTRY, type RpcAppEnv, rpcPath } from "./lib/api/rpc";
+import { rpcAuthorize } from "./lib/api/rpc-authorize";
+import { authMiddleware } from "./lib/auth/auth-middleware";
+import { QuotaExceeded } from "./lib/auth/entitlements";
+import { orgScope } from "./lib/auth/org-scope";
+import { closeWorkerDb, createWorkerDb, safeExecutionCtx } from "./lib/db/db";
+import { handleDeadLetterBatch, handleEventQueue, handleWebhookQueue } from "./queue";
+import { mountRpcRoutes } from "./rpc";
 
 /**
  * One error envelope for the whole API.
@@ -122,20 +117,7 @@ app.use("/rpc/v1/*", authMiddleware);
 app.use("/rpc/v1/*", orgScope);
 app.use("/rpc/v1/*", rpcAuthorize);
 
-app.route("/", catalogLocation);
-app.route("/", catalogMachine);
-app.route("/", catalogParty);
-app.route("/", catalogProduct);
-app.route("/", consoleRoutes);
-app.route("/", inventoryGreen);
-app.route("/", inventoryCosting);
-app.route("/", inventoryMaterial);
-app.route("/", inventoryRoast);
-app.route("/", productionRoast);
-app.route("/", orders);
-app.route("/", quality);
-app.route("/", sourcingContract);
-app.route("/", sourcingSample);
+mountRpcRoutes(app);
 
 /* ------------------------------------------------------- telemetry surfaces */
 
@@ -263,4 +245,44 @@ app.onError((err, c) => {
 
 export { RoastBatchDO } from "./durable-objects/roast-batch";
 
-export default app;
+/**
+ * The Hono app itself, so the authorization test can enumerate the generated
+ * OpenAPI document. The default export is the Worker handler object and no
+ * longer carries Hono's methods.
+ */
+export { app };
+
+/**
+ * One Worker, three entry points.
+ *
+ * `fetch` is the API. `queue` drives webhook fan-out and delivery. `scheduled`
+ * is the sweeper that makes the outbox durable rather than merely fast — see
+ * src/cron/index.ts for why both exist.
+ */
+export default {
+  fetch: app.fetch,
+
+  async queue(
+    batch: MessageBatch<EventQueueMessage & WebhookQueueMessage>,
+    env: Env,
+  ): Promise<void> {
+    switch (batch.queue) {
+      case "roastery-events":
+        return handleEventQueue(batch as never, env);
+      case "roastery-webhooks":
+        return handleWebhookQueue(batch as never, env);
+      case "roastery-events-dlq":
+      case "roastery-webhooks-dlq":
+        return handleDeadLetterBatch(batch as never, env);
+      default:
+        // Acknowledged rather than retried: an unknown queue name means a
+        // configuration change, and redelivering forever would not fix it.
+        console.error(JSON.stringify({ msg: "unknown_queue", queue: batch.queue }));
+        for (const message of batch.messages) message.ack();
+    }
+  },
+
+  async scheduled(event: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {
+    ctx.waitUntil(handleScheduled(event.cron, env));
+  },
+};

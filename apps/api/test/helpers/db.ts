@@ -2,8 +2,8 @@ import * as schema from "@roastery/db/schema";
 import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
-import type { WorkerDb } from "../../src/lib/db";
-import { createOrgDb, type OrgDb } from "../../src/lib/org-db";
+import type { WorkerDb } from "../../src/lib/db/db";
+import { createOrgDb, type OrgDb } from "../../src/lib/db/org-db";
 
 /**
  * A real database connection for integration tests.
@@ -72,7 +72,7 @@ export async function seedLot(
   });
   if (!lot) throw new Error("Failed to create test lot");
 
-  const { applyInventoryTransaction } = await import("../../src/lib/inventory");
+  const { applyInventoryTransaction } = await import("../../src/lib/domain/inventory");
   await applyInventoryTransaction(db, {
     greenLotId: lot.id,
     eventType: "receive",

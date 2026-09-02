@@ -432,3 +432,33 @@ export const scheduleStatusEnum = pgEnum("schedule_status", [
   "completed",
   "canceled",
 ]);
+
+/* ---------------------------------------------------------------- webhooks */
+
+/**
+ * `auto_disabled` is deliberately distinct from `disabled`.
+ *
+ * A human turning an endpoint off and the system turning it off after twenty
+ * consecutive failures are different facts, and the console has to be able to
+ * say which happened. Collapsing them would make a self-inflicted outage look
+ * like a deliberate configuration change.
+ */
+export const webhookEndpointStatusEnum = pgEnum("webhook_endpoint_status", [
+  "active",
+  "disabled",
+  "auto_disabled",
+]);
+
+/**
+ * `dead` means "we stopped trying", which is not the same as `failed`.
+ *
+ * A failed delivery is still in the retry schedule; a dead one has exhausted
+ * it, or hit a status that says retrying is pointless. Only `dead` should page
+ * anybody.
+ */
+export const webhookDeliveryStatusEnum = pgEnum("webhook_delivery_status", [
+  "pending",
+  "succeeded",
+  "failed",
+  "dead",
+]);

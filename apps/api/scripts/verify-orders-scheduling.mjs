@@ -16,10 +16,15 @@ const BASE = "http://localhost:8787/rpc/v1";
 const ORG = "11111111-1111-1111-1111-111111111111";
 const LOC = "aaaaaaaa-0000-4000-8000-000000000001";
 let fails = 0;
-const ok = (c, m, extra = "") =>
-  c
-    ? console.log(`  PASS  ${m}${extra ? ` — ${extra}` : ""}`)
-    : (fails++, console.log(`  FAIL  ${m}${extra ? ` — ${extra}` : ""}`));
+function ok(condition, message, extra = "") {
+  const suffix = extra ? ` — ${extra}` : "";
+  if (condition) {
+    console.log(`  PASS  ${message}${suffix}`);
+    return;
+  }
+  fails += 1;
+  console.log(`  FAIL  ${message}${suffix}`);
+}
 
 const sql = (q) =>
   execFileSync(

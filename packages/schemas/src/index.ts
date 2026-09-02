@@ -11,3 +11,4 @@ export * from "./schemas/production";
 export * from "./schemas/quality";
 export * from "./schemas/roasted";
 export * from "./schemas/sourcing";
+export * from "./schemas/webhooks";

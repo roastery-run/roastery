@@ -1,6 +1,6 @@
 import { DurableObject } from "cloudflare:workers";
 import type { Env } from "../env";
-import { firstMissingSeq } from "../lib/resume";
+import { firstMissingSeq } from "../lib/domain/resume";
 
 /**
  * One live roast.

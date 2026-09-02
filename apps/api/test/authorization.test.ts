@@ -29,9 +29,9 @@ import {
   type TransitiveTenancy,
 } from "@roastery/db/tenancy";
 import { describe, expect, it } from "vitest";
-import app from "../src/index";
-import { can } from "../src/lib/permissions";
-import { RPC_BY_PATH, RPC_REGISTRY, rpcPath } from "../src/lib/rpc";
+import { app } from "../src/index";
+import { RPC_BY_PATH, RPC_REGISTRY, rpcPath } from "../src/lib/api/rpc";
+import { can } from "../src/lib/auth/permissions";
 
 const SRC = join(import.meta.dirname, "..", "src");
 

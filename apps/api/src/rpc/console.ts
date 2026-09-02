@@ -20,11 +20,11 @@ import {
   updateMemberRoleInput,
 } from "@roastery/schemas";
 import { desc, eq } from "drizzle-orm";
-import { issueApiKey, listApiKeys, revokeApiKey } from "../lib/api-keys";
-import { BadRequest, NotFound } from "../lib/errors";
-import { issueOAuthClient, listOAuthClients, revokeOAuthClient } from "../lib/oauth-clients";
-import type { OrgDb } from "../lib/org-db";
-import { type RpcAppEnv, registerRpc } from "../lib/rpc";
+import { BadRequest, NotFound } from "../lib/api/errors";
+import { type RpcAppEnv, registerRpc } from "../lib/api/rpc";
+import { issueApiKey, listApiKeys, revokeApiKey } from "../lib/auth/api-keys";
+import { issueOAuthClient, listOAuthClients, revokeOAuthClient } from "../lib/auth/oauth-clients";
+import type { OrgDb } from "../lib/db/org-db";
 
 /**
  * Operations the console needs that are not part of the coffee domain.

@@ -30,6 +30,42 @@
       "preview_bucket_name": "roastery-curves-preview"
     }
   ],
+  "queues": {
+    "producers": [
+      { "binding": "EVENT_QUEUE", "queue": "roastery-events" },
+      { "binding": "WEBHOOK_QUEUE", "queue": "roastery-webhooks" }
+    ],
+    "consumers": [
+      {
+        // Fan-out is cheap and idempotent, so a large batch is fine and the
+        // queue's own retry is enough.
+        "queue": "roastery-events",
+        "max_batch_size": 50,
+        "max_batch_timeout": 5,
+        "max_retries": 5,
+        "dead_letter_queue": "roastery-events-dlq"
+      },
+      {
+        // Delivery makes one outbound HTTP request per message, so batches are
+        // small and concurrency is what provides throughput. max_retries is 6
+        // to match RETRY_DELAYS_SECONDS; the consumer supplies each delay
+        // itself so the documented schedule is the one that runs.
+        "queue": "roastery-webhooks",
+        "max_batch_size": 10,
+        "max_batch_timeout": 5,
+        "max_retries": 6,
+        "dead_letter_queue": "roastery-webhooks-dlq"
+      },
+      { "queue": "roastery-events-dlq", "max_batch_size": 20, "max_retries": 1 },
+      { "queue": "roastery-webhooks-dlq", "max_batch_size": 20, "max_retries": 1 }
+    ]
+  },
+  "triggers": {
+    // Every minute. This is the outbox sweeper: it is what makes "the lot
+    // moved but no webhook fired" unreachable even if the Worker dies between
+    // the commit and the inline enqueue.
+    "crons": ["* * * * *"]
+  },
   "durable_objects": {
     "bindings": [{ "name": "ROAST_BATCH", "class_name": "RoastBatchDO" }]
   },

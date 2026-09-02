@@ -2,9 +2,15 @@ import type {
   DurableObjectNamespace,
   Hyperdrive,
   KVNamespace,
+  Queue,
   R2Bucket,
   RateLimit,
 } from "@cloudflare/workers-types";
+
+/** Fan-out: one message per committed outbox event. */
+export type EventQueueMessage = { eventId: string };
+/** Delivery: one message per (endpoint, event) pair. */
+export type WebhookQueueMessage = { deliveryId: string; attempt: number };
 
 export type Env = {
   /**
@@ -30,12 +36,27 @@ export type Env = {
    */
   ROASTERY_R2: R2Bucket;
 
+  /**
+   * Fan-out. Deliberately separate from delivery: an event with forty
+   * subscribers is one fan-out message and forty delivery messages, and a
+   * slow subscriber must not hold up the other thirty-nine.
+   */
+  EVENT_QUEUE?: Queue<EventQueueMessage>;
+  WEBHOOK_QUEUE?: Queue<WebhookQueueMessage>;
+
   RPC_SUSTAINED_LIMITER?: RateLimit;
   RPC_BURST_LIMITER?: RateLimit;
   AUTH_RATE_LIMITER?: RateLimit;
   SESSION_RATE_LIMITER?: RateLimit;
 
   BETTER_AUTH_SECRET: string;
+  /**
+   * Key-encryption key for webhook signing secrets: 32 base64-encoded bytes.
+   *
+   * Held as a Worker secret rather than in the database, which is the entire
+   * protection — a leaked dump has the ciphertext and not this.
+   */
+  WEBHOOK_KEK?: string;
   BETTER_AUTH_URL: string;
   WEB_URL?: string;
   CONSOLE_URL?: string;
@@ -61,5 +82,10 @@ export function assertProductionBindings(env: Env): void {
   if (env.ENVIRONMENT !== "production") return;
   if (!env.HYPERDRIVE_CACHE_DISABLED) {
     throw new Error("HYPERDRIVE_CACHE_DISABLED is required in production");
+  }
+  // Without it, creating a webhook endpoint would fail at the point of sealing
+  // its secret. Better to refuse to start than to fail one customer at a time.
+  if (!env.WEBHOOK_KEK) {
+    throw new Error("WEBHOOK_KEK is required in production");
   }
 }

@@ -38,6 +38,8 @@ CREATE TYPE "public"."shipment_status" AS ENUM('booked', 'loaded', 'in_transit',
 CREATE TYPE "public"."subscription_status" AS ENUM('trialing', 'active', 'past_due', 'canceled', 'paused');--> statement-breakpoint
 CREATE TYPE "public"."trace_node_kind" AS ENUM('producer', 'green_lot', 'roast_batch', 'roasted_lot', 'blend_lot', 'product_batch', 'order_line');--> statement-breakpoint
 CREATE TYPE "public"."uom_kind" AS ENUM('mass', 'volume', 'count', 'bag', 'length', 'time');--> statement-breakpoint
+CREATE TYPE "public"."webhook_delivery_status" AS ENUM('pending', 'succeeded', 'failed', 'dead');--> statement-breakpoint
+CREATE TYPE "public"."webhook_endpoint_status" AS ENUM('active', 'disabled', 'auto_disabled');--> statement-breakpoint
 CREATE TABLE "accounts" (
 	"id" text PRIMARY KEY NOT NULL,
 	"user_id" text NOT NULL,
@@ -488,6 +490,115 @@ CREATE TABLE "oauth_resources" (
 	CONSTRAINT "oauth_resources_identifier_unique" UNIQUE("identifier")
 );
 --> statement-breakpoint
+CREATE TABLE "allocations" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"org_id" uuid NOT NULL,
+	"order_line_id" uuid NOT NULL,
+	"roasted_lot_id" uuid NOT NULL,
+	"weight_kg" numeric(14, 4) NOT NULL,
+	"strategy" "allocation_strategy" DEFAULT 'fefo' NOT NULL,
+	"allocated_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"released_at" timestamp with time zone
+);
+--> statement-breakpoint
+CREATE TABLE "customers" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"org_id" uuid NOT NULL,
+	"name" text NOT NULL,
+	"code" text NOT NULL,
+	"customer_type" "customer_type" DEFAULT 'wholesale' NOT NULL,
+	"partner_id" uuid,
+	"currency" text DEFAULT 'USD' NOT NULL,
+	"payment_terms_days" integer,
+	"credit_limit" numeric(18, 4),
+	"contact_email" text,
+	"shipping_address" text,
+	"is_active" boolean DEFAULT true NOT NULL,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "fulfillments" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"org_id" uuid NOT NULL,
+	"order_id" uuid NOT NULL,
+	"fulfillment_number" text NOT NULL,
+	"status" "fulfillment_status" DEFAULT 'pending' NOT NULL,
+	"location_id" uuid,
+	"carrier" text,
+	"tracking_number" text,
+	"weight_kg" numeric(14, 4),
+	"shipped_at" timestamp with time zone,
+	"delivered_at" timestamp with time zone,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "production_schedules" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"org_id" uuid NOT NULL,
+	"name" text NOT NULL,
+	"scheduled_date" date NOT NULL,
+	"location_id" uuid,
+	"status" "schedule_status" DEFAULT 'draft' NOT NULL,
+	"feasibility_notes" text[] DEFAULT '{}' NOT NULL,
+	"released_at" timestamp with time zone,
+	"released_by" text,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "sales_order_lines" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"org_id" uuid NOT NULL,
+	"order_id" uuid NOT NULL,
+	"position" integer DEFAULT 0 NOT NULL,
+	"product_id" uuid,
+	"blend_id" uuid,
+	"description" text NOT NULL,
+	"quantity" numeric(14, 4) NOT NULL,
+	"weight_kg" numeric(14, 4) NOT NULL,
+	"unit_price" numeric(18, 6),
+	"line_total" numeric(18, 4),
+	"grind_note" text,
+	"allocated_weight_kg" numeric(14, 4) DEFAULT '0' NOT NULL,
+	"fulfilled_weight_kg" numeric(14, 4) DEFAULT '0' NOT NULL,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "sales_orders" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"org_id" uuid NOT NULL,
+	"order_number" text NOT NULL,
+	"customer_id" uuid NOT NULL,
+	"channel" "sales_channel_kind" DEFAULT 'direct' NOT NULL,
+	"external_order_id" text,
+	"status" "sales_order_status" DEFAULT 'draft' NOT NULL,
+	"currency" text DEFAULT 'USD' NOT NULL,
+	"subtotal" numeric(18, 4) DEFAULT '0' NOT NULL,
+	"total" numeric(18, 4) DEFAULT '0' NOT NULL,
+	"ordered_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"requested_ship_at" date,
+	"promised_at" date,
+	"notes" text,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "scheduled_batches" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"org_id" uuid NOT NULL,
+	"schedule_id" uuid NOT NULL,
+	"machine_id" uuid,
+	"profile_id" uuid,
+	"blend_id" uuid,
+	"position" integer NOT NULL,
+	"planned_charge_kg" numeric(12, 4) NOT NULL,
+	"planned_yield_kg" numeric(12, 4),
+	"demand_line_ids" text[] DEFAULT '{}' NOT NULL,
+	"roast_batch_id" uuid,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
 CREATE TABLE "api_keys" (
 	"id" text PRIMARY KEY NOT NULL,
 	"config_id" text DEFAULT 'default' NOT NULL,
@@ -532,6 +643,7 @@ CREATE TABLE "events" (
 	"resource_type" text NOT NULL,
 	"resource_id" text NOT NULL,
 	"payload" jsonb NOT NULL,
+	"sequence" bigserial NOT NULL,
 	"actor_id" text,
 	"actor_type" "actor_type" NOT NULL,
 	"occurred_at" timestamp with time zone DEFAULT now() NOT NULL,
@@ -653,115 +765,6 @@ CREATE TABLE "units_of_measure" (
 	"kind" "uom_kind" NOT NULL,
 	"factor_to_kg" numeric(18, 8),
 	"is_system" boolean DEFAULT false NOT NULL,
-	"created_at" timestamp with time zone DEFAULT now() NOT NULL
-);
---> statement-breakpoint
-CREATE TABLE "allocations" (
-	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
-	"org_id" uuid NOT NULL,
-	"order_line_id" uuid NOT NULL,
-	"roasted_lot_id" uuid NOT NULL,
-	"weight_kg" numeric(14, 4) NOT NULL,
-	"strategy" "allocation_strategy" DEFAULT 'fefo' NOT NULL,
-	"allocated_at" timestamp with time zone DEFAULT now() NOT NULL,
-	"released_at" timestamp with time zone
-);
---> statement-breakpoint
-CREATE TABLE "customers" (
-	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
-	"org_id" uuid NOT NULL,
-	"name" text NOT NULL,
-	"code" text NOT NULL,
-	"customer_type" "customer_type" DEFAULT 'wholesale' NOT NULL,
-	"partner_id" uuid,
-	"currency" text DEFAULT 'USD' NOT NULL,
-	"payment_terms_days" integer,
-	"credit_limit" numeric(18, 4),
-	"contact_email" text,
-	"shipping_address" text,
-	"is_active" boolean DEFAULT true NOT NULL,
-	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
-	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
-);
---> statement-breakpoint
-CREATE TABLE "fulfillments" (
-	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
-	"org_id" uuid NOT NULL,
-	"order_id" uuid NOT NULL,
-	"fulfillment_number" text NOT NULL,
-	"status" "fulfillment_status" DEFAULT 'pending' NOT NULL,
-	"location_id" uuid,
-	"carrier" text,
-	"tracking_number" text,
-	"weight_kg" numeric(14, 4),
-	"shipped_at" timestamp with time zone,
-	"delivered_at" timestamp with time zone,
-	"created_at" timestamp with time zone DEFAULT now() NOT NULL
-);
---> statement-breakpoint
-CREATE TABLE "production_schedules" (
-	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
-	"org_id" uuid NOT NULL,
-	"name" text NOT NULL,
-	"scheduled_date" date NOT NULL,
-	"location_id" uuid,
-	"status" "schedule_status" DEFAULT 'draft' NOT NULL,
-	"feasibility_notes" text[] DEFAULT '{}' NOT NULL,
-	"released_at" timestamp with time zone,
-	"released_by" text,
-	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
-	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
-);
---> statement-breakpoint
-CREATE TABLE "sales_order_lines" (
-	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
-	"org_id" uuid NOT NULL,
-	"order_id" uuid NOT NULL,
-	"position" integer DEFAULT 0 NOT NULL,
-	"product_id" uuid,
-	"blend_id" uuid,
-	"description" text NOT NULL,
-	"quantity" numeric(14, 4) NOT NULL,
-	"weight_kg" numeric(14, 4) NOT NULL,
-	"unit_price" numeric(18, 6),
-	"line_total" numeric(18, 4),
-	"grind_note" text,
-	"allocated_weight_kg" numeric(14, 4) DEFAULT '0' NOT NULL,
-	"fulfilled_weight_kg" numeric(14, 4) DEFAULT '0' NOT NULL,
-	"created_at" timestamp with time zone DEFAULT now() NOT NULL
-);
---> statement-breakpoint
-CREATE TABLE "sales_orders" (
-	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
-	"org_id" uuid NOT NULL,
-	"order_number" text NOT NULL,
-	"customer_id" uuid NOT NULL,
-	"channel" "sales_channel_kind" DEFAULT 'direct' NOT NULL,
-	"external_order_id" text,
-	"status" "sales_order_status" DEFAULT 'draft' NOT NULL,
-	"currency" text DEFAULT 'USD' NOT NULL,
-	"subtotal" numeric(18, 4) DEFAULT '0' NOT NULL,
-	"total" numeric(18, 4) DEFAULT '0' NOT NULL,
-	"ordered_at" timestamp with time zone DEFAULT now() NOT NULL,
-	"requested_ship_at" date,
-	"promised_at" date,
-	"notes" text,
-	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
-	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
-);
---> statement-breakpoint
-CREATE TABLE "scheduled_batches" (
-	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
-	"org_id" uuid NOT NULL,
-	"schedule_id" uuid NOT NULL,
-	"machine_id" uuid,
-	"profile_id" uuid,
-	"blend_id" uuid,
-	"position" integer NOT NULL,
-	"planned_charge_kg" numeric(12, 4) NOT NULL,
-	"planned_yield_kg" numeric(12, 4),
-	"demand_line_ids" text[] DEFAULT '{}' NOT NULL,
-	"roast_batch_id" uuid,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
@@ -1153,6 +1156,45 @@ CREATE TABLE "shipments" (
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
+CREATE TABLE "webhook_deliveries" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"org_id" uuid NOT NULL,
+	"endpoint_id" uuid NOT NULL,
+	"event_id" uuid NOT NULL,
+	"event_type" text NOT NULL,
+	"status" "webhook_delivery_status" DEFAULT 'pending' NOT NULL,
+	"attempt" integer DEFAULT 0 NOT NULL,
+	"next_attempt_at" timestamp with time zone,
+	"last_status_code" integer,
+	"last_error" text,
+	"last_duration_ms" integer,
+	"delivered_at" timestamp with time zone,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "webhook_endpoints" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"org_id" uuid NOT NULL,
+	"url" text NOT NULL,
+	"description" text,
+	"event_types" text[] DEFAULT '{}'::text[] NOT NULL,
+	"secret_ciphertext" text NOT NULL,
+	"secret_iv" text NOT NULL,
+	"previous_secret_ciphertext" text,
+	"previous_secret_iv" text,
+	"previous_secret_expires_at" timestamp with time zone,
+	"status" "webhook_endpoint_status" DEFAULT 'active' NOT NULL,
+	"consecutive_failures" integer DEFAULT 0 NOT NULL,
+	"last_success_at" timestamp with time zone,
+	"last_failure_at" timestamp with time zone,
+	"disabled_at" timestamp with time zone,
+	"disabled_reason" text,
+	"created_by" text,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
 ALTER TABLE "accounts" ADD CONSTRAINT "accounts_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "passkeys" ADD CONSTRAINT "passkeys_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "sessions" ADD CONSTRAINT "sessions_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
@@ -1209,24 +1251,6 @@ ALTER TABLE "oauth_consents" ADD CONSTRAINT "oauth_consents_user_id_users_id_fk"
 ALTER TABLE "oauth_refresh_tokens" ADD CONSTRAINT "oauth_refresh_tokens_client_id_oauth_clients_client_id_fk" FOREIGN KEY ("client_id") REFERENCES "public"."oauth_clients"("client_id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "oauth_refresh_tokens" ADD CONSTRAINT "oauth_refresh_tokens_session_id_sessions_id_fk" FOREIGN KEY ("session_id") REFERENCES "public"."sessions"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "oauth_refresh_tokens" ADD CONSTRAINT "oauth_refresh_tokens_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "api_keys" ADD CONSTRAINT "api_keys_reference_id_organizations_id_fk" FOREIGN KEY ("reference_id") REFERENCES "public"."organizations"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "audit_events" ADD CONSTRAINT "audit_events_org_id_organizations_id_fk" FOREIGN KEY ("org_id") REFERENCES "public"."organizations"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "events" ADD CONSTRAINT "events_org_id_organizations_id_fk" FOREIGN KEY ("org_id") REFERENCES "public"."organizations"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "locations" ADD CONSTRAINT "locations_org_id_organizations_id_fk" FOREIGN KEY ("org_id") REFERENCES "public"."organizations"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "org_entitlement_overrides" ADD CONSTRAINT "org_entitlement_overrides_org_id_organizations_id_fk" FOREIGN KEY ("org_id") REFERENCES "public"."organizations"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "org_entitlement_overrides" ADD CONSTRAINT "org_entitlement_overrides_set_by_users_id_fk" FOREIGN KEY ("set_by") REFERENCES "public"."users"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "org_invitations" ADD CONSTRAINT "org_invitations_org_id_organizations_id_fk" FOREIGN KEY ("org_id") REFERENCES "public"."organizations"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "org_invitations" ADD CONSTRAINT "org_invitations_role_slug_roles_slug_fk" FOREIGN KEY ("role_slug") REFERENCES "public"."roles"("slug") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "org_invitations" ADD CONSTRAINT "org_invitations_invited_by_users_id_fk" FOREIGN KEY ("invited_by") REFERENCES "public"."users"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "org_members" ADD CONSTRAINT "org_members_org_id_organizations_id_fk" FOREIGN KEY ("org_id") REFERENCES "public"."organizations"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "org_members" ADD CONSTRAINT "org_members_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "org_members" ADD CONSTRAINT "org_members_role_slug_roles_slug_fk" FOREIGN KEY ("role_slug") REFERENCES "public"."roles"("slug") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "org_subscriptions" ADD CONSTRAINT "org_subscriptions_org_id_organizations_id_fk" FOREIGN KEY ("org_id") REFERENCES "public"."organizations"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "org_subscriptions" ADD CONSTRAINT "org_subscriptions_plan_slug_plans_slug_fk" FOREIGN KEY ("plan_slug") REFERENCES "public"."plans"("slug") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "plan_entitlements" ADD CONSTRAINT "plan_entitlements_plan_slug_plans_slug_fk" FOREIGN KEY ("plan_slug") REFERENCES "public"."plans"("slug") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "role_permissions" ADD CONSTRAINT "role_permissions_role_slug_roles_slug_fk" FOREIGN KEY ("role_slug") REFERENCES "public"."roles"("slug") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "roles" ADD CONSTRAINT "roles_org_id_organizations_id_fk" FOREIGN KEY ("org_id") REFERENCES "public"."organizations"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "units_of_measure" ADD CONSTRAINT "units_of_measure_org_id_organizations_id_fk" FOREIGN KEY ("org_id") REFERENCES "public"."organizations"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "allocations" ADD CONSTRAINT "allocations_org_id_organizations_id_fk" FOREIGN KEY ("org_id") REFERENCES "public"."organizations"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "allocations" ADD CONSTRAINT "allocations_order_line_id_sales_order_lines_id_fk" FOREIGN KEY ("order_line_id") REFERENCES "public"."sales_order_lines"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "allocations" ADD CONSTRAINT "allocations_roasted_lot_id_roasted_lots_id_fk" FOREIGN KEY ("roasted_lot_id") REFERENCES "public"."roasted_lots"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
@@ -1249,6 +1273,24 @@ ALTER TABLE "scheduled_batches" ADD CONSTRAINT "scheduled_batches_schedule_id_pr
 ALTER TABLE "scheduled_batches" ADD CONSTRAINT "scheduled_batches_machine_id_machines_id_fk" FOREIGN KEY ("machine_id") REFERENCES "public"."machines"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "scheduled_batches" ADD CONSTRAINT "scheduled_batches_profile_id_roast_profiles_id_fk" FOREIGN KEY ("profile_id") REFERENCES "public"."roast_profiles"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "scheduled_batches" ADD CONSTRAINT "scheduled_batches_blend_id_blends_id_fk" FOREIGN KEY ("blend_id") REFERENCES "public"."blends"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "api_keys" ADD CONSTRAINT "api_keys_reference_id_organizations_id_fk" FOREIGN KEY ("reference_id") REFERENCES "public"."organizations"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "audit_events" ADD CONSTRAINT "audit_events_org_id_organizations_id_fk" FOREIGN KEY ("org_id") REFERENCES "public"."organizations"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "events" ADD CONSTRAINT "events_org_id_organizations_id_fk" FOREIGN KEY ("org_id") REFERENCES "public"."organizations"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "locations" ADD CONSTRAINT "locations_org_id_organizations_id_fk" FOREIGN KEY ("org_id") REFERENCES "public"."organizations"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "org_entitlement_overrides" ADD CONSTRAINT "org_entitlement_overrides_org_id_organizations_id_fk" FOREIGN KEY ("org_id") REFERENCES "public"."organizations"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "org_entitlement_overrides" ADD CONSTRAINT "org_entitlement_overrides_set_by_users_id_fk" FOREIGN KEY ("set_by") REFERENCES "public"."users"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "org_invitations" ADD CONSTRAINT "org_invitations_org_id_organizations_id_fk" FOREIGN KEY ("org_id") REFERENCES "public"."organizations"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "org_invitations" ADD CONSTRAINT "org_invitations_role_slug_roles_slug_fk" FOREIGN KEY ("role_slug") REFERENCES "public"."roles"("slug") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "org_invitations" ADD CONSTRAINT "org_invitations_invited_by_users_id_fk" FOREIGN KEY ("invited_by") REFERENCES "public"."users"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "org_members" ADD CONSTRAINT "org_members_org_id_organizations_id_fk" FOREIGN KEY ("org_id") REFERENCES "public"."organizations"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "org_members" ADD CONSTRAINT "org_members_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "org_members" ADD CONSTRAINT "org_members_role_slug_roles_slug_fk" FOREIGN KEY ("role_slug") REFERENCES "public"."roles"("slug") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "org_subscriptions" ADD CONSTRAINT "org_subscriptions_org_id_organizations_id_fk" FOREIGN KEY ("org_id") REFERENCES "public"."organizations"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "org_subscriptions" ADD CONSTRAINT "org_subscriptions_plan_slug_plans_slug_fk" FOREIGN KEY ("plan_slug") REFERENCES "public"."plans"("slug") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "plan_entitlements" ADD CONSTRAINT "plan_entitlements_plan_slug_plans_slug_fk" FOREIGN KEY ("plan_slug") REFERENCES "public"."plans"("slug") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "role_permissions" ADD CONSTRAINT "role_permissions_role_slug_roles_slug_fk" FOREIGN KEY ("role_slug") REFERENCES "public"."roles"("slug") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "roles" ADD CONSTRAINT "roles_org_id_organizations_id_fk" FOREIGN KEY ("org_id") REFERENCES "public"."organizations"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "units_of_measure" ADD CONSTRAINT "units_of_measure_org_id_organizations_id_fk" FOREIGN KEY ("org_id") REFERENCES "public"."organizations"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "machine_bridge_tokens" ADD CONSTRAINT "machine_bridge_tokens_org_id_organizations_id_fk" FOREIGN KEY ("org_id") REFERENCES "public"."organizations"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "machine_bridge_tokens" ADD CONSTRAINT "machine_bridge_tokens_machine_id_machines_id_fk" FOREIGN KEY ("machine_id") REFERENCES "public"."machines"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "machine_bridge_tokens" ADD CONSTRAINT "machine_bridge_tokens_created_by_users_id_fk" FOREIGN KEY ("created_by") REFERENCES "public"."users"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
@@ -1317,6 +1359,10 @@ ALTER TABLE "samples" ADD CONSTRAINT "samples_green_lot_id_green_lots_id_fk" FOR
 ALTER TABLE "shipments" ADD CONSTRAINT "shipments_org_id_organizations_id_fk" FOREIGN KEY ("org_id") REFERENCES "public"."organizations"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "shipments" ADD CONSTRAINT "shipments_contract_id_contracts_id_fk" FOREIGN KEY ("contract_id") REFERENCES "public"."contracts"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "shipments" ADD CONSTRAINT "shipments_destination_location_id_locations_id_fk" FOREIGN KEY ("destination_location_id") REFERENCES "public"."locations"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "webhook_deliveries" ADD CONSTRAINT "webhook_deliveries_org_id_organizations_id_fk" FOREIGN KEY ("org_id") REFERENCES "public"."organizations"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "webhook_deliveries" ADD CONSTRAINT "webhook_deliveries_endpoint_id_webhook_endpoints_id_fk" FOREIGN KEY ("endpoint_id") REFERENCES "public"."webhook_endpoints"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "webhook_deliveries" ADD CONSTRAINT "webhook_deliveries_event_id_events_id_fk" FOREIGN KEY ("event_id") REFERENCES "public"."events"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "webhook_endpoints" ADD CONSTRAINT "webhook_endpoints_org_id_organizations_id_fk" FOREIGN KEY ("org_id") REFERENCES "public"."organizations"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 CREATE UNIQUE INDEX "accounts_provider_account_idx" ON "accounts" USING btree ("provider_id","account_id");--> statement-breakpoint
 CREATE INDEX "accounts_user_idx" ON "accounts" USING btree ("user_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "passkeys_credential_id_idx" ON "passkeys" USING btree ("credential_i_d");--> statement-breakpoint
@@ -1388,26 +1434,6 @@ CREATE INDEX "oauth_consents_user_id_idx" ON "oauth_consents" USING btree ("user
 CREATE INDEX "oauth_refresh_tokens_client_id_idx" ON "oauth_refresh_tokens" USING btree ("client_id");--> statement-breakpoint
 CREATE INDEX "oauth_refresh_tokens_session_id_idx" ON "oauth_refresh_tokens" USING btree ("session_id");--> statement-breakpoint
 CREATE INDEX "oauth_refresh_tokens_user_id_idx" ON "oauth_refresh_tokens" USING btree ("user_id");--> statement-breakpoint
-CREATE UNIQUE INDEX "api_keys_key_idx" ON "api_keys" USING btree ("key");--> statement-breakpoint
-CREATE INDEX "api_keys_reference_idx" ON "api_keys" USING btree ("reference_id");--> statement-breakpoint
-CREATE INDEX "api_keys_config_idx" ON "api_keys" USING btree ("config_id");--> statement-breakpoint
-CREATE INDEX "audit_events_org_created_idx" ON "audit_events" USING btree ("org_id","created_at");--> statement-breakpoint
-CREATE INDEX "audit_events_org_resource_idx" ON "audit_events" USING btree ("org_id","resource_type","resource_id");--> statement-breakpoint
-CREATE INDEX "events_org_occurred_idx" ON "events" USING btree ("org_id","occurred_at");--> statement-breakpoint
-CREATE INDEX "events_fanout_pending_idx" ON "events" USING btree ("occurred_at") WHERE fanned_out_at IS NULL;--> statement-breakpoint
-CREATE UNIQUE INDEX "locations_org_code_idx" ON "locations" USING btree ("org_id","code");--> statement-breakpoint
-CREATE INDEX "locations_org_kind_idx" ON "locations" USING btree ("org_id","kind","is_active");--> statement-breakpoint
-CREATE INDEX "locations_org_created_idx" ON "locations" USING btree ("org_id","created_at","id");--> statement-breakpoint
-CREATE UNIQUE INDEX "org_invitations_token_hash_idx" ON "org_invitations" USING btree ("token_hash");--> statement-breakpoint
-CREATE INDEX "org_invitations_org_idx" ON "org_invitations" USING btree ("org_id");--> statement-breakpoint
-CREATE INDEX "org_invitations_email_idx" ON "org_invitations" USING btree ("email");--> statement-breakpoint
-CREATE UNIQUE INDEX "org_members_org_user_idx" ON "org_members" USING btree ("org_id","user_id");--> statement-breakpoint
-CREATE INDEX "org_members_user_idx" ON "org_members" USING btree ("user_id");--> statement-breakpoint
-CREATE UNIQUE INDEX "organizations_slug_idx" ON "organizations" USING btree ("slug");--> statement-breakpoint
-CREATE INDEX "permissions_module_idx" ON "permissions" USING btree ("module");--> statement-breakpoint
-CREATE INDEX "role_permissions_role_idx" ON "role_permissions" USING btree ("role_slug");--> statement-breakpoint
-CREATE INDEX "roles_org_idx" ON "roles" USING btree ("org_id");--> statement-breakpoint
-CREATE UNIQUE INDEX "units_of_measure_org_code_idx" ON "units_of_measure" USING btree ("org_id","code");--> statement-breakpoint
 CREATE INDEX "allocations_org_line_idx" ON "allocations" USING btree ("org_id","order_line_id");--> statement-breakpoint
 CREATE INDEX "allocations_org_lot_idx" ON "allocations" USING btree ("org_id","roasted_lot_id");--> statement-breakpoint
 CREATE INDEX "allocations_open_idx" ON "allocations" USING btree ("org_id","roasted_lot_id") WHERE released_at is null;--> statement-breakpoint
@@ -1431,6 +1457,26 @@ CREATE INDEX "sales_orders_org_created_idx" ON "sales_orders" USING btree ("org_
 CREATE UNIQUE INDEX "scheduled_batches_schedule_machine_position_idx" ON "scheduled_batches" USING btree ("schedule_id","machine_id","position");--> statement-breakpoint
 CREATE INDEX "scheduled_batches_org_schedule_idx" ON "scheduled_batches" USING btree ("org_id","schedule_id");--> statement-breakpoint
 CREATE INDEX "scheduled_batches_batch_idx" ON "scheduled_batches" USING btree ("roast_batch_id");--> statement-breakpoint
+CREATE UNIQUE INDEX "api_keys_key_idx" ON "api_keys" USING btree ("key");--> statement-breakpoint
+CREATE INDEX "api_keys_reference_idx" ON "api_keys" USING btree ("reference_id");--> statement-breakpoint
+CREATE INDEX "api_keys_config_idx" ON "api_keys" USING btree ("config_id");--> statement-breakpoint
+CREATE INDEX "audit_events_org_created_idx" ON "audit_events" USING btree ("org_id","created_at");--> statement-breakpoint
+CREATE INDEX "audit_events_org_resource_idx" ON "audit_events" USING btree ("org_id","resource_type","resource_id");--> statement-breakpoint
+CREATE INDEX "events_org_occurred_idx" ON "events" USING btree ("org_id","occurred_at");--> statement-breakpoint
+CREATE INDEX "events_fanout_pending_idx" ON "events" USING btree ("occurred_at") WHERE fanned_out_at IS NULL;--> statement-breakpoint
+CREATE UNIQUE INDEX "locations_org_code_idx" ON "locations" USING btree ("org_id","code");--> statement-breakpoint
+CREATE INDEX "locations_org_kind_idx" ON "locations" USING btree ("org_id","kind","is_active");--> statement-breakpoint
+CREATE INDEX "locations_org_created_idx" ON "locations" USING btree ("org_id","created_at","id");--> statement-breakpoint
+CREATE UNIQUE INDEX "org_invitations_token_hash_idx" ON "org_invitations" USING btree ("token_hash");--> statement-breakpoint
+CREATE INDEX "org_invitations_org_idx" ON "org_invitations" USING btree ("org_id");--> statement-breakpoint
+CREATE INDEX "org_invitations_email_idx" ON "org_invitations" USING btree ("email");--> statement-breakpoint
+CREATE UNIQUE INDEX "org_members_org_user_idx" ON "org_members" USING btree ("org_id","user_id");--> statement-breakpoint
+CREATE INDEX "org_members_user_idx" ON "org_members" USING btree ("user_id");--> statement-breakpoint
+CREATE UNIQUE INDEX "organizations_slug_idx" ON "organizations" USING btree ("slug");--> statement-breakpoint
+CREATE INDEX "permissions_module_idx" ON "permissions" USING btree ("module");--> statement-breakpoint
+CREATE INDEX "role_permissions_role_idx" ON "role_permissions" USING btree ("role_slug");--> statement-breakpoint
+CREATE INDEX "roles_org_idx" ON "roles" USING btree ("org_id");--> statement-breakpoint
+CREATE UNIQUE INDEX "units_of_measure_org_code_idx" ON "units_of_measure" USING btree ("org_id","code");--> statement-breakpoint
 CREATE UNIQUE INDEX "machine_bridge_tokens_hash_idx" ON "machine_bridge_tokens" USING btree ("token_hash");--> statement-breakpoint
 CREATE INDEX "machine_bridge_tokens_org_machine_idx" ON "machine_bridge_tokens" USING btree ("org_id","machine_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "roast_goal_results_batch_metric_idx" ON "roast_batch_goal_results" USING btree ("batch_id","metric");--> statement-breakpoint
@@ -1498,4 +1544,10 @@ CREATE INDEX "samples_org_created_idx" ON "samples" USING btree ("org_id","creat
 CREATE INDEX "samples_tracking_idx" ON "samples" USING gin ("tracking_numbers");--> statement-breakpoint
 CREATE UNIQUE INDEX "shipments_org_reference_idx" ON "shipments" USING btree ("org_id","reference");--> statement-breakpoint
 CREATE INDEX "shipments_org_status_eta_idx" ON "shipments" USING btree ("org_id","status","eta");--> statement-breakpoint
-CREATE INDEX "shipments_org_contract_idx" ON "shipments" USING btree ("org_id","contract_id");
+CREATE INDEX "shipments_org_contract_idx" ON "shipments" USING btree ("org_id","contract_id");--> statement-breakpoint
+CREATE UNIQUE INDEX "webhook_deliveries_endpoint_event_idx" ON "webhook_deliveries" USING btree ("endpoint_id","event_id");--> statement-breakpoint
+CREATE INDEX "webhook_deliveries_org_created_idx" ON "webhook_deliveries" USING btree ("org_id","created_at","id");--> statement-breakpoint
+CREATE INDEX "webhook_deliveries_org_status_idx" ON "webhook_deliveries" USING btree ("org_id","status","created_at");--> statement-breakpoint
+CREATE INDEX "webhook_deliveries_endpoint_status_idx" ON "webhook_deliveries" USING btree ("endpoint_id","status");--> statement-breakpoint
+CREATE INDEX "webhook_endpoints_org_created_idx" ON "webhook_endpoints" USING btree ("org_id","created_at","id");--> statement-breakpoint
+CREATE INDEX "webhook_endpoints_org_status_idx" ON "webhook_endpoints" USING btree ("org_id","status");

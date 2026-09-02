@@ -1,14 +1,14 @@
 import { greenLots, inventoryTransactions, lotLocationBalances } from "@roastery/db/schema";
 import { and, eq, sql } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import type { WorkerDb } from "../src/lib/db";
+import type { WorkerDb } from "../src/lib/db/db";
+import type { OrgDb } from "../src/lib/db/org-db";
 import {
   applyInventoryTransaction,
   kg,
   ledgerDrift,
   transferBetweenLocations,
-} from "../src/lib/inventory";
-import type { OrgDb } from "../src/lib/org-db";
+} from "../src/lib/domain/inventory";
 import {
   connect,
   createTestLocation,

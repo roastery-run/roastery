@@ -8,6 +8,7 @@
  */
 import { sql } from "drizzle-orm";
 import {
+  bigserial,
   boolean,
   index,
   integer,
@@ -400,6 +401,21 @@ export const events = pgTable(
     resourceType: text("resource_type").notNull(),
     resourceId: text("resource_id").notNull(),
     payload: jsonb("payload").notNull(),
+    /**
+     * Monotonically increasing across the whole installation.
+     *
+     * Delivery order is explicitly NOT guaranteed — retries and per-endpoint
+     * backoff mean a receiver can see event 9 before event 7 — so every
+     * payload carries this so a receiver can tell. Compare it PER RESOURCE:
+     * seeing a lower sequence than one already processed for the same
+     * resourceId means the message is stale and should be discarded.
+     *
+     * It is not gapless within an organization, and does not try to be. A
+     * per-org counter would have to be locked on every mutation in that org,
+     * serializing the entire write path to buy a property nobody needs —
+     * detecting reordering only requires monotonicity.
+     */
+    sequence: bigserial("sequence", { mode: "number" }).notNull(),
     actorId: text("actor_id"),
     actorType: actorTypeEnum("actor_type").notNull(),
     occurredAt: timestamp("occurred_at", { withTimezone: true }).notNull().defaultNow(),
