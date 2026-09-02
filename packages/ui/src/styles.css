@@ -1,0 +1,264 @@
+/**
+ * Kiln — the Roastery design system.
+ *
+ * shadcn/ui components on Tailwind 4, with the shadcn token vocabulary kept
+ * intact so `shadcn add` drops a component in and it is already on-brand. What
+ * changes is the VALUES.
+ *
+ * Warm neutral ground at hue 70–80, chroma ≤0.008. Coffee is a warm product;
+ * the cold blue-gray of a stock neutral palette reads as generic software, and
+ * this is software people use while standing next to a roaster.
+ *
+ * Squared corners (0.25rem, not the preset's 0.625rem), hairline rules, flat by
+ * default. One ember accent, reserved for live state and the primary action —
+ * an accent that appears everywhere accents nothing.
+ *
+ * Every foreground/background pair here is verified against WCAG 2.2 AA by
+ * lib/tokens.test.ts, which parses THIS FILE. A comment claiming "AA verified"
+ * rots the moment someone nudges a token; the test does not.
+ */
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+@import "@fontsource-variable/inter";
+@import "@fontsource-variable/geist-mono";
+
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  /* Warm paper, not white: a full-white ground under a dense table glares
+     under the overhead lighting of a production floor. */
+  --background: oklch(0.986 0.003 75);
+  --foreground: oklch(0.212 0.006 75);
+
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.212 0.006 75);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.212 0.006 75);
+
+  /* Ember. */
+  --primary: oklch(0.545 0.163 45);
+  --primary-foreground: oklch(0.99 0.004 75);
+
+  --secondary: oklch(0.955 0.004 75);
+  --secondary-foreground: oklch(0.28 0.008 75);
+
+  --muted: oklch(0.962 0.004 75);
+  --muted-foreground: oklch(0.487 0.008 75);
+
+  --accent: oklch(0.955 0.012 60);
+  --accent-foreground: oklch(0.34 0.09 45);
+
+  --destructive: oklch(0.512 0.18 27);
+  --destructive-foreground: oklch(0.99 0.004 75);
+
+  /* Not in the stock shadcn set, but an operations product cannot express
+     "shipped", "due soon" and "quarantined" with one destructive colour. */
+  --success: oklch(0.47 0.115 150);
+  --success-foreground: oklch(0.99 0.004 75);
+  /* Deliberately darker than a "nice" yellow. Yellow-on-white is the most
+     common AA failure in operations dashboards, and a warning nobody can read
+     is not a warning. */
+  --warning: oklch(0.545 0.115 75);
+  --warning-foreground: oklch(0.99 0.004 75);
+  --info: oklch(0.5 0.11 245);
+  --info-foreground: oklch(0.99 0.004 75);
+
+  --border: oklch(0.906 0.005 75);
+  --input: oklch(0.906 0.005 75);
+  --ring: oklch(0.545 0.163 45);
+
+  /* Chart series. Each is ≥3:1 against the ground and ≥0.04 apart in
+     lightness, so they separate in greyscale — QC reports get printed — and
+     for viewers with colour vision deficiency. The chart components ALSO vary
+     dash pattern; colour is never the only signal. */
+  --chart-1: oklch(0.545 0.163 45);
+  --chart-2: oklch(0.45 0.12 245);
+  --chart-3: oklch(0.6 0.13 150);
+  --chart-4: oklch(0.36 0.1 300);
+  --chart-5: oklch(0.65 0.13 90);
+
+  --sidebar: oklch(0.972 0.004 75);
+  --sidebar-foreground: oklch(0.212 0.006 75);
+  --sidebar-primary: oklch(0.545 0.163 45);
+  --sidebar-primary-foreground: oklch(0.99 0.004 75);
+  --sidebar-accent: oklch(0.945 0.008 60);
+  --sidebar-accent-foreground: oklch(0.28 0.008 75);
+  --sidebar-border: oklch(0.906 0.005 75);
+  --sidebar-ring: oklch(0.545 0.163 45);
+
+  /* Squared. Rounded corners read as consumer software; this is a tool. */
+  --radius: 0.25rem;
+}
+
+.dark {
+  --background: oklch(0.175 0.006 75);
+  --foreground: oklch(0.945 0.004 75);
+
+  --card: oklch(0.213 0.006 75);
+  --card-foreground: oklch(0.945 0.004 75);
+  --popover: oklch(0.213 0.006 75);
+  --popover-foreground: oklch(0.945 0.004 75);
+
+  --primary: oklch(0.68 0.15 45);
+  --primary-foreground: oklch(0.175 0.006 75);
+
+  --secondary: oklch(0.258 0.006 75);
+  --secondary-foreground: oklch(0.93 0.004 75);
+
+  --muted: oklch(0.248 0.006 75);
+  --muted-foreground: oklch(0.715 0.008 75);
+
+  --accent: oklch(0.268 0.02 45);
+  --accent-foreground: oklch(0.83 0.11 55);
+
+  --destructive: oklch(0.68 0.17 25);
+  --destructive-foreground: oklch(0.175 0.006 75);
+
+  --success: oklch(0.72 0.14 150);
+  --success-foreground: oklch(0.175 0.006 75);
+  --warning: oklch(0.79 0.13 80);
+  --warning-foreground: oklch(0.175 0.006 75);
+  --info: oklch(0.7 0.12 245);
+  --info-foreground: oklch(0.175 0.006 75);
+
+  --border: oklch(0.295 0.006 75);
+  --input: oklch(0.295 0.006 75);
+  --ring: oklch(0.68 0.15 45);
+
+  --chart-1: oklch(0.7 0.15 45);
+  --chart-2: oklch(0.65 0.12 245);
+  --chart-3: oklch(0.78 0.13 150);
+  --chart-4: oklch(0.6 0.13 300);
+  --chart-5: oklch(0.86 0.13 95);
+
+  --sidebar: oklch(0.198 0.006 75);
+  --sidebar-foreground: oklch(0.945 0.004 75);
+  --sidebar-primary: oklch(0.68 0.15 45);
+  --sidebar-primary-foreground: oklch(0.175 0.006 75);
+  --sidebar-accent: oklch(0.268 0.012 60);
+  --sidebar-accent-foreground: oklch(0.945 0.004 75);
+  --sidebar-border: oklch(0.295 0.006 75);
+  --sidebar-ring: oklch(0.68 0.15 45);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-info: var(--info);
+  --color-info-foreground: var(--info-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+
+  --font-heading: var(--font-sans);
+  --font-sans: "Inter Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "Geist Mono Variable", ui-monospace, monospace;
+
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: var(--font-sans);
+    /* Operators compare columns of temperatures and weights by eye all day.
+       Proportional digits make that impossible, so numerals are tabular
+       EVERYWHERE rather than only in tables somebody remembered to mark up. */
+    font-variant-numeric: tabular-nums;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Visible focus is not optional: the roast screen and the cupping scoresheet
+     are both driven by keyboard on a shop-floor panel. */
+  :focus-visible {
+    outline: 2px solid var(--color-ring);
+    outline-offset: 2px;
+  }
+
+  ::selection {
+    background: color-mix(in oklch, var(--color-primary) 22%, transparent);
+  }
+}
+
+@layer utilities {
+  /* Live data never animates POSITION — a number that slides is a number you
+     cannot read at a glance — so this is opacity only, and off entirely under
+     reduced motion. */
+  .live-pulse {
+    animation: kiln-pulse 2s ease-in-out infinite;
+  }
+
+  @keyframes kiln-pulse {
+    0%,
+    100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.55;
+    }
+  }
+
+  /* Touch targets for FocusShell: the live roast screen and the cupping
+     scoresheet are used with one hand, standing, sometimes wearing a glove. */
+  .focus-shell button,
+  .focus-shell [role="button"],
+  .focus-shell a[href] {
+    min-height: 44px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .live-pulse {
+      animation: none;
+    }
+    *,
+    *::before,
+    *::after {
+      /* biome-ignore lint/complexity/noImportantStyles: must beat inline and vendor styles. */
+      animation-duration: 0.01ms !important;
+      /* biome-ignore lint/complexity/noImportantStyles: must beat inline and vendor styles. */
+      animation-iteration-count: 1 !important;
+      /* biome-ignore lint/complexity/noImportantStyles: must beat inline and vendor styles. */
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
