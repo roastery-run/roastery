@@ -15,7 +15,8 @@
     "db:migrate": "pnpm --filter @roastery/db migrate",
     "db:up": "docker compose up -d --wait neon-local",
     "db:down": "docker compose down",
-    "setup:local": "bash scripts/setup-local.sh"
+    "setup:local": "bash scripts/setup-local.sh",
+    "sim:roast": "node --experimental-strip-types --disable-warning=ExperimentalWarning apps/api/scripts/sim-bridge.mjs"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.4",

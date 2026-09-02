@@ -36,7 +36,16 @@ import { RPC_BY_PATH, RPC_REGISTRY, rpcPath } from "../src/lib/rpc";
 const SRC = join(import.meta.dirname, "..", "src");
 
 /** Prefixes whose routes are covered by an authorization middleware chain. */
-const GUARDED_PREFIXES = ["/rpc/v1/"];
+const GUARDED_PREFIXES = [
+  "/rpc/v1/",
+  // Machine telemetry. Guarded by a bridge token resolved in the route itself
+  // rather than by the RPC middleware, because it carries a different
+  // credential and must not pay for a database client on the hot path.
+  "/ingest/v1/",
+  // The live roast socket. Authorization happens in the Worker before the
+  // upgrade is handed to the Durable Object, which has no notion of identity.
+  "/stream/v1/",
+];
 
 /** Routes that are public by design. Each one is a deliberate decision. */
 const PUBLIC_ROUTES = new Set(["/health", "/docs", "/openapi.json"]);

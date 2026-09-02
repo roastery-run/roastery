@@ -264,3 +264,57 @@ export const sampleStatusEnum = pgEnum("sample_status", [
   "rejected",
   "archived",
 ]);
+
+/* ----------------------------------------------------------- production */
+
+export const roastBatchStatusEnum = pgEnum("roast_batch_status", [
+  "scheduled",
+  "in_progress",
+  "cooling",
+  "completed",
+  "aborted",
+  "discarded",
+]);
+
+export const roastPurposeEnum = pgEnum("roast_purpose", [
+  "production",
+  "sample",
+  "development",
+  "calibration",
+  "training",
+]);
+
+/**
+ * Roast events.
+ *
+ * First crack is HUMAN-OBSERVED — a roaster hears it — so it is recorded as an
+ * operator input, never inferred from the curve. Treating it as derivable is
+ * how a system quietly disagrees with the person standing at the machine.
+ */
+export const roastEventKindEnum = pgEnum("roast_event_kind", [
+  "charge",
+  "turning_point",
+  "dry_end",
+  "first_crack_start",
+  "first_crack_end",
+  "second_crack_start",
+  "drop",
+  "gas_change",
+  "air_change",
+  "drum_change",
+  "note",
+]);
+
+export const roastGoalMetricEnum = pgEnum("roast_goal_metric", [
+  "development_time_ratio",
+  "weight_loss_pct",
+  "drop_temp",
+  "total_time",
+  "first_crack_time",
+  "agtron_ground",
+  "agtron_whole",
+  "ror_at_drop",
+  "moisture_pct",
+]);
+
+export const goalResultEnum = pgEnum("goal_result", ["pass", "warn", "fail", "not_evaluated"]);

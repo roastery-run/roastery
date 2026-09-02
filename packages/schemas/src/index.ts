@@ -6,4 +6,5 @@ export * from "./schemas/machine";
 export * from "./schemas/materials";
 export * from "./schemas/party";
 export * from "./schemas/product";
+export * from "./schemas/production";
 export * from "./schemas/sourcing";

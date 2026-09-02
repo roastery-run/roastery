@@ -1,4 +1,10 @@
-import type { Hyperdrive, KVNamespace, RateLimit } from "@cloudflare/workers-types";
+import type {
+  DurableObjectNamespace,
+  Hyperdrive,
+  KVNamespace,
+  R2Bucket,
+  RateLimit,
+} from "@cloudflare/workers-types";
 
 export type Env = {
   /**
@@ -16,6 +22,13 @@ export type Env = {
   HYPERDRIVE_CACHE_DISABLED?: Hyperdrive;
 
   ROASTERY_KV: KVNamespace;
+  /** One instance per live roast, keyed `${orgId}:${batchId}`. */
+  ROAST_BATCH: DurableObjectNamespace;
+  /**
+   * Full-fidelity roast curves. Postgres keeps a 1 Hz downsample for querying;
+   * the complete artifact lives here, fetched only when someone opens a batch.
+   */
+  ROASTERY_R2: R2Bucket;
 
   RPC_SUSTAINED_LIMITER?: RateLimit;
   RPC_BURST_LIMITER?: RateLimit;

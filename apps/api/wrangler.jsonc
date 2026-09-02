@@ -21,6 +21,19 @@
     }
   ],
   "kv_namespaces": [{ "binding": "ROASTERY_KV", "id": "local-roastery-kv" }],
+  "r2_buckets": [
+    {
+      // Full-fidelity roast curves. Postgres keeps a 1 Hz downsample for
+      // querying; the complete artifact lives here.
+      "binding": "ROASTERY_R2",
+      "bucket_name": "roastery-curves",
+      "preview_bucket_name": "roastery-curves-preview"
+    }
+  ],
+  "durable_objects": {
+    "bindings": [{ "name": "ROAST_BATCH", "class_name": "RoastBatchDO" }]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["RoastBatchDO"] }],
   "ratelimits": [
     {
       // 300/60s == the documented 5 req/s sustained budget. Authoritative.

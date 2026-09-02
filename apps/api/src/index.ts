@@ -13,6 +13,8 @@ import { orgScope } from "./lib/org-scope";
 import { rateLimit } from "./lib/rate-limit";
 import { RPC_REGISTRY, type RpcAppEnv, rpcPath } from "./lib/rpc";
 import { rpcAuthorize } from "./lib/rpc-authorize";
+import { ingestRoutes } from "./routes/ingest";
+import { streamRoutes } from "./routes/stream";
 import { catalogLocation } from "./rpc/catalog-location";
 import { catalogMachine } from "./rpc/catalog-machine";
 import { catalogParty } from "./rpc/catalog-party";
@@ -21,6 +23,7 @@ import { consoleRoutes } from "./rpc/console";
 import { inventoryCosting } from "./rpc/inventory-costing";
 import { inventoryGreen } from "./rpc/inventory-green";
 import { inventoryMaterial } from "./rpc/inventory-material";
+import { productionRoast } from "./rpc/production-roast";
 import { sourcingContract } from "./rpc/sourcing-contract";
 import { sourcingSample } from "./rpc/sourcing-sample";
 
@@ -124,8 +127,19 @@ app.route("/", consoleRoutes);
 app.route("/", inventoryGreen);
 app.route("/", inventoryCosting);
 app.route("/", inventoryMaterial);
+app.route("/", productionRoast);
 app.route("/", sourcingContract);
 app.route("/", sourcingSample);
+
+/* ------------------------------------------------------- telemetry surfaces */
+
+// Deliberately NOT under /rpc/v1: machine ingest carries a bridge token rather
+// than a user or client credential, routes straight to a Durable Object with
+// no database on the hot path, and needs a rate budget two orders of magnitude
+// higher than the business API.
+app.use("/ingest/v1/*", rateLimit("RPC_BURST_LIMITER", { limit: 600, windowMs: 10_000 }));
+app.route("/", ingestRoutes);
+app.route("/", streamRoutes);
 
 /* --------------------------------------------------------------- metadata */
 
@@ -240,5 +254,7 @@ app.onError((err, c) => {
   );
   return c.json({ error: "Internal error", correlationId }, 500);
 });
+
+export { RoastBatchDO } from "./durable-objects/roast-batch";
 
 export default app;

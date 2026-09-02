@@ -104,6 +104,19 @@ export const TENANT_DIRECT = {
   },
   shipments: { table: s.shipments, column: s.shipments.orgId, field: "orgId" },
   samples: { table: s.samples, column: s.samples.orgId, field: "orgId" },
+  roast_profiles: { table: s.roastProfiles, column: s.roastProfiles.orgId, field: "orgId" },
+  roast_batches: { table: s.roastBatches, column: s.roastBatches.orgId, field: "orgId" },
+  roast_goals: { table: s.roastGoals, column: s.roastGoals.orgId, field: "orgId" },
+  roast_batch_goal_results: {
+    table: s.roastBatchGoalResults,
+    column: s.roastBatchGoalResults.orgId,
+    field: "orgId",
+  },
+  machine_bridge_tokens: {
+    table: s.machineBridgeTokens,
+    column: s.machineBridgeTokens.orgId,
+    field: "orgId",
+  },
   alert_notifications: {
     table: s.alertNotifications,
     column: s.alertNotifications.orgId,
@@ -122,7 +135,28 @@ export const TENANT_DIRECT = {
  * hundreds of rows per batch.
  */
 export const TENANT_VIA = {
-  // (populated as the domain schema lands in later phases)
+  /**
+   * Roast measurements and events.
+   *
+   * These carry no org_id deliberately: a roast produces hundreds of sample
+   * rows, and denormalizing the tenant onto each costs more storage and write
+   * bandwidth than the semi-join through roast_batches saves on read. This is
+   * the case the transitive classification exists for.
+   */
+  roast_samples: {
+    child: s.roastSamples,
+    childFk: s.roastSamples.batchId,
+    parent: s.roastBatches,
+    parentKey: s.roastBatches.id,
+    parentTenantColumn: s.roastBatches.orgId,
+  },
+  roast_events: {
+    child: s.roastEvents,
+    childFk: s.roastEvents.batchId,
+    parent: s.roastBatches,
+    parentKey: s.roastBatches.id,
+    parentTenantColumn: s.roastBatches.orgId,
+  },
 } satisfies Record<string, TransitiveTenancy>;
 
 /**

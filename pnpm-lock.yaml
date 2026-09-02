@@ -159,6 +159,18 @@ importers:
         specifier: 'catalog:'
         version: 5.9.3
 
+  packages/roast-sim:
+    devDependencies:
+      '@roastery/tsconfig':
+        specifier: workspace:*
+        version: link:../tsconfig
+      typescript:
+        specifier: 'catalog:'
+        version: 5.9.3
+      vitest:
+        specifier: 'catalog:'
+        version: 3.2.7(@types/node@26.4.1)(tsx@4.23.13)(yaml@2.9.0)
+
   packages/schemas:
     dependencies:
       zod:
