@@ -1,0 +1,17 @@
+{
+  // Client-only SPA behind auth. No `main`: it is static assets and nothing
+  // else, so there is no Worker to run and no server render to pay for.
+  "name": "roastery-console-staging",
+  "compatibility_date": "2025-09-01",
+  "workers_dev": false,
+  "preview_urls": false,
+  "assets": {
+    "directory": "dist",
+    // Every path falls through to the SPA shell, because the router owns the
+    // URL space. `single-page-application` also stops a deep link 404ing on a
+    // hard refresh, which is the classic SPA-on-static-hosting bug.
+    "not_found_handling": "single-page-application"
+  },
+  "routes": [{ "pattern": "app-staging.roastery.run", "custom_domain": true }],
+  "observability": { "enabled": true, "head_sampling_rate": 1 }
+}

@@ -33,6 +33,7 @@ catalog:
   uplot: ^1.6.32
   vite: ^7.1.7
   vitest: ^3.2.4
+  wrangler: ^4.128.0
   zod: ^4.5.4
 
 onlyBuiltDependencies:

@@ -17,6 +17,7 @@
   },
   "devDependencies": {
     "@roastery/tsconfig": "workspace:*",
-    "typescript": "catalog:"
+    "typescript": "catalog:",
+    "wrangler": "catalog:"
   }
 }

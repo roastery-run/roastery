@@ -33,6 +33,6 @@
     "@roastery/tsconfig": "workspace:*",
     "typescript": "catalog:",
     "vitest": "catalog:",
-    "wrangler": "^4.42.0"
+    "wrangler": "catalog:"
   }
 }

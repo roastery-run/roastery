@@ -14,6 +14,621 @@
     "parameters": {}
   },
   "paths": {
+    "/rpc/v1/alerts.listAlerts": {
+      "post": {
+        "tags": [
+          "alerts"
+        ],
+        "operationId": "alerts_listAlerts",
+        "summary": "List what needs attention",
+        "description": "The live scan, not the digest log. An alert emailed this morning and resolved at ten is no longer outstanding and is not returned — `notifiedAt` says whether a digest has already carried it today.\n\nRequires permission `alerts.read` and the `core` module on the organization's plan.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "description": "Target organization. Required for session callers. Ignored for machine credentials, which are permanently bound to one organization."
+            },
+            "required": false,
+            "description": "Target organization. Required for session callers. Ignored for machine credentials, which are permanently bound to one organization.",
+            "name": "x-roastery-org",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "filter": {
+                    "type": "object",
+                    "properties": {
+                      "severity": {
+                        "type": "string",
+                        "enum": [
+                          "info",
+                          "warning",
+                          "critical"
+                        ]
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "List what needs attention",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "ruleId": {
+                            "type": "string"
+                          },
+                          "subjectId": {
+                            "type": "string"
+                          },
+                          "severity": {
+                            "type": "string",
+                            "enum": [
+                              "info",
+                              "warning",
+                              "critical"
+                            ]
+                          },
+                          "message": {
+                            "type": "string"
+                          },
+                          "notifiedAt": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "ruleId",
+                          "subjectId",
+                          "severity",
+                          "message",
+                          "notifiedAt"
+                        ]
+                      }
+                    },
+                    "counts": {
+                      "type": "object",
+                      "properties": {
+                        "critical": {
+                          "type": "integer"
+                        },
+                        "warning": {
+                          "type": "integer"
+                        },
+                        "info": {
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "critical",
+                        "warning",
+                        "info"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "items",
+                    "counts"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "402": {
+            "description": "The organization's plan does not include this module, or a limit is exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string",
+                      "enum": [
+                        "entitlement_required",
+                        "quota_exceeded"
+                      ]
+                    },
+                    "module": {
+                      "type": "string"
+                    },
+                    "plan": {
+                      "type": "string"
+                    },
+                    "requiredPlans": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "key": {
+                      "type": "string"
+                    },
+                    "limit": {
+                      "type": "number"
+                    },
+                    "current": {
+                      "type": "number"
+                    }
+                  },
+                  "required": [
+                    "error",
+                    "code"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller's role does not grant this permission",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited — see Retry-After",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "correlationId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "alerts"
+        ],
+        "operationId": "alerts_listAlerts_get",
+        "summary": "List what needs attention",
+        "description": "The live scan, not the digest log. An alert emailed this morning and resolved at ten is no longer outstanding and is not returned — `notifiedAt` says whether a digest has already carried it today.\n\nRequires permission `alerts.read` and the `core` module on the organization's plan.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "description": "URL-encoded JSON, identical in shape to the POST body."
+            },
+            "required": false,
+            "description": "URL-encoded JSON, identical in shape to the POST body.",
+            "name": "input",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "description": "Target organization. Required for session callers. Ignored for machine credentials, which are permanently bound to one organization."
+            },
+            "required": false,
+            "description": "Target organization. Required for session callers. Ignored for machine credentials, which are permanently bound to one organization.",
+            "name": "x-roastery-org",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List what needs attention",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "ruleId": {
+                            "type": "string"
+                          },
+                          "subjectId": {
+                            "type": "string"
+                          },
+                          "severity": {
+                            "type": "string",
+                            "enum": [
+                              "info",
+                              "warning",
+                              "critical"
+                            ]
+                          },
+                          "message": {
+                            "type": "string"
+                          },
+                          "notifiedAt": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "ruleId",
+                          "subjectId",
+                          "severity",
+                          "message",
+                          "notifiedAt"
+                        ]
+                      }
+                    },
+                    "counts": {
+                      "type": "object",
+                      "properties": {
+                        "critical": {
+                          "type": "integer"
+                        },
+                        "warning": {
+                          "type": "integer"
+                        },
+                        "info": {
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "critical",
+                        "warning",
+                        "info"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "items",
+                    "counts"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "402": {
+            "description": "The organization's plan does not include this module, or a limit is exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string",
+                      "enum": [
+                        "entitlement_required",
+                        "quota_exceeded"
+                      ]
+                    },
+                    "module": {
+                      "type": "string"
+                    },
+                    "plan": {
+                      "type": "string"
+                    },
+                    "requiredPlans": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "key": {
+                      "type": "string"
+                    },
+                    "limit": {
+                      "type": "number"
+                    },
+                    "current": {
+                      "type": "number"
+                    }
+                  },
+                  "required": [
+                    "error",
+                    "code"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller's role does not grant this permission",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited — see Retry-After",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "correlationId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/rpc/v1/cafe.importPosSales": {
       "post": {
         "tags": [
@@ -44366,6 +44981,19 @@
                           "sampleCount": {
                             "type": "integer"
                           },
+                          "templateId": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "format": "uuid"
+                          },
+                          "templateVersion": {
+                            "type": [
+                              "integer",
+                              "null"
+                            ]
+                          },
                           "createdAt": {
                             "type": "string"
                           }
@@ -44379,6 +45007,8 @@
                           "scheduledAt",
                           "finalizedAt",
                           "sampleCount",
+                          "templateId",
+                          "templateVersion",
                           "createdAt"
                         ]
                       }
@@ -44692,6 +45322,19 @@
                           "sampleCount": {
                             "type": "integer"
                           },
+                          "templateId": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "format": "uuid"
+                          },
+                          "templateVersion": {
+                            "type": [
+                              "integer",
+                              "null"
+                            ]
+                          },
                           "createdAt": {
                             "type": "string"
                           }
@@ -44705,6 +45348,8 @@
                           "scheduledAt",
                           "finalizedAt",
                           "sampleCount",
+                          "templateId",
+                          "templateVersion",
                           "createdAt"
                         ]
                       }
@@ -44992,6 +45637,10 @@
                     ],
                     "default": "blind"
                   },
+                  "templateId": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
                   "scheduledAt": {
                     "type": "string",
                     "format": "date-time"
@@ -45084,6 +45733,19 @@
                     "sampleCount": {
                       "type": "integer"
                     },
+                    "templateId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "format": "uuid"
+                    },
+                    "templateVersion": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
+                    },
                     "createdAt": {
                       "type": "string"
                     }
@@ -45097,6 +45759,8 @@
                     "scheduledAt",
                     "finalizedAt",
                     "sampleCount",
+                    "templateId",
+                    "templateVersion",
                     "createdAt"
                   ]
                 }
@@ -45382,6 +46046,13 @@
                         "canceled"
                       ]
                     },
+                    "templateId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "format": "uuid"
+                    },
                     "samples": {
                       "type": "array",
                       "items": {
@@ -45459,6 +46130,7 @@
                     "sessionId",
                     "mode",
                     "status",
+                    "templateId",
                     "samples"
                   ]
                 }
@@ -45781,6 +46453,10 @@
                   "notes": {
                     "type": "string",
                     "maxLength": 2000
+                  },
+                  "responses": {
+                    "type": "object",
+                    "additionalProperties": {}
                   }
                 },
                 "required": [
@@ -46185,6 +46861,2290 @@
                     "sessionId",
                     "status",
                     "results"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "402": {
+            "description": "The organization's plan does not include this module, or a limit is exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string",
+                      "enum": [
+                        "entitlement_required",
+                        "quota_exceeded"
+                      ]
+                    },
+                    "module": {
+                      "type": "string"
+                    },
+                    "plan": {
+                      "type": "string"
+                    },
+                    "requiredPlans": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "key": {
+                      "type": "string"
+                    },
+                    "limit": {
+                      "type": "number"
+                    },
+                    "current": {
+                      "type": "number"
+                    }
+                  },
+                  "required": [
+                    "error",
+                    "code"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller's role does not grant this permission",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited — see Retry-After",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "correlationId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/rpc/v1/quality.form.listFormTemplates": {
+      "post": {
+        "tags": [
+          "quality.form"
+        ],
+        "operationId": "quality_form_listFormTemplates",
+        "summary": "List form templates",
+        "description": "Current versions only. Superseded ones stay readable by id.\n\nRequires permission `quality.form.read` and the `quality` module on the organization's plan.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "description": "Target organization. Required for session callers. Ignored for machine credentials, which are permanently bound to one organization."
+            },
+            "required": false,
+            "description": "Target organization. Required for session callers. Ignored for machine credentials, which are permanently bound to one organization.",
+            "name": "x-roastery-org",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "filter": {
+                    "type": "object",
+                    "properties": {
+                      "kind": {
+                        "type": "string",
+                        "enum": [
+                          "cupping_sheet",
+                          "green_grading",
+                          "roast_qc",
+                          "brew_feedback",
+                          "sample_intake"
+                        ]
+                      }
+                    }
+                  },
+                  "page": {
+                    "type": "object",
+                    "properties": {
+                      "cursor": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 512
+                      },
+                      "limit": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 200,
+                        "default": 50
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "List form templates",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "type": "string",
+                            "enum": [
+                              "cupping_sheet",
+                              "green_grading",
+                              "roast_qc",
+                              "brew_feedback",
+                              "sample_intake"
+                            ]
+                          },
+                          "name": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 200
+                          },
+                          "fields": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "key": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 40,
+                                  "pattern": "^[a-z][a-z0-9_]*$"
+                                },
+                                "label": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 120
+                                },
+                                "type": {
+                                  "type": "string",
+                                  "enum": [
+                                    "number",
+                                    "text",
+                                    "select",
+                                    "boolean"
+                                  ]
+                                },
+                                "required": {
+                                  "type": "boolean"
+                                },
+                                "min": {
+                                  "type": "number"
+                                },
+                                "max": {
+                                  "type": "number"
+                                },
+                                "step": {
+                                  "type": "number",
+                                  "exclusiveMinimum": 0
+                                },
+                                "options": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 80
+                                  },
+                                  "maxItems": 40
+                                },
+                                "help": {
+                                  "type": "string",
+                                  "maxLength": 200
+                                }
+                              },
+                              "required": [
+                                "key",
+                                "label",
+                                "type"
+                              ]
+                            },
+                            "maxItems": 50
+                          },
+                          "id": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "version": {
+                            "type": "integer"
+                          },
+                          "isDefault": {
+                            "type": "boolean"
+                          },
+                          "publishedAt": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "createdAt": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "name",
+                          "fields",
+                          "id",
+                          "version",
+                          "isDefault",
+                          "publishedAt",
+                          "createdAt"
+                        ]
+                      }
+                    },
+                    "page": {
+                      "type": "object",
+                      "properties": {
+                        "nextCursor": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "hasMore": {
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "nextCursor",
+                        "hasMore"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "items",
+                    "page"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "402": {
+            "description": "The organization's plan does not include this module, or a limit is exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string",
+                      "enum": [
+                        "entitlement_required",
+                        "quota_exceeded"
+                      ]
+                    },
+                    "module": {
+                      "type": "string"
+                    },
+                    "plan": {
+                      "type": "string"
+                    },
+                    "requiredPlans": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "key": {
+                      "type": "string"
+                    },
+                    "limit": {
+                      "type": "number"
+                    },
+                    "current": {
+                      "type": "number"
+                    }
+                  },
+                  "required": [
+                    "error",
+                    "code"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller's role does not grant this permission",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited — see Retry-After",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "correlationId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "quality.form"
+        ],
+        "operationId": "quality_form_listFormTemplates_get",
+        "summary": "List form templates",
+        "description": "Current versions only. Superseded ones stay readable by id.\n\nRequires permission `quality.form.read` and the `quality` module on the organization's plan.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "description": "URL-encoded JSON, identical in shape to the POST body."
+            },
+            "required": false,
+            "description": "URL-encoded JSON, identical in shape to the POST body.",
+            "name": "input",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "description": "Target organization. Required for session callers. Ignored for machine credentials, which are permanently bound to one organization."
+            },
+            "required": false,
+            "description": "Target organization. Required for session callers. Ignored for machine credentials, which are permanently bound to one organization.",
+            "name": "x-roastery-org",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List form templates",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "type": "string",
+                            "enum": [
+                              "cupping_sheet",
+                              "green_grading",
+                              "roast_qc",
+                              "brew_feedback",
+                              "sample_intake"
+                            ]
+                          },
+                          "name": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 200
+                          },
+                          "fields": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "key": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 40,
+                                  "pattern": "^[a-z][a-z0-9_]*$"
+                                },
+                                "label": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 120
+                                },
+                                "type": {
+                                  "type": "string",
+                                  "enum": [
+                                    "number",
+                                    "text",
+                                    "select",
+                                    "boolean"
+                                  ]
+                                },
+                                "required": {
+                                  "type": "boolean"
+                                },
+                                "min": {
+                                  "type": "number"
+                                },
+                                "max": {
+                                  "type": "number"
+                                },
+                                "step": {
+                                  "type": "number",
+                                  "exclusiveMinimum": 0
+                                },
+                                "options": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 80
+                                  },
+                                  "maxItems": 40
+                                },
+                                "help": {
+                                  "type": "string",
+                                  "maxLength": 200
+                                }
+                              },
+                              "required": [
+                                "key",
+                                "label",
+                                "type"
+                              ]
+                            },
+                            "maxItems": 50
+                          },
+                          "id": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "version": {
+                            "type": "integer"
+                          },
+                          "isDefault": {
+                            "type": "boolean"
+                          },
+                          "publishedAt": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "createdAt": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "name",
+                          "fields",
+                          "id",
+                          "version",
+                          "isDefault",
+                          "publishedAt",
+                          "createdAt"
+                        ]
+                      }
+                    },
+                    "page": {
+                      "type": "object",
+                      "properties": {
+                        "nextCursor": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "hasMore": {
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "nextCursor",
+                        "hasMore"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "items",
+                    "page"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "402": {
+            "description": "The organization's plan does not include this module, or a limit is exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string",
+                      "enum": [
+                        "entitlement_required",
+                        "quota_exceeded"
+                      ]
+                    },
+                    "module": {
+                      "type": "string"
+                    },
+                    "plan": {
+                      "type": "string"
+                    },
+                    "requiredPlans": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "key": {
+                      "type": "string"
+                    },
+                    "limit": {
+                      "type": "number"
+                    },
+                    "current": {
+                      "type": "number"
+                    }
+                  },
+                  "required": [
+                    "error",
+                    "code"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller's role does not grant this permission",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited — see Retry-After",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "correlationId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/rpc/v1/quality.form.getFormTemplate": {
+      "post": {
+        "tags": [
+          "quality.form"
+        ],
+        "operationId": "quality_form_getFormTemplate",
+        "summary": "Get a form template",
+        "description": "Including an archived one. A score recorded against version 2 has to render against version 2, whatever version 5 says.\n\nRequires permission `quality.form.read` and the `quality` module on the organization's plan.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "description": "Target organization. Required for session callers. Ignored for machine credentials, which are permanently bound to one organization."
+            },
+            "required": false,
+            "description": "Target organization. Required for session callers. Ignored for machine credentials, which are permanently bound to one organization.",
+            "name": "x-roastery-org",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "format": "uuid"
+                  }
+                },
+                "required": [
+                  "id"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Get a form template",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "kind": {
+                      "type": "string",
+                      "enum": [
+                        "cupping_sheet",
+                        "green_grading",
+                        "roast_qc",
+                        "brew_feedback",
+                        "sample_intake"
+                      ]
+                    },
+                    "name": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 200
+                    },
+                    "fields": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "key": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 40,
+                            "pattern": "^[a-z][a-z0-9_]*$"
+                          },
+                          "label": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 120
+                          },
+                          "type": {
+                            "type": "string",
+                            "enum": [
+                              "number",
+                              "text",
+                              "select",
+                              "boolean"
+                            ]
+                          },
+                          "required": {
+                            "type": "boolean"
+                          },
+                          "min": {
+                            "type": "number"
+                          },
+                          "max": {
+                            "type": "number"
+                          },
+                          "step": {
+                            "type": "number",
+                            "exclusiveMinimum": 0
+                          },
+                          "options": {
+                            "type": "array",
+                            "items": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 80
+                            },
+                            "maxItems": 40
+                          },
+                          "help": {
+                            "type": "string",
+                            "maxLength": 200
+                          }
+                        },
+                        "required": [
+                          "key",
+                          "label",
+                          "type"
+                        ]
+                      },
+                      "maxItems": 50
+                    },
+                    "id": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "version": {
+                      "type": "integer"
+                    },
+                    "isDefault": {
+                      "type": "boolean"
+                    },
+                    "publishedAt": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "createdAt": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "kind",
+                    "name",
+                    "fields",
+                    "id",
+                    "version",
+                    "isDefault",
+                    "publishedAt",
+                    "createdAt"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "402": {
+            "description": "The organization's plan does not include this module, or a limit is exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string",
+                      "enum": [
+                        "entitlement_required",
+                        "quota_exceeded"
+                      ]
+                    },
+                    "module": {
+                      "type": "string"
+                    },
+                    "plan": {
+                      "type": "string"
+                    },
+                    "requiredPlans": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "key": {
+                      "type": "string"
+                    },
+                    "limit": {
+                      "type": "number"
+                    },
+                    "current": {
+                      "type": "number"
+                    }
+                  },
+                  "required": [
+                    "error",
+                    "code"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller's role does not grant this permission",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited — see Retry-After",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "correlationId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "quality.form"
+        ],
+        "operationId": "quality_form_getFormTemplate_get",
+        "summary": "Get a form template",
+        "description": "Including an archived one. A score recorded against version 2 has to render against version 2, whatever version 5 says.\n\nRequires permission `quality.form.read` and the `quality` module on the organization's plan.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "description": "URL-encoded JSON, identical in shape to the POST body."
+            },
+            "required": false,
+            "description": "URL-encoded JSON, identical in shape to the POST body.",
+            "name": "input",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "description": "Target organization. Required for session callers. Ignored for machine credentials, which are permanently bound to one organization."
+            },
+            "required": false,
+            "description": "Target organization. Required for session callers. Ignored for machine credentials, which are permanently bound to one organization.",
+            "name": "x-roastery-org",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Get a form template",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "kind": {
+                      "type": "string",
+                      "enum": [
+                        "cupping_sheet",
+                        "green_grading",
+                        "roast_qc",
+                        "brew_feedback",
+                        "sample_intake"
+                      ]
+                    },
+                    "name": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 200
+                    },
+                    "fields": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "key": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 40,
+                            "pattern": "^[a-z][a-z0-9_]*$"
+                          },
+                          "label": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 120
+                          },
+                          "type": {
+                            "type": "string",
+                            "enum": [
+                              "number",
+                              "text",
+                              "select",
+                              "boolean"
+                            ]
+                          },
+                          "required": {
+                            "type": "boolean"
+                          },
+                          "min": {
+                            "type": "number"
+                          },
+                          "max": {
+                            "type": "number"
+                          },
+                          "step": {
+                            "type": "number",
+                            "exclusiveMinimum": 0
+                          },
+                          "options": {
+                            "type": "array",
+                            "items": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 80
+                            },
+                            "maxItems": 40
+                          },
+                          "help": {
+                            "type": "string",
+                            "maxLength": 200
+                          }
+                        },
+                        "required": [
+                          "key",
+                          "label",
+                          "type"
+                        ]
+                      },
+                      "maxItems": 50
+                    },
+                    "id": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "version": {
+                      "type": "integer"
+                    },
+                    "isDefault": {
+                      "type": "boolean"
+                    },
+                    "publishedAt": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "createdAt": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "kind",
+                    "name",
+                    "fields",
+                    "id",
+                    "version",
+                    "isDefault",
+                    "publishedAt",
+                    "createdAt"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "402": {
+            "description": "The organization's plan does not include this module, or a limit is exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string",
+                      "enum": [
+                        "entitlement_required",
+                        "quota_exceeded"
+                      ]
+                    },
+                    "module": {
+                      "type": "string"
+                    },
+                    "plan": {
+                      "type": "string"
+                    },
+                    "requiredPlans": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "key": {
+                      "type": "string"
+                    },
+                    "limit": {
+                      "type": "number"
+                    },
+                    "current": {
+                      "type": "number"
+                    }
+                  },
+                  "required": [
+                    "error",
+                    "code"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller's role does not grant this permission",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited — see Retry-After",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "correlationId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/rpc/v1/quality.form.saveFormTemplate": {
+      "post": {
+        "tags": [
+          "quality.form"
+        ],
+        "operationId": "quality_form_saveFormTemplate",
+        "summary": "Publish a form template",
+        "description": "Publishes a new version and archives the one it supersedes. Field KEYS are the keys in every stored response, so renaming a key orphans the answers already given to it — change the label instead.\n\nRequires permission `quality.form.write` and the `quality` module on the organization's plan.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "description": "Target organization. Required for session callers. Ignored for machine credentials, which are permanently bound to one organization."
+            },
+            "required": false,
+            "description": "Target organization. Required for session callers. Ignored for machine credentials, which are permanently bound to one organization.",
+            "name": "x-roastery-org",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 8,
+              "maxLength": 255,
+              "description": "Retry-safe key. The first request to use it wins; later requests with the same key replay its response. Reusing a key with a different body is a 409."
+            },
+            "required": false,
+            "description": "Retry-safe key. The first request to use it wins; later requests with the same key replay its response. Reusing a key with a different body is a 409.",
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "cupping_sheet",
+                      "green_grading",
+                      "roast_qc",
+                      "brew_feedback",
+                      "sample_intake"
+                    ]
+                  },
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  },
+                  "fields": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "key": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 40,
+                          "pattern": "^[a-z][a-z0-9_]*$"
+                        },
+                        "label": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 120
+                        },
+                        "type": {
+                          "type": "string",
+                          "enum": [
+                            "number",
+                            "text",
+                            "select",
+                            "boolean"
+                          ]
+                        },
+                        "required": {
+                          "type": "boolean"
+                        },
+                        "min": {
+                          "type": "number"
+                        },
+                        "max": {
+                          "type": "number"
+                        },
+                        "step": {
+                          "type": "number",
+                          "exclusiveMinimum": 0
+                        },
+                        "options": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 80
+                          },
+                          "maxItems": 40
+                        },
+                        "help": {
+                          "type": "string",
+                          "maxLength": 200
+                        }
+                      },
+                      "required": [
+                        "key",
+                        "label",
+                        "type"
+                      ]
+                    },
+                    "maxItems": 50
+                  },
+                  "id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "isDefault": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "name",
+                  "fields"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Publish a form template",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "kind": {
+                      "type": "string",
+                      "enum": [
+                        "cupping_sheet",
+                        "green_grading",
+                        "roast_qc",
+                        "brew_feedback",
+                        "sample_intake"
+                      ]
+                    },
+                    "name": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 200
+                    },
+                    "fields": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "key": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 40,
+                            "pattern": "^[a-z][a-z0-9_]*$"
+                          },
+                          "label": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 120
+                          },
+                          "type": {
+                            "type": "string",
+                            "enum": [
+                              "number",
+                              "text",
+                              "select",
+                              "boolean"
+                            ]
+                          },
+                          "required": {
+                            "type": "boolean"
+                          },
+                          "min": {
+                            "type": "number"
+                          },
+                          "max": {
+                            "type": "number"
+                          },
+                          "step": {
+                            "type": "number",
+                            "exclusiveMinimum": 0
+                          },
+                          "options": {
+                            "type": "array",
+                            "items": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 80
+                            },
+                            "maxItems": 40
+                          },
+                          "help": {
+                            "type": "string",
+                            "maxLength": 200
+                          }
+                        },
+                        "required": [
+                          "key",
+                          "label",
+                          "type"
+                        ]
+                      },
+                      "maxItems": 50
+                    },
+                    "id": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "version": {
+                      "type": "integer"
+                    },
+                    "isDefault": {
+                      "type": "boolean"
+                    },
+                    "publishedAt": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "createdAt": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "kind",
+                    "name",
+                    "fields",
+                    "id",
+                    "version",
+                    "isDefault",
+                    "publishedAt",
+                    "createdAt"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "402": {
+            "description": "The organization's plan does not include this module, or a limit is exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string",
+                      "enum": [
+                        "entitlement_required",
+                        "quota_exceeded"
+                      ]
+                    },
+                    "module": {
+                      "type": "string"
+                    },
+                    "plan": {
+                      "type": "string"
+                    },
+                    "requiredPlans": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "key": {
+                      "type": "string"
+                    },
+                    "limit": {
+                      "type": "number"
+                    },
+                    "current": {
+                      "type": "number"
+                    }
+                  },
+                  "required": [
+                    "error",
+                    "code"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller's role does not grant this permission",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited — see Retry-After",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "correlationId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/rpc/v1/quality.form.archiveFormTemplate": {
+      "post": {
+        "tags": [
+          "quality.form"
+        ],
+        "operationId": "quality_form_archiveFormTemplate",
+        "summary": "Retire a form template",
+        "description": "Archives rather than deletes, and returns it. Scores recorded against it stay readable, which is the whole reason versions exist.\n\nRequires permission `quality.form.write` and the `quality` module on the organization's plan.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "description": "Target organization. Required for session callers. Ignored for machine credentials, which are permanently bound to one organization."
+            },
+            "required": false,
+            "description": "Target organization. Required for session callers. Ignored for machine credentials, which are permanently bound to one organization.",
+            "name": "x-roastery-org",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 8,
+              "maxLength": 255,
+              "description": "Retry-safe key. The first request to use it wins; later requests with the same key replay its response. Reusing a key with a different body is a 409."
+            },
+            "required": false,
+            "description": "Retry-safe key. The first request to use it wins; later requests with the same key replay its response. Reusing a key with a different body is a 409.",
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "format": "uuid"
+                  }
+                },
+                "required": [
+                  "id"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Retire a form template",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "kind": {
+                      "type": "string",
+                      "enum": [
+                        "cupping_sheet",
+                        "green_grading",
+                        "roast_qc",
+                        "brew_feedback",
+                        "sample_intake"
+                      ]
+                    },
+                    "name": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 200
+                    },
+                    "fields": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "key": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 40,
+                            "pattern": "^[a-z][a-z0-9_]*$"
+                          },
+                          "label": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 120
+                          },
+                          "type": {
+                            "type": "string",
+                            "enum": [
+                              "number",
+                              "text",
+                              "select",
+                              "boolean"
+                            ]
+                          },
+                          "required": {
+                            "type": "boolean"
+                          },
+                          "min": {
+                            "type": "number"
+                          },
+                          "max": {
+                            "type": "number"
+                          },
+                          "step": {
+                            "type": "number",
+                            "exclusiveMinimum": 0
+                          },
+                          "options": {
+                            "type": "array",
+                            "items": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 80
+                            },
+                            "maxItems": 40
+                          },
+                          "help": {
+                            "type": "string",
+                            "maxLength": 200
+                          }
+                        },
+                        "required": [
+                          "key",
+                          "label",
+                          "type"
+                        ]
+                      },
+                      "maxItems": 50
+                    },
+                    "id": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "version": {
+                      "type": "integer"
+                    },
+                    "isDefault": {
+                      "type": "boolean"
+                    },
+                    "publishedAt": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "createdAt": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "kind",
+                    "name",
+                    "fields",
+                    "id",
+                    "version",
+                    "isDefault",
+                    "publishedAt",
+                    "createdAt"
                   ]
                 }
               }
@@ -49392,6 +52352,2541 @@
                     "url",
                     "expiresAt",
                     "contentType"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "402": {
+            "description": "The organization's plan does not include this module, or a limit is exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string",
+                      "enum": [
+                        "entitlement_required",
+                        "quota_exceeded"
+                      ]
+                    },
+                    "module": {
+                      "type": "string"
+                    },
+                    "plan": {
+                      "type": "string"
+                    },
+                    "requiredPlans": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "key": {
+                      "type": "string"
+                    },
+                    "limit": {
+                      "type": "number"
+                    },
+                    "current": {
+                      "type": "number"
+                    }
+                  },
+                  "required": [
+                    "error",
+                    "code"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller's role does not grant this permission",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited — see Retry-After",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "correlationId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/rpc/v1/reporting.label.listLabelTemplates": {
+      "post": {
+        "tags": [
+          "reporting.label"
+        ],
+        "operationId": "reporting_label_listLabelTemplates",
+        "summary": "List label designs",
+        "description": "The current version of each design. Superseded versions are not listed.\n\nRequires permission `reporting.read` and the `core` module on the organization's plan.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "description": "Target organization. Required for session callers. Ignored for machine credentials, which are permanently bound to one organization."
+            },
+            "required": false,
+            "description": "Target organization. Required for session callers. Ignored for machine credentials, which are permanently bound to one organization.",
+            "name": "x-roastery-org",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "page": {
+                    "type": "object",
+                    "properties": {
+                      "cursor": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 512
+                      },
+                      "limit": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 200,
+                        "default": 50
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "List label designs",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "name": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 120
+                          },
+                          "widthMm": {
+                            "type": "number",
+                            "minimum": 20,
+                            "maximum": 300
+                          },
+                          "heightMm": {
+                            "type": "number",
+                            "minimum": 20,
+                            "maximum": 400
+                          },
+                          "marginMm": {
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 30
+                          },
+                          "qrSizeMm": {
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 80
+                          },
+                          "qrPosition": {
+                            "type": "string",
+                            "enum": [
+                              "none",
+                              "top-right",
+                              "bottom-right",
+                              "bottom-left"
+                            ]
+                          },
+                          "blocks": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "id": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 64
+                                },
+                                "kind": {
+                                  "type": "string",
+                                  "enum": [
+                                    "field",
+                                    "text",
+                                    "rule"
+                                  ]
+                                },
+                                "binding": {
+                                  "type": "string",
+                                  "enum": [
+                                    "coffee.name",
+                                    "coffee.lotCode",
+                                    "coffee.roastLevel",
+                                    "coffee.roastedAt",
+                                    "origin.producer",
+                                    "origin.country",
+                                    "origin.region",
+                                    "origin.altitude",
+                                    "origin.process",
+                                    "origin.varieties",
+                                    "roast.batchNumber",
+                                    "quality.cuppingScore",
+                                    "quality.notes"
+                                  ]
+                                },
+                                "text": {
+                                  "type": "string",
+                                  "maxLength": 200
+                                },
+                                "caption": {
+                                  "type": "string",
+                                  "maxLength": 40
+                                },
+                                "size": {
+                                  "type": "string",
+                                  "enum": [
+                                    "xs",
+                                    "sm",
+                                    "md",
+                                    "lg",
+                                    "xl"
+                                  ],
+                                  "default": "md"
+                                },
+                                "weight": {
+                                  "type": "string",
+                                  "enum": [
+                                    "regular",
+                                    "medium",
+                                    "bold"
+                                  ],
+                                  "default": "regular"
+                                },
+                                "align": {
+                                  "type": "string",
+                                  "enum": [
+                                    "left",
+                                    "center",
+                                    "right"
+                                  ],
+                                  "default": "left"
+                                }
+                              },
+                              "required": [
+                                "id",
+                                "kind"
+                              ]
+                            },
+                            "maxItems": 24
+                          },
+                          "id": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "version": {
+                            "type": "integer"
+                          },
+                          "isDefault": {
+                            "type": "boolean"
+                          },
+                          "createdAt": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "name",
+                          "widthMm",
+                          "heightMm",
+                          "marginMm",
+                          "qrSizeMm",
+                          "qrPosition",
+                          "blocks",
+                          "id",
+                          "version",
+                          "isDefault",
+                          "createdAt"
+                        ]
+                      }
+                    },
+                    "page": {
+                      "type": "object",
+                      "properties": {
+                        "nextCursor": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "hasMore": {
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "nextCursor",
+                        "hasMore"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "items",
+                    "page"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "402": {
+            "description": "The organization's plan does not include this module, or a limit is exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string",
+                      "enum": [
+                        "entitlement_required",
+                        "quota_exceeded"
+                      ]
+                    },
+                    "module": {
+                      "type": "string"
+                    },
+                    "plan": {
+                      "type": "string"
+                    },
+                    "requiredPlans": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "key": {
+                      "type": "string"
+                    },
+                    "limit": {
+                      "type": "number"
+                    },
+                    "current": {
+                      "type": "number"
+                    }
+                  },
+                  "required": [
+                    "error",
+                    "code"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller's role does not grant this permission",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited — see Retry-After",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "correlationId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "reporting.label"
+        ],
+        "operationId": "reporting_label_listLabelTemplates_get",
+        "summary": "List label designs",
+        "description": "The current version of each design. Superseded versions are not listed.\n\nRequires permission `reporting.read` and the `core` module on the organization's plan.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "description": "URL-encoded JSON, identical in shape to the POST body."
+            },
+            "required": false,
+            "description": "URL-encoded JSON, identical in shape to the POST body.",
+            "name": "input",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "description": "Target organization. Required for session callers. Ignored for machine credentials, which are permanently bound to one organization."
+            },
+            "required": false,
+            "description": "Target organization. Required for session callers. Ignored for machine credentials, which are permanently bound to one organization.",
+            "name": "x-roastery-org",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List label designs",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "name": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 120
+                          },
+                          "widthMm": {
+                            "type": "number",
+                            "minimum": 20,
+                            "maximum": 300
+                          },
+                          "heightMm": {
+                            "type": "number",
+                            "minimum": 20,
+                            "maximum": 400
+                          },
+                          "marginMm": {
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 30
+                          },
+                          "qrSizeMm": {
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 80
+                          },
+                          "qrPosition": {
+                            "type": "string",
+                            "enum": [
+                              "none",
+                              "top-right",
+                              "bottom-right",
+                              "bottom-left"
+                            ]
+                          },
+                          "blocks": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "id": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 64
+                                },
+                                "kind": {
+                                  "type": "string",
+                                  "enum": [
+                                    "field",
+                                    "text",
+                                    "rule"
+                                  ]
+                                },
+                                "binding": {
+                                  "type": "string",
+                                  "enum": [
+                                    "coffee.name",
+                                    "coffee.lotCode",
+                                    "coffee.roastLevel",
+                                    "coffee.roastedAt",
+                                    "origin.producer",
+                                    "origin.country",
+                                    "origin.region",
+                                    "origin.altitude",
+                                    "origin.process",
+                                    "origin.varieties",
+                                    "roast.batchNumber",
+                                    "quality.cuppingScore",
+                                    "quality.notes"
+                                  ]
+                                },
+                                "text": {
+                                  "type": "string",
+                                  "maxLength": 200
+                                },
+                                "caption": {
+                                  "type": "string",
+                                  "maxLength": 40
+                                },
+                                "size": {
+                                  "type": "string",
+                                  "enum": [
+                                    "xs",
+                                    "sm",
+                                    "md",
+                                    "lg",
+                                    "xl"
+                                  ],
+                                  "default": "md"
+                                },
+                                "weight": {
+                                  "type": "string",
+                                  "enum": [
+                                    "regular",
+                                    "medium",
+                                    "bold"
+                                  ],
+                                  "default": "regular"
+                                },
+                                "align": {
+                                  "type": "string",
+                                  "enum": [
+                                    "left",
+                                    "center",
+                                    "right"
+                                  ],
+                                  "default": "left"
+                                }
+                              },
+                              "required": [
+                                "id",
+                                "kind"
+                              ]
+                            },
+                            "maxItems": 24
+                          },
+                          "id": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "version": {
+                            "type": "integer"
+                          },
+                          "isDefault": {
+                            "type": "boolean"
+                          },
+                          "createdAt": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "name",
+                          "widthMm",
+                          "heightMm",
+                          "marginMm",
+                          "qrSizeMm",
+                          "qrPosition",
+                          "blocks",
+                          "id",
+                          "version",
+                          "isDefault",
+                          "createdAt"
+                        ]
+                      }
+                    },
+                    "page": {
+                      "type": "object",
+                      "properties": {
+                        "nextCursor": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "hasMore": {
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "nextCursor",
+                        "hasMore"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "items",
+                    "page"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "402": {
+            "description": "The organization's plan does not include this module, or a limit is exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string",
+                      "enum": [
+                        "entitlement_required",
+                        "quota_exceeded"
+                      ]
+                    },
+                    "module": {
+                      "type": "string"
+                    },
+                    "plan": {
+                      "type": "string"
+                    },
+                    "requiredPlans": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "key": {
+                      "type": "string"
+                    },
+                    "limit": {
+                      "type": "number"
+                    },
+                    "current": {
+                      "type": "number"
+                    }
+                  },
+                  "required": [
+                    "error",
+                    "code"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller's role does not grant this permission",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited — see Retry-After",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "correlationId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/rpc/v1/reporting.label.getLabelTemplate": {
+      "post": {
+        "tags": [
+          "reporting.label"
+        ],
+        "operationId": "reporting_label_getLabelTemplate",
+        "summary": "Get a label design",
+        "description": "\n\nRequires permission `reporting.read` and the `core` module on the organization's plan.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "description": "Target organization. Required for session callers. Ignored for machine credentials, which are permanently bound to one organization."
+            },
+            "required": false,
+            "description": "Target organization. Required for session callers. Ignored for machine credentials, which are permanently bound to one organization.",
+            "name": "x-roastery-org",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "format": "uuid"
+                  }
+                },
+                "required": [
+                  "id"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Get a label design",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "name": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 120
+                    },
+                    "widthMm": {
+                      "type": "number",
+                      "minimum": 20,
+                      "maximum": 300
+                    },
+                    "heightMm": {
+                      "type": "number",
+                      "minimum": 20,
+                      "maximum": 400
+                    },
+                    "marginMm": {
+                      "type": "number",
+                      "minimum": 0,
+                      "maximum": 30
+                    },
+                    "qrSizeMm": {
+                      "type": "number",
+                      "minimum": 0,
+                      "maximum": 80
+                    },
+                    "qrPosition": {
+                      "type": "string",
+                      "enum": [
+                        "none",
+                        "top-right",
+                        "bottom-right",
+                        "bottom-left"
+                      ]
+                    },
+                    "blocks": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 64
+                          },
+                          "kind": {
+                            "type": "string",
+                            "enum": [
+                              "field",
+                              "text",
+                              "rule"
+                            ]
+                          },
+                          "binding": {
+                            "type": "string",
+                            "enum": [
+                              "coffee.name",
+                              "coffee.lotCode",
+                              "coffee.roastLevel",
+                              "coffee.roastedAt",
+                              "origin.producer",
+                              "origin.country",
+                              "origin.region",
+                              "origin.altitude",
+                              "origin.process",
+                              "origin.varieties",
+                              "roast.batchNumber",
+                              "quality.cuppingScore",
+                              "quality.notes"
+                            ]
+                          },
+                          "text": {
+                            "type": "string",
+                            "maxLength": 200
+                          },
+                          "caption": {
+                            "type": "string",
+                            "maxLength": 40
+                          },
+                          "size": {
+                            "type": "string",
+                            "enum": [
+                              "xs",
+                              "sm",
+                              "md",
+                              "lg",
+                              "xl"
+                            ],
+                            "default": "md"
+                          },
+                          "weight": {
+                            "type": "string",
+                            "enum": [
+                              "regular",
+                              "medium",
+                              "bold"
+                            ],
+                            "default": "regular"
+                          },
+                          "align": {
+                            "type": "string",
+                            "enum": [
+                              "left",
+                              "center",
+                              "right"
+                            ],
+                            "default": "left"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "kind"
+                        ]
+                      },
+                      "maxItems": 24
+                    },
+                    "id": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "version": {
+                      "type": "integer"
+                    },
+                    "isDefault": {
+                      "type": "boolean"
+                    },
+                    "createdAt": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "name",
+                    "widthMm",
+                    "heightMm",
+                    "marginMm",
+                    "qrSizeMm",
+                    "qrPosition",
+                    "blocks",
+                    "id",
+                    "version",
+                    "isDefault",
+                    "createdAt"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "402": {
+            "description": "The organization's plan does not include this module, or a limit is exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string",
+                      "enum": [
+                        "entitlement_required",
+                        "quota_exceeded"
+                      ]
+                    },
+                    "module": {
+                      "type": "string"
+                    },
+                    "plan": {
+                      "type": "string"
+                    },
+                    "requiredPlans": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "key": {
+                      "type": "string"
+                    },
+                    "limit": {
+                      "type": "number"
+                    },
+                    "current": {
+                      "type": "number"
+                    }
+                  },
+                  "required": [
+                    "error",
+                    "code"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller's role does not grant this permission",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited — see Retry-After",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "correlationId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "reporting.label"
+        ],
+        "operationId": "reporting_label_getLabelTemplate_get",
+        "summary": "Get a label design",
+        "description": "\n\nRequires permission `reporting.read` and the `core` module on the organization's plan.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "description": "URL-encoded JSON, identical in shape to the POST body."
+            },
+            "required": false,
+            "description": "URL-encoded JSON, identical in shape to the POST body.",
+            "name": "input",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "description": "Target organization. Required for session callers. Ignored for machine credentials, which are permanently bound to one organization."
+            },
+            "required": false,
+            "description": "Target organization. Required for session callers. Ignored for machine credentials, which are permanently bound to one organization.",
+            "name": "x-roastery-org",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Get a label design",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "name": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 120
+                    },
+                    "widthMm": {
+                      "type": "number",
+                      "minimum": 20,
+                      "maximum": 300
+                    },
+                    "heightMm": {
+                      "type": "number",
+                      "minimum": 20,
+                      "maximum": 400
+                    },
+                    "marginMm": {
+                      "type": "number",
+                      "minimum": 0,
+                      "maximum": 30
+                    },
+                    "qrSizeMm": {
+                      "type": "number",
+                      "minimum": 0,
+                      "maximum": 80
+                    },
+                    "qrPosition": {
+                      "type": "string",
+                      "enum": [
+                        "none",
+                        "top-right",
+                        "bottom-right",
+                        "bottom-left"
+                      ]
+                    },
+                    "blocks": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 64
+                          },
+                          "kind": {
+                            "type": "string",
+                            "enum": [
+                              "field",
+                              "text",
+                              "rule"
+                            ]
+                          },
+                          "binding": {
+                            "type": "string",
+                            "enum": [
+                              "coffee.name",
+                              "coffee.lotCode",
+                              "coffee.roastLevel",
+                              "coffee.roastedAt",
+                              "origin.producer",
+                              "origin.country",
+                              "origin.region",
+                              "origin.altitude",
+                              "origin.process",
+                              "origin.varieties",
+                              "roast.batchNumber",
+                              "quality.cuppingScore",
+                              "quality.notes"
+                            ]
+                          },
+                          "text": {
+                            "type": "string",
+                            "maxLength": 200
+                          },
+                          "caption": {
+                            "type": "string",
+                            "maxLength": 40
+                          },
+                          "size": {
+                            "type": "string",
+                            "enum": [
+                              "xs",
+                              "sm",
+                              "md",
+                              "lg",
+                              "xl"
+                            ],
+                            "default": "md"
+                          },
+                          "weight": {
+                            "type": "string",
+                            "enum": [
+                              "regular",
+                              "medium",
+                              "bold"
+                            ],
+                            "default": "regular"
+                          },
+                          "align": {
+                            "type": "string",
+                            "enum": [
+                              "left",
+                              "center",
+                              "right"
+                            ],
+                            "default": "left"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "kind"
+                        ]
+                      },
+                      "maxItems": 24
+                    },
+                    "id": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "version": {
+                      "type": "integer"
+                    },
+                    "isDefault": {
+                      "type": "boolean"
+                    },
+                    "createdAt": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "name",
+                    "widthMm",
+                    "heightMm",
+                    "marginMm",
+                    "qrSizeMm",
+                    "qrPosition",
+                    "blocks",
+                    "id",
+                    "version",
+                    "isDefault",
+                    "createdAt"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "402": {
+            "description": "The organization's plan does not include this module, or a limit is exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string",
+                      "enum": [
+                        "entitlement_required",
+                        "quota_exceeded"
+                      ]
+                    },
+                    "module": {
+                      "type": "string"
+                    },
+                    "plan": {
+                      "type": "string"
+                    },
+                    "requiredPlans": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "key": {
+                      "type": "string"
+                    },
+                    "limit": {
+                      "type": "number"
+                    },
+                    "current": {
+                      "type": "number"
+                    }
+                  },
+                  "required": [
+                    "error",
+                    "code"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller's role does not grant this permission",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited — see Retry-After",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "correlationId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/rpc/v1/reporting.label.saveLabelTemplate": {
+      "post": {
+        "tags": [
+          "reporting.label"
+        ],
+        "operationId": "reporting_label_saveLabelTemplate",
+        "summary": "Publish a label design",
+        "description": "Publishes a NEW VERSION rather than mutating the existing one. A bag printed in March must stay reproducible after somebody redesigns the label in June, or a recall cannot say which bags carried which claim.\n\nRequires permission `reporting.write` and the `core` module on the organization's plan.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "description": "Target organization. Required for session callers. Ignored for machine credentials, which are permanently bound to one organization."
+            },
+            "required": false,
+            "description": "Target organization. Required for session callers. Ignored for machine credentials, which are permanently bound to one organization.",
+            "name": "x-roastery-org",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 8,
+              "maxLength": 255,
+              "description": "Retry-safe key. The first request to use it wins; later requests with the same key replay its response. Reusing a key with a different body is a 409."
+            },
+            "required": false,
+            "description": "Retry-safe key. The first request to use it wins; later requests with the same key replay its response. Reusing a key with a different body is a 409.",
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 120
+                  },
+                  "widthMm": {
+                    "type": "number",
+                    "minimum": 20,
+                    "maximum": 300
+                  },
+                  "heightMm": {
+                    "type": "number",
+                    "minimum": 20,
+                    "maximum": 400
+                  },
+                  "marginMm": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 30
+                  },
+                  "qrSizeMm": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 80
+                  },
+                  "qrPosition": {
+                    "type": "string",
+                    "enum": [
+                      "none",
+                      "top-right",
+                      "bottom-right",
+                      "bottom-left"
+                    ]
+                  },
+                  "blocks": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 64
+                        },
+                        "kind": {
+                          "type": "string",
+                          "enum": [
+                            "field",
+                            "text",
+                            "rule"
+                          ]
+                        },
+                        "binding": {
+                          "type": "string",
+                          "enum": [
+                            "coffee.name",
+                            "coffee.lotCode",
+                            "coffee.roastLevel",
+                            "coffee.roastedAt",
+                            "origin.producer",
+                            "origin.country",
+                            "origin.region",
+                            "origin.altitude",
+                            "origin.process",
+                            "origin.varieties",
+                            "roast.batchNumber",
+                            "quality.cuppingScore",
+                            "quality.notes"
+                          ]
+                        },
+                        "text": {
+                          "type": "string",
+                          "maxLength": 200
+                        },
+                        "caption": {
+                          "type": "string",
+                          "maxLength": 40
+                        },
+                        "size": {
+                          "type": "string",
+                          "enum": [
+                            "xs",
+                            "sm",
+                            "md",
+                            "lg",
+                            "xl"
+                          ],
+                          "default": "md"
+                        },
+                        "weight": {
+                          "type": "string",
+                          "enum": [
+                            "regular",
+                            "medium",
+                            "bold"
+                          ],
+                          "default": "regular"
+                        },
+                        "align": {
+                          "type": "string",
+                          "enum": [
+                            "left",
+                            "center",
+                            "right"
+                          ],
+                          "default": "left"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "kind"
+                      ]
+                    },
+                    "maxItems": 24
+                  },
+                  "id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "isDefault": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "name",
+                  "widthMm",
+                  "heightMm",
+                  "marginMm",
+                  "qrSizeMm",
+                  "qrPosition",
+                  "blocks"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Publish a label design",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "name": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 120
+                    },
+                    "widthMm": {
+                      "type": "number",
+                      "minimum": 20,
+                      "maximum": 300
+                    },
+                    "heightMm": {
+                      "type": "number",
+                      "minimum": 20,
+                      "maximum": 400
+                    },
+                    "marginMm": {
+                      "type": "number",
+                      "minimum": 0,
+                      "maximum": 30
+                    },
+                    "qrSizeMm": {
+                      "type": "number",
+                      "minimum": 0,
+                      "maximum": 80
+                    },
+                    "qrPosition": {
+                      "type": "string",
+                      "enum": [
+                        "none",
+                        "top-right",
+                        "bottom-right",
+                        "bottom-left"
+                      ]
+                    },
+                    "blocks": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 64
+                          },
+                          "kind": {
+                            "type": "string",
+                            "enum": [
+                              "field",
+                              "text",
+                              "rule"
+                            ]
+                          },
+                          "binding": {
+                            "type": "string",
+                            "enum": [
+                              "coffee.name",
+                              "coffee.lotCode",
+                              "coffee.roastLevel",
+                              "coffee.roastedAt",
+                              "origin.producer",
+                              "origin.country",
+                              "origin.region",
+                              "origin.altitude",
+                              "origin.process",
+                              "origin.varieties",
+                              "roast.batchNumber",
+                              "quality.cuppingScore",
+                              "quality.notes"
+                            ]
+                          },
+                          "text": {
+                            "type": "string",
+                            "maxLength": 200
+                          },
+                          "caption": {
+                            "type": "string",
+                            "maxLength": 40
+                          },
+                          "size": {
+                            "type": "string",
+                            "enum": [
+                              "xs",
+                              "sm",
+                              "md",
+                              "lg",
+                              "xl"
+                            ],
+                            "default": "md"
+                          },
+                          "weight": {
+                            "type": "string",
+                            "enum": [
+                              "regular",
+                              "medium",
+                              "bold"
+                            ],
+                            "default": "regular"
+                          },
+                          "align": {
+                            "type": "string",
+                            "enum": [
+                              "left",
+                              "center",
+                              "right"
+                            ],
+                            "default": "left"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "kind"
+                        ]
+                      },
+                      "maxItems": 24
+                    },
+                    "id": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "version": {
+                      "type": "integer"
+                    },
+                    "isDefault": {
+                      "type": "boolean"
+                    },
+                    "createdAt": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "name",
+                    "widthMm",
+                    "heightMm",
+                    "marginMm",
+                    "qrSizeMm",
+                    "qrPosition",
+                    "blocks",
+                    "id",
+                    "version",
+                    "isDefault",
+                    "createdAt"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "402": {
+            "description": "The organization's plan does not include this module, or a limit is exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string",
+                      "enum": [
+                        "entitlement_required",
+                        "quota_exceeded"
+                      ]
+                    },
+                    "module": {
+                      "type": "string"
+                    },
+                    "plan": {
+                      "type": "string"
+                    },
+                    "requiredPlans": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "key": {
+                      "type": "string"
+                    },
+                    "limit": {
+                      "type": "number"
+                    },
+                    "current": {
+                      "type": "number"
+                    }
+                  },
+                  "required": [
+                    "error",
+                    "code"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller's role does not grant this permission",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited — see Retry-After",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "correlationId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/rpc/v1/reporting.label.deleteLabelTemplate": {
+      "post": {
+        "tags": [
+          "reporting.label"
+        ],
+        "operationId": "reporting_label_deleteLabelTemplate",
+        "summary": "Retire a label design",
+        "description": "Archives rather than deletes, and returns the archived design. Bags already printed against it stay explicable.\n\nRequires permission `reporting.write` and the `core` module on the organization's plan.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "description": "Target organization. Required for session callers. Ignored for machine credentials, which are permanently bound to one organization."
+            },
+            "required": false,
+            "description": "Target organization. Required for session callers. Ignored for machine credentials, which are permanently bound to one organization.",
+            "name": "x-roastery-org",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 8,
+              "maxLength": 255,
+              "description": "Retry-safe key. The first request to use it wins; later requests with the same key replay its response. Reusing a key with a different body is a 409."
+            },
+            "required": false,
+            "description": "Retry-safe key. The first request to use it wins; later requests with the same key replay its response. Reusing a key with a different body is a 409.",
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "format": "uuid"
+                  }
+                },
+                "required": [
+                  "id"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Retire a label design",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "name": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 120
+                    },
+                    "widthMm": {
+                      "type": "number",
+                      "minimum": 20,
+                      "maximum": 300
+                    },
+                    "heightMm": {
+                      "type": "number",
+                      "minimum": 20,
+                      "maximum": 400
+                    },
+                    "marginMm": {
+                      "type": "number",
+                      "minimum": 0,
+                      "maximum": 30
+                    },
+                    "qrSizeMm": {
+                      "type": "number",
+                      "minimum": 0,
+                      "maximum": 80
+                    },
+                    "qrPosition": {
+                      "type": "string",
+                      "enum": [
+                        "none",
+                        "top-right",
+                        "bottom-right",
+                        "bottom-left"
+                      ]
+                    },
+                    "blocks": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 64
+                          },
+                          "kind": {
+                            "type": "string",
+                            "enum": [
+                              "field",
+                              "text",
+                              "rule"
+                            ]
+                          },
+                          "binding": {
+                            "type": "string",
+                            "enum": [
+                              "coffee.name",
+                              "coffee.lotCode",
+                              "coffee.roastLevel",
+                              "coffee.roastedAt",
+                              "origin.producer",
+                              "origin.country",
+                              "origin.region",
+                              "origin.altitude",
+                              "origin.process",
+                              "origin.varieties",
+                              "roast.batchNumber",
+                              "quality.cuppingScore",
+                              "quality.notes"
+                            ]
+                          },
+                          "text": {
+                            "type": "string",
+                            "maxLength": 200
+                          },
+                          "caption": {
+                            "type": "string",
+                            "maxLength": 40
+                          },
+                          "size": {
+                            "type": "string",
+                            "enum": [
+                              "xs",
+                              "sm",
+                              "md",
+                              "lg",
+                              "xl"
+                            ],
+                            "default": "md"
+                          },
+                          "weight": {
+                            "type": "string",
+                            "enum": [
+                              "regular",
+                              "medium",
+                              "bold"
+                            ],
+                            "default": "regular"
+                          },
+                          "align": {
+                            "type": "string",
+                            "enum": [
+                              "left",
+                              "center",
+                              "right"
+                            ],
+                            "default": "left"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "kind"
+                        ]
+                      },
+                      "maxItems": 24
+                    },
+                    "id": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "version": {
+                      "type": "integer"
+                    },
+                    "isDefault": {
+                      "type": "boolean"
+                    },
+                    "createdAt": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "name",
+                    "widthMm",
+                    "heightMm",
+                    "marginMm",
+                    "qrSizeMm",
+                    "qrPosition",
+                    "blocks",
+                    "id",
+                    "version",
+                    "isDefault",
+                    "createdAt"
                   ]
                 }
               }

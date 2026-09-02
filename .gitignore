@@ -17,3 +17,7 @@ coverage/
 .astro/
 apps/docs/src/content/docs/reference/
 apps/web/.output/
+
+# Deployed-environment secrets
+*.staging.vars
+.staging.vars

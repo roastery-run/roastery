@@ -17,12 +17,13 @@
     "@roastery/units": "workspace:*",
     "@tanstack/react-query": "catalog:",
     "@tanstack/react-router": "catalog:",
+    "@tanstack/react-start": "catalog:",
     "lucide-react": "catalog:",
     "react": "catalog:",
-    "react-dom": "catalog:",
-    "@tanstack/react-start": "catalog:"
+    "react-dom": "catalog:"
   },
   "devDependencies": {
+    "@roastery/db": "workspace:*",
     "@roastery/tsconfig": "workspace:*",
     "@tailwindcss/vite": "catalog:",
     "@tanstack/router-plugin": "catalog:",
@@ -33,6 +34,6 @@
     "typescript": "catalog:",
     "vite": "catalog:",
     "vitest": "catalog:",
-    "@roastery/db": "workspace:*"
+    "wrangler": "catalog:"
   }
 }

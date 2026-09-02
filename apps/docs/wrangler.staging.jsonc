@@ -1,0 +1,10 @@
+{
+  // Astro + Starlight, fully static.
+  "name": "roastery-docs-staging",
+  "compatibility_date": "2025-09-01",
+  "workers_dev": false,
+  "preview_urls": false,
+  "assets": { "directory": "dist", "not_found_handling": "404-page" },
+  "routes": [{ "pattern": "docs-staging.roastery.run", "custom_domain": true }],
+  "observability": { "enabled": true, "head_sampling_rate": 1 }
+}
