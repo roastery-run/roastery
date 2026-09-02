@@ -161,6 +161,29 @@ export const TENANT_DIRECT = {
   units_of_measure: { table: s.unitsOfMeasure, column: s.unitsOfMeasure.orgId, field: "orgId" },
   audit_events: { table: s.auditEvents, column: s.auditEvents.orgId, field: "orgId" },
   events: { table: s.events, column: s.events.orgId, field: "orgId" },
+  cafe_sites: { table: s.cafeSites, column: s.cafeSites.orgId, field: "orgId" },
+  cafe_machines: { table: s.cafeMachines, column: s.cafeMachines.orgId, field: "orgId" },
+  // Direct rather than via its site: this is the highest-volume table in the
+  // system, and a semi-join through cafe_sites on every dashboard query would
+  // cost more than the column it saves.
+  espresso_shots: { table: s.espressoShots, column: s.espressoShots.orgId, field: "orgId" },
+  shot_rollups_hourly: {
+    table: s.shotRollupsHourly,
+    column: s.shotRollupsHourly.orgId,
+    field: "orgId",
+  },
+  pos_transactions: { table: s.posTransactions, column: s.posTransactions.orgId, field: "orgId" },
+  pos_reconciliations: {
+    table: s.posReconciliations,
+    column: s.posReconciliations.orgId,
+    field: "orgId",
+  },
+  traceability_records: {
+    table: s.traceabilityRecords,
+    column: s.traceabilityRecords.orgId,
+    field: "orgId",
+  },
+  reports: { table: s.reports, column: s.reports.orgId, field: "orgId" },
   webhook_endpoints: {
     table: s.webhookEndpoints,
     column: s.webhookEndpoints.orgId,

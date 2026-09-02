@@ -27,8 +27,10 @@
  * Roast EVENTS stay relational regardless of volume — there are 5–8 per batch
  * and you filter and chart on them ("every batch where DTR exceeded 22%").
  */
+import { sql } from "drizzle-orm";
 import {
   boolean,
+  check,
   index,
   integer,
   jsonb,
@@ -260,9 +262,19 @@ export const machineBridgeTokens = pgTable(
     orgId: uuid("org_id")
       .notNull()
       .references(() => organizations.id, { onDelete: "cascade" }),
-    machineId: uuid("machine_id")
-      .notNull()
-      .references(() => machines.id, { onDelete: "cascade" }),
+    /**
+     * The roaster this token streams for. Null for a café bridge.
+     *
+     * A bar bridge and a roaster bridge are the same KIND of credential —
+     * short lived, scoped to one machine, able to do nothing but stream —
+     * facing different equipment. One table with two nullable references and a
+     * constraint keeps the authentication path single, which matters because
+     * this is the credential that lives on a physically accessible,
+     * rarely-patched shop-floor PC.
+     */
+    machineId: uuid("machine_id").references(() => machines.id, { onDelete: "cascade" }),
+    /** The bar equipment this token streams for. Null for a roaster. */
+    cafeMachineId: uuid("cafe_machine_id"),
     tokenHash: text("token_hash").notNull(),
     tokenPrefix: text("token_prefix").notNull(),
     expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
@@ -274,5 +286,13 @@ export const machineBridgeTokens = pgTable(
   (t) => [
     uniqueIndex("machine_bridge_tokens_hash_idx").on(t.tokenHash),
     index("machine_bridge_tokens_org_machine_idx").on(t.orgId, t.machineId),
+    index("machine_bridge_tokens_org_cafe_idx").on(t.orgId, t.cafeMachineId),
+    // Exactly one target. A token scoped to nothing would authenticate a
+    // bridge that could stream for any machine, which is the failure this
+    // credential exists to prevent.
+    check(
+      "machine_bridge_tokens_one_target",
+      sql`(machine_id is not null)::int + (cafe_machine_id is not null)::int = 1`,
+    ),
   ],
 );

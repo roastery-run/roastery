@@ -8,6 +8,7 @@
  */
 import type { Env } from "../env";
 import { closeWorkerDb, createWorkerDb } from "../lib/db/db";
+import { ensureShotPartitions } from "../lib/domain/shot-ingest";
 import { findDueDeliveries, findPendingFanOut } from "../lib/events/webhook-delivery";
 
 export type CronPattern = string;
@@ -16,6 +17,9 @@ export async function handleScheduled(cron: CronPattern, env: Env): Promise<void
   switch (cron) {
     case "* * * * *":
       await sweepOutbox(env);
+      break;
+    case "0 4 * * *":
+      await rollShotPartitions(env);
       break;
     default:
       console.warn(JSON.stringify({ msg: "unhandled_cron", cron }));
@@ -59,6 +63,31 @@ async function sweepOutbox(env: Env): Promise<void> {
         }),
       );
     }
+  } finally {
+    await closeWorkerDb(db);
+  }
+}
+
+/**
+ * Keeps the shot table's partition window ahead of real time.
+ *
+ * A shot arriving with no matching range lands in the default partition, which
+ * works — data is never lost — but concentrates everything into one table and
+ * defeats the point of partitioning. Creating months in advance means that
+ * only ever happens to a bridge with a badly wrong clock.
+ */
+async function rollShotPartitions(env: Env): Promise<void> {
+  const db = createWorkerDb(env);
+  try {
+    const created = await ensureShotPartitions(db, 3);
+    console.log(JSON.stringify({ msg: "shot_partitions_ensured", partitions: created }));
+  } catch (err) {
+    console.error(
+      JSON.stringify({
+        msg: "shot_partition_maintenance_failed",
+        error: err instanceof Error ? err.message : String(err),
+      }),
+    );
   } finally {
     await closeWorkerDb(db);
   }

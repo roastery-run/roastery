@@ -11,6 +11,9 @@
  */
 import type { OpenAPIHono } from "@hono/zod-openapi";
 import type { RpcAppEnv } from "../lib/api/rpc";
+import { cafePos } from "./cafe/pos";
+import { cafeShots } from "./cafe/shots";
+import { cafeSitesRoutes } from "./cafe/sites";
 import { catalogLocation } from "./catalog/location";
 import { catalogMachine } from "./catalog/machine";
 import { catalogParty } from "./catalog/party";
@@ -25,11 +28,16 @@ import { productionRoast } from "./production/roast";
 import { productionSchedule } from "./production/schedule";
 import { qualityCupping } from "./quality/cupping";
 import { qualityGrading } from "./quality/grading";
+import { reporting } from "./reporting";
 import { sourcingContract } from "./sourcing/contract";
 import { sourcingSample } from "./sourcing/sample";
+import { traceability } from "./traceability";
 import { webhooks } from "./webhooks";
 
 const MODULES = [
+  cafePos,
+  cafeShots,
+  cafeSitesRoutes,
   catalogLocation,
   catalogMachine,
   catalogParty,
@@ -44,8 +52,10 @@ const MODULES = [
   productionSchedule,
   qualityCupping,
   qualityGrading,
+  reporting,
   sourcingContract,
   sourcingSample,
+  traceability,
   webhooks,
 ] as const;
 

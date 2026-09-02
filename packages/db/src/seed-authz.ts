@@ -333,6 +333,10 @@ export const PLANS: PlanSeed[] = [
       "module:green_contracts": true,
       "module:resource_planning": true,
       "module:samples": true,
+      // Café intelligence is a top-tier module: it is the one that requires
+      // hardware on a bar, and the roasteries that want it are the ones
+      // running their own shops.
+      "module:cafe": true,
       "module:api": true,
       "limit:locations": null,
       "limit:users": null,

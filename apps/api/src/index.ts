@@ -10,9 +10,16 @@ import { bodyLimit } from "hono/body-limit";
 import { cors } from "hono/cors";
 import { secureHeaders } from "hono/secure-headers";
 import { handleScheduled } from "./cron";
-import type { Env, EventQueueMessage, WebhookQueueMessage } from "./env";
+import type {
+  Env,
+  EventQueueMessage,
+  ReportQueueMessage,
+  ShotQueueMessage,
+  WebhookQueueMessage,
+} from "./env";
 import { assertProductionBindings } from "./env";
 import { ingestRoutes } from "./http/ingest";
+import { publicRoutes } from "./http/public";
 import { streamRoutes } from "./http/stream";
 import { isHttpError } from "./lib/api/errors";
 import { rateLimit } from "./lib/api/rate-limit";
@@ -22,7 +29,13 @@ import { authMiddleware } from "./lib/auth/auth-middleware";
 import { QuotaExceeded } from "./lib/auth/entitlements";
 import { orgScope } from "./lib/auth/org-scope";
 import { closeWorkerDb, createWorkerDb, safeExecutionCtx } from "./lib/db/db";
-import { handleDeadLetterBatch, handleEventQueue, handleWebhookQueue } from "./queue";
+import {
+  handleDeadLetterBatch,
+  handleEventQueue,
+  handleReportQueue,
+  handleShotQueue,
+  handleWebhookQueue,
+} from "./queue";
 import { mountRpcRoutes } from "./rpc";
 
 /**
@@ -125,9 +138,18 @@ mountRpcRoutes(app);
 // than a user or client credential, routes straight to a Durable Object with
 // no database on the hot path, and needs a rate budget two orders of magnitude
 // higher than the business API.
-app.use("/ingest/v1/*", rateLimit("RPC_BURST_LIMITER", { limit: 600, windowMs: 10_000 }));
+app.use("/ingest/v1/*", rateLimit("INGEST_LIMITER", { limit: 1000, windowMs: 10_000 }));
 app.route("/", ingestRoutes);
 app.route("/", streamRoutes);
+
+/**
+ * Unauthenticated by design: a QR code on a retail bag and a signed report
+ * link are both opened by someone with no session. Both carry their own
+ * protection — an unguessable global token, and an expiring signature.
+ */
+app.use("/trace/v1/*", rateLimit("RPC_SUSTAINED_LIMITER", { limit: 300, windowMs: 60_000 }));
+app.use("/reports/v1/*", rateLimit("AUTH_RATE_LIMITER", { limit: 20, windowMs: 60_000 }));
+app.route("/", publicRoutes);
 
 /* --------------------------------------------------------------- metadata */
 
@@ -243,6 +265,7 @@ app.onError((err, c) => {
   return c.json({ error: "Internal error", correlationId }, 500);
 });
 
+export { CafeSiteDO } from "./durable-objects/cafe-site";
 export { RoastBatchDO } from "./durable-objects/roast-batch";
 
 /**
@@ -263,7 +286,9 @@ export default {
   fetch: app.fetch,
 
   async queue(
-    batch: MessageBatch<EventQueueMessage & WebhookQueueMessage>,
+    batch: MessageBatch<
+      EventQueueMessage & WebhookQueueMessage & ShotQueueMessage & ReportQueueMessage
+    >,
     env: Env,
   ): Promise<void> {
     switch (batch.queue) {
@@ -271,8 +296,14 @@ export default {
         return handleEventQueue(batch as never, env);
       case "roastery-webhooks":
         return handleWebhookQueue(batch as never, env);
+      case "roastery-shots":
+        return handleShotQueue(batch as never, env);
+      case "roastery-reports":
+        return handleReportQueue(batch as never, env);
       case "roastery-events-dlq":
       case "roastery-webhooks-dlq":
+      case "roastery-shots-dlq":
+      case "roastery-reports-dlq":
         return handleDeadLetterBatch(batch as never, env);
       default:
         // Acknowledged rather than retried: an unknown queue name means a

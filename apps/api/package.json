@@ -10,7 +10,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "verify:orders": "node scripts/verify-orders-scheduling.mjs",
-    "verify:webhooks": "node scripts/verify-webhooks.mjs"
+    "verify:webhooks": "node scripts/verify-webhooks.mjs",
+    "verify:cafe": "node scripts/verify-cafe-traceability.mjs"
   },
   "dependencies": {
     "@better-auth/api-key": "1.7.2",
@@ -27,6 +28,7 @@
     "zod": "catalog:"
   },
   "devDependencies": {
+    "@cloudflare/puppeteer": "^1.4.0",
     "@cloudflare/workers-types": "^5.20260831.1",
     "@roastery/tsconfig": "workspace:*",
     "typescript": "catalog:",

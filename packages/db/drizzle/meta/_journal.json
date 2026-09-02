@@ -5,15 +5,22 @@
     {
       "idx": 0,
       "version": "7",
-      "when": 1788315485546,
+      "when": 1788317878985,
       "tag": "0000_init",
       "breakpoints": true
     },
     {
       "idx": 1,
       "version": "7",
-      "when": 1788315485619,
+      "when": 1788317879241,
       "tag": "0001_seed_authz",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1788317879715,
+      "tag": "0002_partition_shots",
       "breakpoints": true
     }
   ]

@@ -7,6 +7,17 @@ import type {
   RateLimit,
 } from "@cloudflare/workers-types";
 
+/** Espresso shots, batched off the request path. */
+export type ShotQueueMessage = {
+  orgId: string;
+  siteId: string;
+  machineId: string;
+  shots: unknown[];
+};
+
+/** One report to render, off the request path. */
+export type ReportQueueMessage = { reportId: string; orgId: string };
+
 /** Fan-out: one message per committed outbox event. */
 export type EventQueueMessage = { eventId: string };
 /** Delivery: one message per (endpoint, event) pair. */
@@ -31,6 +42,13 @@ export type Env = {
   /** One instance per live roast, keyed `${orgId}:${batchId}`. */
   ROAST_BATCH: DurableObjectNamespace;
   /**
+   * One instance per café SITE, keyed `${orgId}:${siteId}`.
+   *
+   * Per site, not per machine: sites number in the tens, machines in the
+   * thousands, and only a site has somebody standing in front of it.
+   */
+  CAFE_SITE: DurableObjectNamespace;
+  /**
    * Full-fidelity roast curves. Postgres keeps a 1 Hz downsample for querying;
    * the complete artifact lives here, fetched only when someone opens a batch.
    */
@@ -42,10 +60,21 @@ export type Env = {
    * slow subscriber must not hold up the other thirty-nine.
    */
   EVENT_QUEUE?: Queue<EventQueueMessage>;
+  SHOT_QUEUE?: Queue<ShotQueueMessage>;
+  REPORT_QUEUE?: Queue<ReportQueueMessage>;
   WEBHOOK_QUEUE?: Queue<WebhookQueueMessage>;
+
+  /**
+   * Browser Rendering, for report PDFs. Optional: without it reports render as
+   * HTML, so the pipeline is exercised in local development and CI rather than
+   * only in production.
+   */
+  BROWSER?: import("@cloudflare/puppeteer").BrowserWorker;
 
   RPC_SUSTAINED_LIMITER?: RateLimit;
   RPC_BURST_LIMITER?: RateLimit;
+  /** Machine telemetry. Its own namespace, so a busy bar cannot starve the API. */
+  INGEST_LIMITER?: RateLimit;
   AUTH_RATE_LIMITER?: RateLimit;
   SESSION_RATE_LIMITER?: RateLimit;
 

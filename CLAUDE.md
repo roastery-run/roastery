@@ -75,6 +75,7 @@ src/
   rpc/                  RPC operations, one file per namespace
     catalog/            location.ts, product.ts, party.ts, machine.ts
     inventory/          green.ts, roasted.ts, material.ts, costing.ts
+    cafe/               sites.ts, shots.ts, pos.ts
     orders/             orders.ts, shared.ts
     production/         roast.ts, schedule.ts
     quality/            cupping.ts, grading.ts
@@ -91,6 +92,7 @@ src/
     db/                 the database handles and audit
     domain/             the coffee: inventory, costing, roasting, cupping, scheduling
     events/             the outbox, webhook signing and delivery
+    reporting/          document building, rendering, signed download links
 ```
 
 Rules:
@@ -109,6 +111,10 @@ Rules:
   the useful documentation.
 - Tests sit next to the code they test (`scheduling.ts` / `scheduling.test.ts`).
   Tests that need a database live in `apps/api/test/`.
+- A table drizzle-kit cannot express (today: `espresso_shots`, which is range
+  partitioned) gets a GENERATED migration plus a test asserting the two agree.
+  Never a hand-written one — the failure mode is a column added to the schema
+  and missing from the real table, which fails only in production.
 - Schema files import in one direction only:
   `enums → auth → oauth → org → webhooks → catalog → inventory → …`. Every
   `pgEnum` lives in `enums.ts`; every `relations()` call lives in
@@ -211,6 +217,15 @@ feature can hit them too.
   returned looking like success.
 - **Retrying what will never work.** A 404 from a deleted route is not
   transient. Distinguish transient from permanent before retrying.
+- **A rate limit that is a number in the code.** The limit a Worker actually
+  enforces comes from the `ratelimits` binding config, not from the call site.
+  Sharing a binding between two surfaces gives them one shared bucket, so the
+  busier one starves the other. A surface with a different budget needs its own
+  namespace.
+- **Background work on a closed connection.** A request's database handle is
+  closed when the response is sent, so anything continuing in `waitUntil` loses
+  it mid-query. Long work goes on a queue with its own connection, closed in
+  `finally`.
 - **A cache that outlives a revocation.** Authorization reads and all writes use
   the cache-disabled Hyperdrive. The query cache does not participate in
   transactions.

@@ -8,9 +8,24 @@
  * for what never succeeds.
  */
 import type { MessageBatch } from "@cloudflare/workers-types";
-import type { Env, EventQueueMessage, WebhookQueueMessage } from "../env";
+import type { CafeSiteDO, LiveShot } from "../durable-objects/cafe-site";
+import type {
+  Env,
+  EventQueueMessage,
+  ReportQueueMessage,
+  ShotQueueMessage,
+  WebhookQueueMessage,
+} from "../env";
 import { closeWorkerDb, createWorkerDb } from "../lib/db/db";
+import {
+  type IncomingShot,
+  prepareShots,
+  refreshRollups,
+  touchedHours,
+  writeShots,
+} from "../lib/domain/shot-ingest";
 import { attemptDelivery, fanOutEvent } from "../lib/events/webhook-delivery";
+import { runReport } from "../lib/reporting/run";
 
 export async function handleEventQueue(
   batch: MessageBatch<EventQueueMessage>,
@@ -112,6 +127,121 @@ export async function handleDeadLetterBatch(
         await markDead(db, body.deliveryId, `Dead-lettered from ${batch.queue}`);
       }
       message.ack();
+    }
+  } finally {
+    await closeWorkerDb(db);
+  }
+}
+
+/**
+ * Espresso shots: one multi-row upsert per batch, then the live view.
+ *
+ * The database write comes FIRST. The live bar is a view, so showing a shot
+ * that failed to persist would put a number on a manager's screen that is not
+ * in any report — which is worse than showing it a second late.
+ */
+export async function handleShotQueue(
+  batch: MessageBatch<ShotQueueMessage>,
+  env: Env,
+): Promise<void> {
+  const db = createWorkerDb(env);
+  try {
+    // Grouped by site so a chain posting from twelve bars at once produces one
+    // upsert and one live-view call per site, not one per message.
+    const bySite = new Map<string, { orgId: string; siteId: string; shots: IncomingShot[] }>();
+    for (const message of batch.messages) {
+      const { orgId, siteId, machineId, shots } = message.body;
+      const key = `${orgId}:${siteId}`;
+      const entry = bySite.get(key) ?? { orgId, siteId, shots: [] };
+      for (const shot of shots as IncomingShot[]) {
+        // The bridge is authenticated for one machine; trusting a machineId in
+        // the body would let a compromised bar write shots for another site's
+        // equipment.
+        entry.shots.push({ ...shot, machineId });
+      }
+      bySite.set(key, entry);
+    }
+
+    for (const { orgId, siteId, shots } of bySite.values()) {
+      const prepared = prepareShots(orgId, siteId, shots);
+      if (!prepared.length) continue;
+
+      const result = await writeShots(db, prepared);
+      await refreshRollups(db, orgId, touchedHours(prepared));
+
+      const stub = env.CAFE_SITE.get(
+        env.CAFE_SITE.idFromName(`${orgId}:${siteId}`),
+      ) as unknown as CafeSiteDO;
+
+      const live: LiveShot[] = prepared.map((s) => ({
+        externalId: s.externalId,
+        machineId: s.machineId,
+        groupNumber: s.groupNumber,
+        pulledAt: s.pulledAt.getTime(),
+        doseG: s.doseG === null ? null : Number.parseFloat(s.doseG),
+        yieldG: s.yieldG === null ? null : Number.parseFloat(s.yieldG),
+        durationS: s.durationS === null ? null : Number.parseFloat(s.durationS),
+        ratio: s.ratio === null ? null : Number.parseFloat(s.ratio),
+        verdict: s.verdict,
+      }));
+
+      const { anomalies } = await stub.record({ orgId, siteId, shots: live });
+
+      if (result.duplicates > 0) {
+        console.log(
+          JSON.stringify({
+            msg: "shots_deduplicated",
+            siteId,
+            received: result.received,
+            inserted: result.inserted,
+            duplicates: result.duplicates,
+          }),
+        );
+      }
+      for (const anomaly of anomalies) {
+        console.warn(JSON.stringify({ msg: "cafe_anomaly", orgId, siteId, ...anomaly }));
+      }
+    }
+
+    for (const message of batch.messages) message.ack();
+  } catch (err) {
+    console.error(
+      JSON.stringify({
+        msg: "shot_ingest_failed",
+        error: err instanceof Error ? err.message : String(err),
+      }),
+    );
+    // Safe to redeliver: the write is an upsert keyed on the bridge's own shot
+    // id, so a retry that partially succeeded the first time inserts nothing.
+    for (const message of batch.messages) message.retry({ delaySeconds: 10 });
+  } finally {
+    await closeWorkerDb(db);
+  }
+}
+
+/** Report rendering. See lib/reporting/run.ts for why this is not a waitUntil. */
+export async function handleReportQueue(
+  batch: MessageBatch<ReportQueueMessage>,
+  env: Env,
+): Promise<void> {
+  const db = createWorkerDb(env);
+  try {
+    for (const message of batch.messages) {
+      try {
+        await runReport(db, env, message.body.orgId, message.body.reportId);
+        message.ack();
+      } catch (err) {
+        console.error(
+          JSON.stringify({
+            msg: "report_render_failed",
+            reportId: message.body.reportId,
+            error: err instanceof Error ? err.message : String(err),
+          }),
+        );
+        // The failure is already recorded on the report row, so a retry that
+        // also fails leaves the user with an explanation either way.
+        message.retry({ delaySeconds: 30 });
+      }
     }
   } finally {
     await closeWorkerDb(db);

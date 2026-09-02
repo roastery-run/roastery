@@ -33,7 +33,11 @@ export function clientKey(c: Context<{ Bindings: Env }>): string {
 export function rateLimit(
   binding: keyof Pick<
     Env,
-    "RPC_SUSTAINED_LIMITER" | "RPC_BURST_LIMITER" | "AUTH_RATE_LIMITER" | "SESSION_RATE_LIMITER"
+    | "RPC_SUSTAINED_LIMITER"
+    | "RPC_BURST_LIMITER"
+    | "INGEST_LIMITER"
+    | "AUTH_RATE_LIMITER"
+    | "SESSION_RATE_LIMITER"
   >,
   fallback: { limit: number; windowMs: number },
 ) {

@@ -158,6 +158,7 @@ INSERT INTO plan_entitlements (plan_slug, key, value) VALUES
   ('advanced', 'module:green_contracts', 'true'::jsonb),
   ('advanced', 'module:resource_planning', 'true'::jsonb),
   ('advanced', 'module:samples', 'true'::jsonb),
+  ('advanced', 'module:cafe', 'true'::jsonb),
   ('advanced', 'module:api', 'true'::jsonb),
   ('advanced', 'limit:locations', 'null'::jsonb),
   ('advanced', 'limit:users', 'null'::jsonb),

@@ -20,7 +20,17 @@ import { closeWorkerDb, createWorkerDb, safeExecutionCtx } from "../lib/db/db";
  */
 export const ingestRoutes = new Hono<{ Bindings: Env }>();
 
-type BridgeContext = { orgId: string; machineId: string; tokenId: string };
+/**
+ * A bridge is scoped to exactly one machine, and that machine is either a
+ * roaster or bar equipment. Which one is a property of the token, not of the
+ * request — a bar bridge cannot post a roast curve by asking nicely.
+ */
+type BridgeContext = {
+  orgId: string;
+  tokenId: string;
+  machineId: string | null;
+  cafeMachineId: string | null;
+};
 
 async function authenticateBridge(
   env: Env,
@@ -37,7 +47,12 @@ async function authenticateBridge(
       .limit(1);
 
     if (!token || token.revokedAt || token.expiresAt <= new Date()) return null;
-    return { orgId: token.orgId, machineId: token.machineId, tokenId: token.id };
+    return {
+      orgId: token.orgId,
+      tokenId: token.id,
+      machineId: token.machineId,
+      cafeMachineId: token.cafeMachineId,
+    };
   } finally {
     await closeWorkerDb(db);
   }
@@ -46,6 +61,9 @@ async function authenticateBridge(
 ingestRoutes.post("/ingest/v1/roast/:batchId/samples", async (c) => {
   const bridge = await authenticateBridge(c.env, c.req.header("Authorization"));
   if (!bridge) return c.json({ ok: false, error: "unauthorized" }, 401);
+  if (!bridge.machineId) {
+    return c.json({ ok: false, error: "not_a_roaster_bridge" }, 403);
+  }
 
   const batchId = c.req.param("batchId");
   let body: IngestBody;
@@ -90,4 +108,58 @@ ingestRoutes.post("/ingest/v1/roast/:batchId/samples", async (c) => {
   // A backpressure refusal is a 429, not a 400: the bridge should retry, not
   // conclude its payload was malformed.
   return c.json(ack, ack.ok ? 200 : ack.error === "backpressure" ? 429 : 409);
+});
+
+/**
+ * Espresso shot ingest.
+ *
+ * Batched onto a queue rather than written inline, and deliberately NOT given
+ * a Durable Object per machine. A shot is an event, not a session: 28 seconds,
+ * already over before anyone looks. A twenty-group chain produces about 0.1
+ * writes a second in aggregate, so an object per machine would be thousands of
+ * objects each handling one write every few minutes.
+ *
+ * The response is an acknowledgement that the batch was ACCEPTED, not that it
+ * was stored. That is the honest contract for a queue, and the bridge does not
+ * need more: dedupe on the bridge's own shot id means a replay after an
+ * uncertain response costs nothing.
+ */
+ingestRoutes.post("/ingest/v1/cafe/shots", async (c) => {
+  const bridge = await authenticateBridge(c.env, c.req.header("Authorization"));
+  if (!bridge) return c.json({ ok: false, error: "unauthorized" }, 401);
+  if (!bridge.cafeMachineId) {
+    return c.json({ ok: false, error: "not_a_cafe_bridge" }, 403);
+  }
+
+  let body: { siteId?: string; shots?: unknown[] };
+  try {
+    body = await c.req.json();
+  } catch {
+    return c.json({ ok: false, error: "invalid_json" }, 400);
+  }
+
+  const shots = Array.isArray(body.shots) ? body.shots : null;
+  if (!body.siteId || !shots) {
+    return c.json({ ok: false, error: "siteId and shots are required" }, 400);
+  }
+  // A bar posts a handful at a time; a huge batch is a bug or an attack. The
+  // bridge chunks its replay buffer rather than sending a day in one request.
+  if (shots.length > 500) {
+    return c.json({ ok: false, error: "too_many_shots", max: 500 }, 413);
+  }
+
+  if (!c.env.SHOT_QUEUE) {
+    return c.json({ ok: false, error: "ingest_unavailable" }, 503);
+  }
+
+  await c.env.SHOT_QUEUE.send({
+    orgId: bridge.orgId,
+    siteId: body.siteId,
+    // From the TOKEN, never the body. A machine id a caller can choose would
+    // let a compromised bar write shots for another site's equipment.
+    machineId: bridge.cafeMachineId,
+    shots,
+  });
+
+  return c.json({ ok: true, accepted: shots.length });
 });

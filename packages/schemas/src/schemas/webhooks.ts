@@ -46,6 +46,15 @@ export const eventTypeSchema = z.enum([
   "orders.order.created",
   "orders.order.confirmed",
   "orders.order.allocated",
+
+  "cafe.site.created",
+  "cafe.machine.registered",
+  "cafe.shots.recorded",
+  "cafe.anomaly.detected",
+  "cafe.pos.reconciled",
+
+  "traceability.certificate.issued",
+  "reporting.report.ready",
 ]);
 export type EventType = z.infer<typeof eventTypeSchema>;
 

@@ -462,3 +462,51 @@ export const webhookDeliveryStatusEnum = pgEnum("webhook_delivery_status", [
   "failed",
   "dead",
 ]);
+
+/* -------------------------------------------------------------------- cafe */
+
+export const cafeMachineKindEnum = pgEnum("cafe_machine_kind", [
+  "espresso_machine",
+  "grinder",
+  "batch_brewer",
+  "water_system",
+]);
+
+/**
+ * Why a shot was not in specification.
+ *
+ * Stored rather than derived at read time because the specification a shot was
+ * judged against can change: re-deriving next month would rewrite history and
+ * make last week's quality report disagree with itself.
+ */
+export const shotVerdictEnum = pgEnum("shot_verdict", [
+  "in_spec",
+  "fast",
+  "slow",
+  "under_dosed",
+  "over_dosed",
+  "channeling",
+  "discarded",
+]);
+
+export const posReconciliationStatusEnum = pgEnum("pos_reconciliation_status", [
+  "pending",
+  "matched",
+  "shot_missing",
+  "sale_missing",
+  "quantity_mismatch",
+]);
+
+/* ------------------------------------------------------------ traceability */
+
+export const traceDirectionEnum = pgEnum("trace_direction", ["backward", "forward"]);
+
+export const reportKindEnum = pgEnum("report_kind", [
+  "traceability_certificate",
+  "inventory_valuation",
+  "production_summary",
+  "quality_summary",
+  "cafe_performance",
+]);
+
+export const reportStatusEnum = pgEnum("report_status", ["queued", "rendering", "ready", "failed"]);

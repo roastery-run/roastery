@@ -1,3 +1,4 @@
+export * from "./schemas/cafe";
 export * from "./schemas/common";
 export * from "./schemas/console";
 export * from "./schemas/inventory";
@@ -11,4 +12,5 @@ export * from "./schemas/production";
 export * from "./schemas/quality";
 export * from "./schemas/roasted";
 export * from "./schemas/sourcing";
+export * from "./schemas/traceability";
 export * from "./schemas/webhooks";

@@ -33,7 +33,9 @@
   "queues": {
     "producers": [
       { "binding": "EVENT_QUEUE", "queue": "roastery-events" },
-      { "binding": "WEBHOOK_QUEUE", "queue": "roastery-webhooks" }
+      { "binding": "WEBHOOK_QUEUE", "queue": "roastery-webhooks" },
+      { "binding": "SHOT_QUEUE", "queue": "roastery-shots" },
+      { "binding": "REPORT_QUEUE", "queue": "roastery-reports" }
     ],
     "consumers": [
       {
@@ -56,7 +58,32 @@
         "max_retries": 6,
         "dead_letter_queue": "roastery-webhooks-dlq"
       },
+      {
+        // Shots batch hard: the write is one multi-row upsert, so a bigger
+        // batch is strictly cheaper. Ten thousand shots is a handful of
+        // statements rather than ten thousand.
+        "queue": "roastery-shots",
+        "max_batch_size": 100,
+        // One second, not five. A busy bar fills a batch of 100 long before
+        // the timeout, so this only affects a quiet one — and a quiet bar is
+        // exactly where a manager is staring at the live view waiting for a
+        // channeling alert that must arrive in seconds.
+        "max_batch_timeout": 1,
+        "max_retries": 3,
+        "dead_letter_queue": "roastery-shots-dlq"
+      },
+      {
+        // One report per message: rendering is slow and memory-hungry, and a
+        // batch of ten would risk the whole batch on one bad report.
+        "queue": "roastery-reports",
+        "max_batch_size": 1,
+        "max_batch_timeout": 1,
+        "max_retries": 2,
+        "dead_letter_queue": "roastery-reports-dlq"
+      },
       { "queue": "roastery-events-dlq", "max_batch_size": 20, "max_retries": 1 },
+      { "queue": "roastery-reports-dlq", "max_batch_size": 20, "max_retries": 1 },
+      { "queue": "roastery-shots-dlq", "max_batch_size": 20, "max_retries": 1 },
       { "queue": "roastery-webhooks-dlq", "max_batch_size": 20, "max_retries": 1 }
     ]
   },
@@ -64,12 +91,22 @@
     // Every minute. This is the outbox sweeper: it is what makes "the lot
     // moved but no webhook fired" unreachable even if the Worker dies between
     // the commit and the inline enqueue.
-    "crons": ["* * * * *"]
+    "crons": [
+      "* * * * *",
+      // Keeps the espresso_shots partition window ahead of real time.
+      "0 4 * * *"
+    ]
   },
   "durable_objects": {
-    "bindings": [{ "name": "ROAST_BATCH", "class_name": "RoastBatchDO" }]
+    "bindings": [
+      { "name": "ROAST_BATCH", "class_name": "RoastBatchDO" },
+      { "name": "CAFE_SITE", "class_name": "CafeSiteDO" }
+    ]
   },
-  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["RoastBatchDO"] }],
+  "migrations": [
+    { "tag": "v1", "new_sqlite_classes": ["RoastBatchDO"] },
+    { "tag": "v2", "new_sqlite_classes": ["CafeSiteDO"] }
+  ],
   "ratelimits": [
     {
       // 300/60s == the documented 5 req/s sustained budget. Authoritative.
@@ -84,6 +121,16 @@
       "name": "RPC_BURST_LIMITER",
       "namespace_id": "1002",
       "simple": { "limit": 60, "period": 10 }
+    },
+    {
+      // Machine telemetry: a roaster streams every second and a busy bar posts
+      // batches continuously. This is a SEPARATE namespace, not a bigger number
+      // on the RPC one — the limit a Worker sees comes from this config, not
+      // from the call site, so sharing a binding would both cap ingest at the
+      // business API's budget and let a busy shop floor rate-limit the console.
+      "name": "INGEST_LIMITER",
+      "namespace_id": "1005",
+      "simple": { "limit": 1000, "period": 10 }
     },
     {
       // Unauthenticated and expensive (email sends, DB reads).
