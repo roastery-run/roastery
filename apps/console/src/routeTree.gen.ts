@@ -14,17 +14,38 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as AppIndexRouteImport } from './routes/_app/index'
 import { Route as CupSessionIdRouteImport } from './routes/cup.$sessionId'
 import { Route as RoastBatchIdRouteImport } from './routes/roast.$batchId'
+import { Route as AppCafeIndexRouteImport } from './routes/_app/cafe/index'
+import { Route as AppCafeLiveRouteImport } from './routes/_app/cafe/live'
+import { Route as AppCafeReconciliationRouteImport } from './routes/_app/cafe/reconciliation'
+import { Route as AppContractsIndexRouteImport } from './routes/_app/contracts/index'
+import { Route as AppContractsPositionsRouteImport } from './routes/_app/contracts/positions'
+import { Route as AppContractsShipmentsRouteImport } from './routes/_app/contracts/shipments'
 import { Route as AppInventoryIndexRouteImport } from './routes/_app/inventory/index'
 import { Route as AppInventoryLotIdRouteImport } from './routes/_app/inventory/$lotId'
 import { Route as AppInventoryBlendsRouteImport } from './routes/_app/inventory/blends'
+import { Route as AppInventoryCostsRouteImport } from './routes/_app/inventory/costs'
+import { Route as AppInventoryMaterialsRouteImport } from './routes/_app/inventory/materials'
+import { Route as AppInventoryRoastedRouteImport } from './routes/_app/inventory/roasted'
 import { Route as AppOrdersIndexRouteImport } from './routes/_app/orders/index'
 import { Route as AppOrdersOrderIdRouteImport } from './routes/_app/orders/$orderId'
+import { Route as AppOrdersCustomersRouteImport } from './routes/_app/orders/customers'
 import { Route as AppQualityIndexRouteImport } from './routes/_app/quality/index'
 import { Route as AppQualityGradingsRouteImport } from './routes/_app/quality/gradings'
+import { Route as AppReportsIndexRouteImport } from './routes/_app/reports/index'
+import { Route as AppReportsTraceabilityRouteImport } from './routes/_app/reports/traceability'
 import { Route as AppRoastingIndexRouteImport } from './routes/_app/roasting/index'
 import { Route as AppRoastingBatchIdRouteImport } from './routes/_app/roasting/$batchId'
+import { Route as AppRoastingMachinesRouteImport } from './routes/_app/roasting/machines'
+import { Route as AppRoastingProfilesRouteImport } from './routes/_app/roasting/profiles'
 import { Route as AppRoastingScheduleRouteImport } from './routes/_app/roasting/schedule'
 import { Route as AppSamplesIndexRouteImport } from './routes/_app/samples/index'
+import { Route as AppSettingsIndexRouteImport } from './routes/_app/settings/index'
+import { Route as AppSettingsApiKeysRouteImport } from './routes/_app/settings/api-keys'
+import { Route as AppSettingsLocationsRouteImport } from './routes/_app/settings/locations'
+import { Route as AppSettingsMembersRouteImport } from './routes/_app/settings/members'
+import { Route as AppSettingsPartnersRouteImport } from './routes/_app/settings/partners'
+import { Route as AppSettingsProductsRouteImport } from './routes/_app/settings/products'
+import { Route as AppSettingsWebhooksRouteImport } from './routes/_app/settings/webhooks'
 
 const AppRoute = AppRouteImport.update({
   id: '/_app',
@@ -50,6 +71,36 @@ const RoastBatchIdRoute = RoastBatchIdRouteImport.update({
   path: '/roast/$batchId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AppCafeIndexRoute = AppCafeIndexRouteImport.update({
+  id: '/cafe/',
+  path: '/cafe/',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppCafeLiveRoute = AppCafeLiveRouteImport.update({
+  id: '/cafe/live',
+  path: '/cafe/live',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppCafeReconciliationRoute = AppCafeReconciliationRouteImport.update({
+  id: '/cafe/reconciliation',
+  path: '/cafe/reconciliation',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppContractsIndexRoute = AppContractsIndexRouteImport.update({
+  id: '/contracts/',
+  path: '/contracts/',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppContractsPositionsRoute = AppContractsPositionsRouteImport.update({
+  id: '/contracts/positions',
+  path: '/contracts/positions',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppContractsShipmentsRoute = AppContractsShipmentsRouteImport.update({
+  id: '/contracts/shipments',
+  path: '/contracts/shipments',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppInventoryIndexRoute = AppInventoryIndexRouteImport.update({
   id: '/inventory/',
   path: '/inventory/',
@@ -65,6 +116,21 @@ const AppInventoryBlendsRoute = AppInventoryBlendsRouteImport.update({
   path: '/inventory/blends',
   getParentRoute: () => AppRoute,
 } as any)
+const AppInventoryCostsRoute = AppInventoryCostsRouteImport.update({
+  id: '/inventory/costs',
+  path: '/inventory/costs',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppInventoryMaterialsRoute = AppInventoryMaterialsRouteImport.update({
+  id: '/inventory/materials',
+  path: '/inventory/materials',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppInventoryRoastedRoute = AppInventoryRoastedRouteImport.update({
+  id: '/inventory/roasted',
+  path: '/inventory/roasted',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppOrdersIndexRoute = AppOrdersIndexRouteImport.update({
   id: '/orders/',
   path: '/orders/',
@@ -73,6 +139,11 @@ const AppOrdersIndexRoute = AppOrdersIndexRouteImport.update({
 const AppOrdersOrderIdRoute = AppOrdersOrderIdRouteImport.update({
   id: '/orders/$orderId',
   path: '/orders/$orderId',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppOrdersCustomersRoute = AppOrdersCustomersRouteImport.update({
+  id: '/orders/customers',
+  path: '/orders/customers',
   getParentRoute: () => AppRoute,
 } as any)
 const AppQualityIndexRoute = AppQualityIndexRouteImport.update({
@@ -85,6 +156,16 @@ const AppQualityGradingsRoute = AppQualityGradingsRouteImport.update({
   path: '/quality/gradings',
   getParentRoute: () => AppRoute,
 } as any)
+const AppReportsIndexRoute = AppReportsIndexRouteImport.update({
+  id: '/reports/',
+  path: '/reports/',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppReportsTraceabilityRoute = AppReportsTraceabilityRouteImport.update({
+  id: '/reports/traceability',
+  path: '/reports/traceability',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppRoastingIndexRoute = AppRoastingIndexRouteImport.update({
   id: '/roasting/',
   path: '/roasting/',
@@ -93,6 +174,16 @@ const AppRoastingIndexRoute = AppRoastingIndexRouteImport.update({
 const AppRoastingBatchIdRoute = AppRoastingBatchIdRouteImport.update({
   id: '/roasting/$batchId',
   path: '/roasting/$batchId',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppRoastingMachinesRoute = AppRoastingMachinesRouteImport.update({
+  id: '/roasting/machines',
+  path: '/roasting/machines',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppRoastingProfilesRoute = AppRoastingProfilesRouteImport.update({
+  id: '/roasting/profiles',
+  path: '/roasting/profiles',
   getParentRoute: () => AppRoute,
 } as any)
 const AppRoastingScheduleRoute = AppRoastingScheduleRouteImport.update({
@@ -105,40 +196,117 @@ const AppSamplesIndexRoute = AppSamplesIndexRouteImport.update({
   path: '/samples/',
   getParentRoute: () => AppRoute,
 } as any)
+const AppSettingsIndexRoute = AppSettingsIndexRouteImport.update({
+  id: '/settings/',
+  path: '/settings/',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppSettingsApiKeysRoute = AppSettingsApiKeysRouteImport.update({
+  id: '/settings/api-keys',
+  path: '/settings/api-keys',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppSettingsLocationsRoute = AppSettingsLocationsRouteImport.update({
+  id: '/settings/locations',
+  path: '/settings/locations',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppSettingsMembersRoute = AppSettingsMembersRouteImport.update({
+  id: '/settings/members',
+  path: '/settings/members',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppSettingsPartnersRoute = AppSettingsPartnersRouteImport.update({
+  id: '/settings/partners',
+  path: '/settings/partners',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppSettingsProductsRoute = AppSettingsProductsRouteImport.update({
+  id: '/settings/products',
+  path: '/settings/products',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppSettingsWebhooksRoute = AppSettingsWebhooksRouteImport.update({
+  id: '/settings/webhooks',
+  path: '/settings/webhooks',
+  getParentRoute: () => AppRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
   '/login': typeof LoginRoute
   '/cup/$sessionId': typeof CupSessionIdRoute
   '/roast/$batchId': typeof RoastBatchIdRoute
+  '/cafe/live': typeof AppCafeLiveRoute
+  '/cafe/reconciliation': typeof AppCafeReconciliationRoute
+  '/contracts/positions': typeof AppContractsPositionsRoute
+  '/contracts/shipments': typeof AppContractsShipmentsRoute
   '/inventory/$lotId': typeof AppInventoryLotIdRoute
   '/inventory/blends': typeof AppInventoryBlendsRoute
+  '/inventory/costs': typeof AppInventoryCostsRoute
+  '/inventory/materials': typeof AppInventoryMaterialsRoute
+  '/inventory/roasted': typeof AppInventoryRoastedRoute
   '/orders/$orderId': typeof AppOrdersOrderIdRoute
+  '/orders/customers': typeof AppOrdersCustomersRoute
   '/quality/gradings': typeof AppQualityGradingsRoute
+  '/reports/traceability': typeof AppReportsTraceabilityRoute
   '/roasting/$batchId': typeof AppRoastingBatchIdRoute
+  '/roasting/machines': typeof AppRoastingMachinesRoute
+  '/roasting/profiles': typeof AppRoastingProfilesRoute
   '/roasting/schedule': typeof AppRoastingScheduleRoute
+  '/settings/api-keys': typeof AppSettingsApiKeysRoute
+  '/settings/locations': typeof AppSettingsLocationsRoute
+  '/settings/members': typeof AppSettingsMembersRoute
+  '/settings/partners': typeof AppSettingsPartnersRoute
+  '/settings/products': typeof AppSettingsProductsRoute
+  '/settings/webhooks': typeof AppSettingsWebhooksRoute
+  '/cafe/': typeof AppCafeIndexRoute
+  '/contracts/': typeof AppContractsIndexRoute
   '/inventory/': typeof AppInventoryIndexRoute
   '/orders/': typeof AppOrdersIndexRoute
   '/quality/': typeof AppQualityIndexRoute
+  '/reports/': typeof AppReportsIndexRoute
   '/roasting/': typeof AppRoastingIndexRoute
   '/samples/': typeof AppSamplesIndexRoute
+  '/settings/': typeof AppSettingsIndexRoute
 }
 export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/cup/$sessionId': typeof CupSessionIdRoute
   '/roast/$batchId': typeof RoastBatchIdRoute
   '/': typeof AppIndexRoute
+  '/cafe/live': typeof AppCafeLiveRoute
+  '/cafe/reconciliation': typeof AppCafeReconciliationRoute
+  '/contracts/positions': typeof AppContractsPositionsRoute
+  '/contracts/shipments': typeof AppContractsShipmentsRoute
   '/inventory/$lotId': typeof AppInventoryLotIdRoute
   '/inventory/blends': typeof AppInventoryBlendsRoute
+  '/inventory/costs': typeof AppInventoryCostsRoute
+  '/inventory/materials': typeof AppInventoryMaterialsRoute
+  '/inventory/roasted': typeof AppInventoryRoastedRoute
   '/orders/$orderId': typeof AppOrdersOrderIdRoute
+  '/orders/customers': typeof AppOrdersCustomersRoute
   '/quality/gradings': typeof AppQualityGradingsRoute
+  '/reports/traceability': typeof AppReportsTraceabilityRoute
   '/roasting/$batchId': typeof AppRoastingBatchIdRoute
+  '/roasting/machines': typeof AppRoastingMachinesRoute
+  '/roasting/profiles': typeof AppRoastingProfilesRoute
   '/roasting/schedule': typeof AppRoastingScheduleRoute
+  '/settings/api-keys': typeof AppSettingsApiKeysRoute
+  '/settings/locations': typeof AppSettingsLocationsRoute
+  '/settings/members': typeof AppSettingsMembersRoute
+  '/settings/partners': typeof AppSettingsPartnersRoute
+  '/settings/products': typeof AppSettingsProductsRoute
+  '/settings/webhooks': typeof AppSettingsWebhooksRoute
+  '/cafe': typeof AppCafeIndexRoute
+  '/contracts': typeof AppContractsIndexRoute
   '/inventory': typeof AppInventoryIndexRoute
   '/orders': typeof AppOrdersIndexRoute
   '/quality': typeof AppQualityIndexRoute
+  '/reports': typeof AppReportsIndexRoute
   '/roasting': typeof AppRoastingIndexRoute
   '/samples': typeof AppSamplesIndexRoute
+  '/settings': typeof AppSettingsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -147,17 +315,38 @@ export interface FileRoutesById {
   '/cup/$sessionId': typeof CupSessionIdRoute
   '/roast/$batchId': typeof RoastBatchIdRoute
   '/_app/': typeof AppIndexRoute
+  '/_app/cafe/live': typeof AppCafeLiveRoute
+  '/_app/cafe/reconciliation': typeof AppCafeReconciliationRoute
+  '/_app/contracts/positions': typeof AppContractsPositionsRoute
+  '/_app/contracts/shipments': typeof AppContractsShipmentsRoute
   '/_app/inventory/$lotId': typeof AppInventoryLotIdRoute
   '/_app/inventory/blends': typeof AppInventoryBlendsRoute
+  '/_app/inventory/costs': typeof AppInventoryCostsRoute
+  '/_app/inventory/materials': typeof AppInventoryMaterialsRoute
+  '/_app/inventory/roasted': typeof AppInventoryRoastedRoute
   '/_app/orders/$orderId': typeof AppOrdersOrderIdRoute
+  '/_app/orders/customers': typeof AppOrdersCustomersRoute
   '/_app/quality/gradings': typeof AppQualityGradingsRoute
+  '/_app/reports/traceability': typeof AppReportsTraceabilityRoute
   '/_app/roasting/$batchId': typeof AppRoastingBatchIdRoute
+  '/_app/roasting/machines': typeof AppRoastingMachinesRoute
+  '/_app/roasting/profiles': typeof AppRoastingProfilesRoute
   '/_app/roasting/schedule': typeof AppRoastingScheduleRoute
+  '/_app/settings/api-keys': typeof AppSettingsApiKeysRoute
+  '/_app/settings/locations': typeof AppSettingsLocationsRoute
+  '/_app/settings/members': typeof AppSettingsMembersRoute
+  '/_app/settings/partners': typeof AppSettingsPartnersRoute
+  '/_app/settings/products': typeof AppSettingsProductsRoute
+  '/_app/settings/webhooks': typeof AppSettingsWebhooksRoute
+  '/_app/cafe/': typeof AppCafeIndexRoute
+  '/_app/contracts/': typeof AppContractsIndexRoute
   '/_app/inventory/': typeof AppInventoryIndexRoute
   '/_app/orders/': typeof AppOrdersIndexRoute
   '/_app/quality/': typeof AppQualityIndexRoute
+  '/_app/reports/': typeof AppReportsIndexRoute
   '/_app/roasting/': typeof AppRoastingIndexRoute
   '/_app/samples/': typeof AppSamplesIndexRoute
+  '/_app/settings/': typeof AppSettingsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -166,34 +355,76 @@ export interface FileRouteTypes {
     | '/login'
     | '/cup/$sessionId'
     | '/roast/$batchId'
+    | '/cafe/live'
+    | '/cafe/reconciliation'
+    | '/contracts/positions'
+    | '/contracts/shipments'
     | '/inventory/$lotId'
     | '/inventory/blends'
+    | '/inventory/costs'
+    | '/inventory/materials'
+    | '/inventory/roasted'
     | '/orders/$orderId'
+    | '/orders/customers'
     | '/quality/gradings'
+    | '/reports/traceability'
     | '/roasting/$batchId'
+    | '/roasting/machines'
+    | '/roasting/profiles'
     | '/roasting/schedule'
+    | '/settings/api-keys'
+    | '/settings/locations'
+    | '/settings/members'
+    | '/settings/partners'
+    | '/settings/products'
+    | '/settings/webhooks'
+    | '/cafe/'
+    | '/contracts/'
     | '/inventory/'
     | '/orders/'
     | '/quality/'
+    | '/reports/'
     | '/roasting/'
     | '/samples/'
+    | '/settings/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/login'
     | '/cup/$sessionId'
     | '/roast/$batchId'
     | '/'
+    | '/cafe/live'
+    | '/cafe/reconciliation'
+    | '/contracts/positions'
+    | '/contracts/shipments'
     | '/inventory/$lotId'
     | '/inventory/blends'
+    | '/inventory/costs'
+    | '/inventory/materials'
+    | '/inventory/roasted'
     | '/orders/$orderId'
+    | '/orders/customers'
     | '/quality/gradings'
+    | '/reports/traceability'
     | '/roasting/$batchId'
+    | '/roasting/machines'
+    | '/roasting/profiles'
     | '/roasting/schedule'
+    | '/settings/api-keys'
+    | '/settings/locations'
+    | '/settings/members'
+    | '/settings/partners'
+    | '/settings/products'
+    | '/settings/webhooks'
+    | '/cafe'
+    | '/contracts'
     | '/inventory'
     | '/orders'
     | '/quality'
+    | '/reports'
     | '/roasting'
     | '/samples'
+    | '/settings'
   id:
     | '__root__'
     | '/_app'
@@ -201,17 +432,38 @@ export interface FileRouteTypes {
     | '/cup/$sessionId'
     | '/roast/$batchId'
     | '/_app/'
+    | '/_app/cafe/live'
+    | '/_app/cafe/reconciliation'
+    | '/_app/contracts/positions'
+    | '/_app/contracts/shipments'
     | '/_app/inventory/$lotId'
     | '/_app/inventory/blends'
+    | '/_app/inventory/costs'
+    | '/_app/inventory/materials'
+    | '/_app/inventory/roasted'
     | '/_app/orders/$orderId'
+    | '/_app/orders/customers'
     | '/_app/quality/gradings'
+    | '/_app/reports/traceability'
     | '/_app/roasting/$batchId'
+    | '/_app/roasting/machines'
+    | '/_app/roasting/profiles'
     | '/_app/roasting/schedule'
+    | '/_app/settings/api-keys'
+    | '/_app/settings/locations'
+    | '/_app/settings/members'
+    | '/_app/settings/partners'
+    | '/_app/settings/products'
+    | '/_app/settings/webhooks'
+    | '/_app/cafe/'
+    | '/_app/contracts/'
     | '/_app/inventory/'
     | '/_app/orders/'
     | '/_app/quality/'
+    | '/_app/reports/'
     | '/_app/roasting/'
     | '/_app/samples/'
+    | '/_app/settings/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -258,6 +510,48 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof RoastBatchIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_app/cafe/': {
+      id: '/_app/cafe/'
+      path: '/cafe'
+      fullPath: '/cafe/'
+      preLoaderRoute: typeof AppCafeIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/cafe/live': {
+      id: '/_app/cafe/live'
+      path: '/cafe/live'
+      fullPath: '/cafe/live'
+      preLoaderRoute: typeof AppCafeLiveRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/cafe/reconciliation': {
+      id: '/_app/cafe/reconciliation'
+      path: '/cafe/reconciliation'
+      fullPath: '/cafe/reconciliation'
+      preLoaderRoute: typeof AppCafeReconciliationRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/contracts/': {
+      id: '/_app/contracts/'
+      path: '/contracts'
+      fullPath: '/contracts/'
+      preLoaderRoute: typeof AppContractsIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/contracts/positions': {
+      id: '/_app/contracts/positions'
+      path: '/contracts/positions'
+      fullPath: '/contracts/positions'
+      preLoaderRoute: typeof AppContractsPositionsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/contracts/shipments': {
+      id: '/_app/contracts/shipments'
+      path: '/contracts/shipments'
+      fullPath: '/contracts/shipments'
+      preLoaderRoute: typeof AppContractsShipmentsRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/inventory/': {
       id: '/_app/inventory/'
       path: '/inventory'
@@ -279,6 +573,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppInventoryBlendsRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/inventory/costs': {
+      id: '/_app/inventory/costs'
+      path: '/inventory/costs'
+      fullPath: '/inventory/costs'
+      preLoaderRoute: typeof AppInventoryCostsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/inventory/materials': {
+      id: '/_app/inventory/materials'
+      path: '/inventory/materials'
+      fullPath: '/inventory/materials'
+      preLoaderRoute: typeof AppInventoryMaterialsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/inventory/roasted': {
+      id: '/_app/inventory/roasted'
+      path: '/inventory/roasted'
+      fullPath: '/inventory/roasted'
+      preLoaderRoute: typeof AppInventoryRoastedRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/orders/': {
       id: '/_app/orders/'
       path: '/orders'
@@ -291,6 +606,13 @@ declare module '@tanstack/react-router' {
       path: '/orders/$orderId'
       fullPath: '/orders/$orderId'
       preLoaderRoute: typeof AppOrdersOrderIdRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/orders/customers': {
+      id: '/_app/orders/customers'
+      path: '/orders/customers'
+      fullPath: '/orders/customers'
+      preLoaderRoute: typeof AppOrdersCustomersRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/quality/': {
@@ -307,6 +629,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppQualityGradingsRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/reports/': {
+      id: '/_app/reports/'
+      path: '/reports'
+      fullPath: '/reports/'
+      preLoaderRoute: typeof AppReportsIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/reports/traceability': {
+      id: '/_app/reports/traceability'
+      path: '/reports/traceability'
+      fullPath: '/reports/traceability'
+      preLoaderRoute: typeof AppReportsTraceabilityRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/roasting/': {
       id: '/_app/roasting/'
       path: '/roasting'
@@ -319,6 +655,20 @@ declare module '@tanstack/react-router' {
       path: '/roasting/$batchId'
       fullPath: '/roasting/$batchId'
       preLoaderRoute: typeof AppRoastingBatchIdRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/roasting/machines': {
+      id: '/_app/roasting/machines'
+      path: '/roasting/machines'
+      fullPath: '/roasting/machines'
+      preLoaderRoute: typeof AppRoastingMachinesRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/roasting/profiles': {
+      id: '/_app/roasting/profiles'
+      path: '/roasting/profiles'
+      fullPath: '/roasting/profiles'
+      preLoaderRoute: typeof AppRoastingProfilesRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/roasting/schedule': {
@@ -335,37 +685,128 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppSamplesIndexRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/settings/': {
+      id: '/_app/settings/'
+      path: '/settings'
+      fullPath: '/settings/'
+      preLoaderRoute: typeof AppSettingsIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/settings/api-keys': {
+      id: '/_app/settings/api-keys'
+      path: '/settings/api-keys'
+      fullPath: '/settings/api-keys'
+      preLoaderRoute: typeof AppSettingsApiKeysRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/settings/locations': {
+      id: '/_app/settings/locations'
+      path: '/settings/locations'
+      fullPath: '/settings/locations'
+      preLoaderRoute: typeof AppSettingsLocationsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/settings/members': {
+      id: '/_app/settings/members'
+      path: '/settings/members'
+      fullPath: '/settings/members'
+      preLoaderRoute: typeof AppSettingsMembersRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/settings/partners': {
+      id: '/_app/settings/partners'
+      path: '/settings/partners'
+      fullPath: '/settings/partners'
+      preLoaderRoute: typeof AppSettingsPartnersRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/settings/products': {
+      id: '/_app/settings/products'
+      path: '/settings/products'
+      fullPath: '/settings/products'
+      preLoaderRoute: typeof AppSettingsProductsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/settings/webhooks': {
+      id: '/_app/settings/webhooks'
+      path: '/settings/webhooks'
+      fullPath: '/settings/webhooks'
+      preLoaderRoute: typeof AppSettingsWebhooksRouteImport
+      parentRoute: typeof AppRoute
+    }
   }
 }
 
 interface AppRouteChildren {
   AppIndexRoute: typeof AppIndexRoute
+  AppCafeLiveRoute: typeof AppCafeLiveRoute
+  AppCafeReconciliationRoute: typeof AppCafeReconciliationRoute
+  AppContractsPositionsRoute: typeof AppContractsPositionsRoute
+  AppContractsShipmentsRoute: typeof AppContractsShipmentsRoute
   AppInventoryLotIdRoute: typeof AppInventoryLotIdRoute
   AppInventoryBlendsRoute: typeof AppInventoryBlendsRoute
+  AppInventoryCostsRoute: typeof AppInventoryCostsRoute
+  AppInventoryMaterialsRoute: typeof AppInventoryMaterialsRoute
+  AppInventoryRoastedRoute: typeof AppInventoryRoastedRoute
   AppOrdersOrderIdRoute: typeof AppOrdersOrderIdRoute
+  AppOrdersCustomersRoute: typeof AppOrdersCustomersRoute
   AppQualityGradingsRoute: typeof AppQualityGradingsRoute
+  AppReportsTraceabilityRoute: typeof AppReportsTraceabilityRoute
   AppRoastingBatchIdRoute: typeof AppRoastingBatchIdRoute
+  AppRoastingMachinesRoute: typeof AppRoastingMachinesRoute
+  AppRoastingProfilesRoute: typeof AppRoastingProfilesRoute
   AppRoastingScheduleRoute: typeof AppRoastingScheduleRoute
+  AppSettingsApiKeysRoute: typeof AppSettingsApiKeysRoute
+  AppSettingsLocationsRoute: typeof AppSettingsLocationsRoute
+  AppSettingsMembersRoute: typeof AppSettingsMembersRoute
+  AppSettingsPartnersRoute: typeof AppSettingsPartnersRoute
+  AppSettingsProductsRoute: typeof AppSettingsProductsRoute
+  AppSettingsWebhooksRoute: typeof AppSettingsWebhooksRoute
+  AppCafeIndexRoute: typeof AppCafeIndexRoute
+  AppContractsIndexRoute: typeof AppContractsIndexRoute
   AppInventoryIndexRoute: typeof AppInventoryIndexRoute
   AppOrdersIndexRoute: typeof AppOrdersIndexRoute
   AppQualityIndexRoute: typeof AppQualityIndexRoute
+  AppReportsIndexRoute: typeof AppReportsIndexRoute
   AppRoastingIndexRoute: typeof AppRoastingIndexRoute
   AppSamplesIndexRoute: typeof AppSamplesIndexRoute
+  AppSettingsIndexRoute: typeof AppSettingsIndexRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
   AppIndexRoute: AppIndexRoute,
+  AppCafeLiveRoute: AppCafeLiveRoute,
+  AppCafeReconciliationRoute: AppCafeReconciliationRoute,
+  AppContractsPositionsRoute: AppContractsPositionsRoute,
+  AppContractsShipmentsRoute: AppContractsShipmentsRoute,
   AppInventoryLotIdRoute: AppInventoryLotIdRoute,
   AppInventoryBlendsRoute: AppInventoryBlendsRoute,
+  AppInventoryCostsRoute: AppInventoryCostsRoute,
+  AppInventoryMaterialsRoute: AppInventoryMaterialsRoute,
+  AppInventoryRoastedRoute: AppInventoryRoastedRoute,
   AppOrdersOrderIdRoute: AppOrdersOrderIdRoute,
+  AppOrdersCustomersRoute: AppOrdersCustomersRoute,
   AppQualityGradingsRoute: AppQualityGradingsRoute,
+  AppReportsTraceabilityRoute: AppReportsTraceabilityRoute,
   AppRoastingBatchIdRoute: AppRoastingBatchIdRoute,
+  AppRoastingMachinesRoute: AppRoastingMachinesRoute,
+  AppRoastingProfilesRoute: AppRoastingProfilesRoute,
   AppRoastingScheduleRoute: AppRoastingScheduleRoute,
+  AppSettingsApiKeysRoute: AppSettingsApiKeysRoute,
+  AppSettingsLocationsRoute: AppSettingsLocationsRoute,
+  AppSettingsMembersRoute: AppSettingsMembersRoute,
+  AppSettingsPartnersRoute: AppSettingsPartnersRoute,
+  AppSettingsProductsRoute: AppSettingsProductsRoute,
+  AppSettingsWebhooksRoute: AppSettingsWebhooksRoute,
+  AppCafeIndexRoute: AppCafeIndexRoute,
+  AppContractsIndexRoute: AppContractsIndexRoute,
   AppInventoryIndexRoute: AppInventoryIndexRoute,
   AppOrdersIndexRoute: AppOrdersIndexRoute,
   AppQualityIndexRoute: AppQualityIndexRoute,
+  AppReportsIndexRoute: AppReportsIndexRoute,
   AppRoastingIndexRoute: AppRoastingIndexRoute,
   AppSamplesIndexRoute: AppSamplesIndexRoute,
+  AppSettingsIndexRoute: AppSettingsIndexRoute,
 }
 
 const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)

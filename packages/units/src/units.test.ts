@@ -191,3 +191,18 @@ describe("formatCountry", () => {
     expect(formatCountry("")).toBe("—");
   });
 });
+
+describe("humanize acronyms", () => {
+  it("does not lowercase an acronym into a word", () => {
+    // "Api" and "Dtr pct" read as bugs in the product rather than as labels.
+    expect(humanize("api")).toBe("API");
+    expect(humanize("dtr_pct")).toBe("DTR %");
+    expect(humanize("pos_reconciliation")).toBe("POS reconciliation");
+  });
+
+  it("capitalizes only the first word", () => {
+    // Title Case On Every Word reads as a different product.
+    expect(humanize("green_contracts")).toBe("Green contracts");
+    expect(humanize("in_progress")).toBe("In progress");
+  });
+});

@@ -235,3 +235,16 @@ export const posReconciliationSchema = z.object({
   notes: z.string().nullable(),
   createdAt: z.string(),
 });
+
+export const listReconciliationsInput = z.object({
+  filter: z
+    .object({
+      siteId: uuidSchema.optional(),
+      status: z
+        .enum(["pending", "matched", "shot_missing", "sale_missing", "quantity_mismatch"])
+        .optional(),
+    })
+    .optional(),
+  page: pageInputSchema,
+});
+export const listReconciliationsOutput = listOutput(posReconciliationSchema);

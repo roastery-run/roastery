@@ -105,11 +105,44 @@ export function formatRelative(value: string | Date | null | undefined, locale =
   return rtf.format(Math.round(duration), "year");
 }
 
+/**
+ * Words that are acronyms, not words.
+ *
+ * Without this, `module:api` renders as "Api" and `dtr_pct` as "Dtr pct" —
+ * which reads as a bug in the product rather than as a label.
+ */
+const ACRONYMS: Record<string, string> = {
+  api: "API",
+  qc: "QC",
+  sca: "SCA",
+  dtr: "DTR",
+  ror: "RoR",
+  pos: "POS",
+  sku: "SKU",
+  eta: "ETA",
+  ea: "EA",
+  id: "ID",
+  url: "URL",
+  fx: "FX",
+  aw: "aW",
+  kg: "kg",
+  pct: "%",
+};
+
 /** Turns an enum value into a label: `in_progress` → `In progress`. */
 export function humanize(value: string | null | undefined): string {
   if (!value) return EM_DASH;
-  const spaced = value.replace(/[_-]+/g, " ").trim();
-  return spaced.charAt(0).toUpperCase() + spaced.slice(1);
+  const words = value.replace(/[_-]+/g, " ").trim().split(/\s+/);
+  return words
+    .map((word, index) => {
+      const acronym = ACRONYMS[word.toLowerCase()];
+      if (acronym) return acronym;
+      // Only the first word is capitalized: this is a label, not a title, and
+      // Title Case On Every Word reads as a different product.
+      return index === 0 ? word.charAt(0).toUpperCase() + word.slice(1) : word;
+    })
+    .join(" ")
+    .trim();
 }
 
 /**

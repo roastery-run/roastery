@@ -10,6 +10,8 @@
  * kind of thing a test should catch instead.
  */
 
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { PERMISSIONS } from "@roastery/db/seed-authz";
 import { moduleKeySchema } from "@roastery/schemas";
 import { describe, expect, it } from "vitest";
@@ -65,5 +67,34 @@ describe("navigation", () => {
     // all day, and reordering it silently is worse than not having it.
     expect(NAV[0]?.id).toBe("dashboard");
     expect(NAV.at(-1)?.id).toBe("settings");
+  });
+});
+
+describe("navigation destinations", () => {
+  it("points only at routes that exist", () => {
+    // A nav item pointing at a route that does not exist renders a link that
+    // 404s — and TypeScript will not catch it, because `to` here is a plain
+    // string in a data module rather than a typed Link prop.
+    //
+    // Read from the GENERATED route tree rather than walked at runtime: the
+    // codegen emits a `fullPath` for every route, which is the authoritative
+    // list, and the runtime tree's shape is an implementation detail.
+    const generated = readFileSync(join(import.meta.dirname, "..", "routeTree.gen.ts"), "utf8");
+    const paths = new Set(
+      [...generated.matchAll(/fullPath: '([^']+)'/g)].map(
+        (match) => (match[1] ?? "").replace(/\/$/, "") || "/",
+      ),
+    );
+
+    const destinations = NAV.flatMap((section) => [
+      section.to,
+      ...section.children.map((child) => child.to),
+    ]);
+
+    const missing = [...new Set(destinations)].filter((to) => !paths.has(to));
+    expect(
+      missing,
+      `Navigation points at routes that do not exist:\n${missing.join("\n")}`,
+    ).toEqual([]);
   });
 });

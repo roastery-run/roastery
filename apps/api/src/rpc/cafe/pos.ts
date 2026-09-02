@@ -13,10 +13,12 @@ import { cafeSites, espressoShots, posReconciliations, posTransactions } from "@
 import {
   importPosSalesInput,
   importPosSalesOutput,
+  listReconciliationsInput,
+  listReconciliationsOutput,
   posReconciliationSchema,
   reconcilePosInput,
 } from "@roastery/schemas";
-import { and, eq, gte, lt, sql } from "drizzle-orm";
+import { and, eq, gte, lt, type SQL, sql } from "drizzle-orm";
 import { BadRequest, NotFound } from "../../lib/api/errors";
 import { type RpcAppEnv, registerRpc } from "../../lib/api/rpc";
 
@@ -220,6 +222,51 @@ registerRpc(
       variancePct: row.variancePct ?? null,
       notes: row.notes ?? null,
       createdAt: row.createdAt.toISOString(),
+    };
+  },
+);
+
+registerRpc(
+  cafePos,
+  {
+    namespace: "cafe",
+    operation: "listReconciliations",
+    summary: "Past reconciliations",
+    description:
+      "A single day's variance says little on its own. A consistent 8% is a " +
+      "process problem; one bad Tuesday is a bad Tuesday, and only the " +
+      "history distinguishes them.",
+    input: listReconciliationsInput,
+    output: listReconciliationsOutput,
+    permission: "cafe.read",
+    module: "cafe",
+    cacheable: { maxAgeSeconds: 30 },
+  },
+  async (input, ctx) => {
+    const clauses: SQL[] = [];
+    if (input.filter?.siteId) clauses.push(eq(posReconciliations.siteId, input.filter.siteId));
+    if (input.filter?.status) clauses.push(eq(posReconciliations.status, input.filter.status));
+
+    const { items, page } = await ctx.db.find(posReconciliations, {
+      where: clauses.length ? and(...clauses) : undefined,
+      cursor: input.page?.cursor,
+      limit: input.page?.limit,
+    });
+
+    return {
+      items: items.map((row) => ({
+        id: row.id,
+        siteId: row.siteId,
+        businessDate: row.businessDate,
+        status: row.status,
+        shotCount: row.shotCount,
+        saleShotEquivalents: row.saleShotEquivalents,
+        variance: row.variance,
+        variancePct: row.variancePct ?? null,
+        notes: row.notes ?? null,
+        createdAt: row.createdAt.toISOString(),
+      })),
+      page,
     };
   },
 );
