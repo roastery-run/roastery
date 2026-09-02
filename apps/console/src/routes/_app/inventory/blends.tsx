@@ -1,7 +1,8 @@
-import { Badge, StatusBadge, tableSearchSchema, withSearchDefaults } from "@roastery/ui";
+import { Badge, Button, StatusBadge, tableSearchSchema, withSearchDefaults } from "@roastery/ui";
 import { formatPercent, humanize } from "@roastery/units";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import type { ColumnDef } from "@tanstack/react-table";
+import { Plus } from "lucide-react";
 import { ListPage } from "@/components/list-page";
 import { useListQuery } from "@/lib/list-route";
 
@@ -76,6 +77,14 @@ function Blends() {
       searchPlaceholder="Search blends"
       search={search}
       nextCursor={query.data?.page.nextCursor}
+      actions={
+        <Button size="sm" asChild>
+          <Link to="/inventory/blends/new">
+            <Plus className="size-3.5" aria-hidden="true" />
+            New blend
+          </Link>
+        </Button>
+      }
       table={{
         data: query.data?.items ?? [],
         columns,

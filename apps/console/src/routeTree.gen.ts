@@ -46,6 +46,7 @@ import { Route as AppSettingsMembersRouteImport } from './routes/_app/settings/m
 import { Route as AppSettingsPartnersRouteImport } from './routes/_app/settings/partners'
 import { Route as AppSettingsProductsRouteImport } from './routes/_app/settings/products'
 import { Route as AppSettingsWebhooksRouteImport } from './routes/_app/settings/webhooks'
+import { Route as AppInventoryBlendsNewRouteImport } from './routes/_app/inventory/blends_.new'
 
 const AppRoute = AppRouteImport.update({
   id: '/_app',
@@ -231,6 +232,11 @@ const AppSettingsWebhooksRoute = AppSettingsWebhooksRouteImport.update({
   path: '/settings/webhooks',
   getParentRoute: () => AppRoute,
 } as any)
+const AppInventoryBlendsNewRoute = AppInventoryBlendsNewRouteImport.update({
+  id: '/inventory/blends_/new',
+  path: '/inventory/blends/new',
+  getParentRoute: () => AppRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
@@ -269,6 +275,7 @@ export interface FileRoutesByFullPath {
   '/roasting/': typeof AppRoastingIndexRoute
   '/samples/': typeof AppSamplesIndexRoute
   '/settings/': typeof AppSettingsIndexRoute
+  '/inventory/blends/new': typeof AppInventoryBlendsNewRoute
 }
 export interface FileRoutesByTo {
   '/login': typeof LoginRoute
@@ -307,6 +314,7 @@ export interface FileRoutesByTo {
   '/roasting': typeof AppRoastingIndexRoute
   '/samples': typeof AppSamplesIndexRoute
   '/settings': typeof AppSettingsIndexRoute
+  '/inventory/blends/new': typeof AppInventoryBlendsNewRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -347,6 +355,7 @@ export interface FileRoutesById {
   '/_app/roasting/': typeof AppRoastingIndexRoute
   '/_app/samples/': typeof AppSamplesIndexRoute
   '/_app/settings/': typeof AppSettingsIndexRoute
+  '/_app/inventory/blends_/new': typeof AppInventoryBlendsNewRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -387,6 +396,7 @@ export interface FileRouteTypes {
     | '/roasting/'
     | '/samples/'
     | '/settings/'
+    | '/inventory/blends/new'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/login'
@@ -425,6 +435,7 @@ export interface FileRouteTypes {
     | '/roasting'
     | '/samples'
     | '/settings'
+    | '/inventory/blends/new'
   id:
     | '__root__'
     | '/_app'
@@ -464,6 +475,7 @@ export interface FileRouteTypes {
     | '/_app/roasting/'
     | '/_app/samples/'
     | '/_app/settings/'
+    | '/_app/inventory/blends_/new'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -734,6 +746,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppSettingsWebhooksRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/inventory/blends_/new': {
+      id: '/_app/inventory/blends_/new'
+      path: '/inventory/blends/new'
+      fullPath: '/inventory/blends/new'
+      preLoaderRoute: typeof AppInventoryBlendsNewRouteImport
+      parentRoute: typeof AppRoute
+    }
   }
 }
 
@@ -771,6 +790,7 @@ interface AppRouteChildren {
   AppRoastingIndexRoute: typeof AppRoastingIndexRoute
   AppSamplesIndexRoute: typeof AppSamplesIndexRoute
   AppSettingsIndexRoute: typeof AppSettingsIndexRoute
+  AppInventoryBlendsNewRoute: typeof AppInventoryBlendsNewRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
@@ -807,6 +827,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppRoastingIndexRoute: AppRoastingIndexRoute,
   AppSamplesIndexRoute: AppSamplesIndexRoute,
   AppSettingsIndexRoute: AppSettingsIndexRoute,
+  AppInventoryBlendsNewRoute: AppInventoryBlendsNewRoute,
 }
 
 const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
