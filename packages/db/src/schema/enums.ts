@@ -330,3 +330,41 @@ export const roastedLotKindEnum = pgEnum("roasted_lot_kind", ["loose", "packaged
  * inferred.
  */
 export const blendTypeEnum = pgEnum("blend_type", ["pre_roast", "post_roast"]);
+
+/* -------------------------------------------------------------- quality */
+
+export const formTemplateKindEnum = pgEnum("form_template_kind", [
+  "cupping_sheet",
+  "green_grading",
+  "roast_qc",
+  "brew_feedback",
+  "sample_intake",
+]);
+
+export const gradingStandardEnum = pgEnum("grading_standard", [
+  "sca",
+  "coe",
+  "brazil_ny",
+  "indonesian",
+  "vietnamese",
+  "custom",
+]);
+
+/**
+ * How much a cupper knows about what is in the cup.
+ *
+ * Blind means the cupper cannot see the sample's identity; double-blind means
+ * neither the cupper nor the session lead can. The distinction matters because
+ * a cupper who knows a coffee is expensive scores it higher, and a QC panel
+ * that cannot demonstrate blindness cannot defend its scores to a supplier.
+ */
+export const cuppingModeEnum = pgEnum("cupping_mode", ["open", "blind", "double_blind"]);
+
+export const cuppingSessionStatusEnum = pgEnum("cupping_session_status", [
+  "draft",
+  "scheduled",
+  "in_progress",
+  "scored",
+  "finalized",
+  "canceled",
+]);

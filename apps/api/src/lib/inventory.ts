@@ -163,7 +163,7 @@ async function applyOnce(tx: OrgDb, input: TransactionInput): Promise<AppliedTra
     contractLineId: input.contractLineId ?? null,
     comment: input.comment ?? null,
     occurredAt: input.occurredAt ?? new Date(),
-    createdBy: tx.actor.type === "user" ? tx.actor.id : null,
+    createdBy: tx.actor.userId,
   });
   if (!row) throw new Error("Ledger insert returned no row");
 

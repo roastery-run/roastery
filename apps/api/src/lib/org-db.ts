@@ -4,8 +4,19 @@ import type { PgTable } from "drizzle-orm/pg-core";
 import type { WorkerDb } from "./db";
 
 export type Actor = {
+  /** The CREDENTIAL that made the request: a user id, key id or client id. */
   id: string | null;
   type: "user" | "api_key" | "oauth_client" | "system";
+  /**
+   * The PERSON responsible, when there is one.
+   *
+   * Distinct from `id` because a request can arrive under an API key that a
+   * human created — and attribution should name the human. Conflating the two
+   * meant every action taken through a key recorded no user at all, which
+   * silently broke "one score per cupper": three cuppers using three keys all
+   * recorded a null cupper and collided with each other.
+   */
+  userId: string | null;
 };
 
 export type PageInfo = { nextCursor: string | null; hasMore: boolean };
@@ -288,5 +299,5 @@ export async function withOrgDb<T>(
   orgId: string,
   fn: (odb: OrgDb) => Promise<T>,
 ): Promise<T> {
-  return fn(createOrgDb(db, orgId, { id: null, type: "system" }));
+  return fn(createOrgDb(db, orgId, { id: null, type: "system", userId: null }));
 }

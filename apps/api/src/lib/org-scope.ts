@@ -18,11 +18,24 @@ export async function getOrgMembership(db: WorkerDb, orgId: string, userId: stri
   return member ?? null;
 }
 
+/**
+ * Who made this request, and on whose behalf.
+ *
+ * `id` names the credential — that is what an audit trail must record, since
+ * revoking a key needs to reach everything it did. `userId` names the person,
+ * which is what attribution needs, and it survives being reached through a key.
+ */
 function toActor(auth: AuthContext): Actor {
   const cred = auth.credential;
-  if (cred?.type === "api_key") return { id: cred.id, type: "api_key" };
-  if (cred?.type === "oauth_client") return { id: cred.clientId, type: "oauth_client" };
-  return { id: auth.userId, type: "user" };
+  if (cred?.type === "api_key") {
+    return { id: cred.id, type: "api_key", userId: auth.userId };
+  }
+  if (cred?.type === "oauth_client") {
+    // A machine client acts for no person; attributing its writes to whoever
+    // created it would put a name on something nobody did.
+    return { id: cred.clientId, type: "oauth_client", userId: null };
+  }
+  return { id: auth.userId, type: "user", userId: auth.userId };
 }
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;

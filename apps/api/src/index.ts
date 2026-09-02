@@ -25,6 +25,7 @@ import { inventoryGreen } from "./rpc/inventory-green";
 import { inventoryMaterial } from "./rpc/inventory-material";
 import { inventoryRoast } from "./rpc/inventory-roast";
 import { productionRoast } from "./rpc/production-roast";
+import { quality } from "./rpc/quality";
 import { sourcingContract } from "./rpc/sourcing-contract";
 import { sourcingSample } from "./rpc/sourcing-sample";
 
@@ -130,6 +131,7 @@ app.route("/", inventoryCosting);
 app.route("/", inventoryMaterial);
 app.route("/", inventoryRoast);
 app.route("/", productionRoast);
+app.route("/", quality);
 app.route("/", sourcingContract);
 app.route("/", sourcingSample);
 

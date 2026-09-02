@@ -82,7 +82,7 @@ export async function issueApiKey(
   const metadata: KeyMetadata = {
     roleSlug: input.roleSlug,
     scopes: input.scopes ?? null,
-    createdBy: db.actor.type === "user" ? db.actor.id : null,
+    createdBy: db.actor.userId,
   };
 
   const [row] = await db.insert(apiKeys, {

@@ -7,5 +7,6 @@ export * from "./schemas/materials";
 export * from "./schemas/party";
 export * from "./schemas/product";
 export * from "./schemas/production";
+export * from "./schemas/quality";
 export * from "./schemas/roasted";
 export * from "./schemas/sourcing";

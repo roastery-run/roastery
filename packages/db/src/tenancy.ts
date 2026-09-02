@@ -125,6 +125,15 @@ export const TENANT_DIRECT = {
     column: s.roastedLotTransactions.orgId,
     field: "orgId",
   },
+  form_templates: { table: s.formTemplates, column: s.formTemplates.orgId, field: "orgId" },
+  cupping_sessions: { table: s.cuppingSessions, column: s.cuppingSessions.orgId, field: "orgId" },
+  cupping_session_samples: {
+    table: s.cuppingSessionSamples,
+    column: s.cuppingSessionSamples.orgId,
+    field: "orgId",
+  },
+  cupping_scores: { table: s.cuppingScores, column: s.cuppingScores.orgId, field: "orgId" },
+  green_gradings: { table: s.greenGradings, column: s.greenGradings.orgId, field: "orgId" },
   alert_notifications: {
     table: s.alertNotifications,
     column: s.alertNotifications.orgId,

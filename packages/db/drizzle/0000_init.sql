@@ -3,7 +3,11 @@ CREATE TYPE "public"."blend_type" AS ENUM('pre_roast', 'post_roast');--> stateme
 CREATE TYPE "public"."contract_price_type" AS ENUM('fixed', 'differential', 'to_be_fixed', 'formula');--> statement-breakpoint
 CREATE TYPE "public"."contract_status" AS ENUM('draft', 'pending', 'confirmed', 'partially_shipped', 'shipped', 'arrived', 'closed', 'canceled', 'defaulted');--> statement-breakpoint
 CREATE TYPE "public"."cost_component_kind" AS ENUM('base_price', 'differential', 'futures', 'fx_adjustment', 'carry', 'storage', 'freight', 'insurance', 'duty', 'customs', 'handling', 'financing', 'broker_fee', 'sampling', 'certification', 'other');--> statement-breakpoint
+CREATE TYPE "public"."cupping_mode" AS ENUM('open', 'blind', 'double_blind');--> statement-breakpoint
+CREATE TYPE "public"."cupping_session_status" AS ENUM('draft', 'scheduled', 'in_progress', 'scored', 'finalized', 'canceled');--> statement-breakpoint
+CREATE TYPE "public"."form_template_kind" AS ENUM('cupping_sheet', 'green_grading', 'roast_qc', 'brew_feedback', 'sample_intake');--> statement-breakpoint
 CREATE TYPE "public"."goal_result" AS ENUM('pass', 'warn', 'fail', 'not_evaluated');--> statement-breakpoint
+CREATE TYPE "public"."grading_standard" AS ENUM('sca', 'coe', 'brazil_ny', 'indonesian', 'vietnamese', 'custom');--> statement-breakpoint
 CREATE TYPE "public"."green_state" AS ENUM('green', 'parchment', 'dry_cherry', 'wet_parchment', 'raw_green', 'decaf_green');--> statement-breakpoint
 CREATE TYPE "public"."incoterm" AS ENUM('EXW', 'FCA', 'FAS', 'FOB', 'CFR', 'CIF', 'CPT', 'CIP', 'DAP', 'DPU', 'DDP');--> statement-breakpoint
 CREATE TYPE "public"."inventory_event" AS ENUM('receive', 'adjust', 'allocate', 'deallocate', 'roast_consume', 'transfer_out', 'transfer_in', 'split_out', 'split_in', 'merge_out', 'merge_in', 'sample_draw', 'shrinkage', 'write_off', 'recount', 'return');--> statement-breakpoint
@@ -758,6 +762,103 @@ CREATE TABLE "roast_samples" (
 	"drum_rpm" numeric(6, 2)
 );
 --> statement-breakpoint
+CREATE TABLE "cupping_scores" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"org_id" uuid NOT NULL,
+	"session_sample_id" uuid NOT NULL,
+	"cupper_user_id" text,
+	"cupper_name" text,
+	"total_score" numeric(5, 2),
+	"fragrance" numeric(4, 2),
+	"flavor" numeric(4, 2),
+	"aftertaste" numeric(4, 2),
+	"acidity" numeric(4, 2),
+	"body" numeric(4, 2),
+	"balance" numeric(4, 2),
+	"uniformity" numeric(4, 2),
+	"clean_cup" numeric(4, 2),
+	"sweetness" numeric(4, 2),
+	"overall" numeric(4, 2),
+	"defects_penalty" numeric(5, 2) DEFAULT '0' NOT NULL,
+	"descriptors" text[] DEFAULT '{}' NOT NULL,
+	"responses" jsonb,
+	"notes" text,
+	"submitted_at" timestamp with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "cupping_scores_sample_cupper_key" UNIQUE NULLS NOT DISTINCT("session_sample_id","cupper_user_id","cupper_name")
+);
+--> statement-breakpoint
+CREATE TABLE "cupping_session_samples" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"org_id" uuid NOT NULL,
+	"session_id" uuid NOT NULL,
+	"position" integer NOT NULL,
+	"blind_code" text NOT NULL,
+	"sample_id" uuid,
+	"green_lot_id" uuid,
+	"roasted_lot_id" uuid,
+	"roast_batch_id" uuid,
+	"avg_total_score" numeric(5, 2),
+	"score_count" integer DEFAULT 0 NOT NULL,
+	"score_std_dev" numeric(5, 3)
+);
+--> statement-breakpoint
+CREATE TABLE "cupping_sessions" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"org_id" uuid NOT NULL,
+	"session_number" text NOT NULL,
+	"name" text NOT NULL,
+	"mode" "cupping_mode" DEFAULT 'blind' NOT NULL,
+	"status" "cupping_session_status" DEFAULT 'draft' NOT NULL,
+	"template_id" uuid,
+	"template_version" integer,
+	"location_id" uuid,
+	"lead_user_id" text,
+	"scheduled_at" timestamp with time zone,
+	"finalized_at" timestamp with time zone,
+	"notes" text,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "form_templates" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"org_id" uuid NOT NULL,
+	"kind" "form_template_kind" NOT NULL,
+	"name" text NOT NULL,
+	"version" integer DEFAULT 1 NOT NULL,
+	"schema" jsonb,
+	"is_default" boolean DEFAULT false NOT NULL,
+	"published_at" timestamp with time zone,
+	"archived_at" timestamp with time zone,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "green_gradings" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"org_id" uuid NOT NULL,
+	"green_lot_id" uuid,
+	"sample_id" uuid,
+	"template_id" uuid,
+	"template_version" integer,
+	"standard" "grading_standard" DEFAULT 'sca' NOT NULL,
+	"grader_user_id" text,
+	"moisture_pct" numeric(5, 2),
+	"water_activity" numeric(4, 3),
+	"screen_size_avg" numeric(5, 2),
+	"density_g_per_l" numeric(7, 2),
+	"color_score" numeric(6, 2),
+	"defects_primary" integer DEFAULT 0 NOT NULL,
+	"defects_secondary" integer DEFAULT 0 NOT NULL,
+	"full_defect_equivalents" numeric(6, 2),
+	"grade" text,
+	"passed" boolean DEFAULT true NOT NULL,
+	"screen_distribution" jsonb,
+	"defect_counts" jsonb,
+	"responses" jsonb,
+	"notes" text,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
 CREATE TABLE "blend_components" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"org_id" uuid NOT NULL,
@@ -1027,6 +1128,25 @@ ALTER TABLE "roast_profiles" ADD CONSTRAINT "roast_profiles_org_id_organizations
 ALTER TABLE "roast_profiles" ADD CONSTRAINT "roast_profiles_machine_id_machines_id_fk" FOREIGN KEY ("machine_id") REFERENCES "public"."machines"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "roast_profiles" ADD CONSTRAINT "roast_profiles_green_lot_id_green_lots_id_fk" FOREIGN KEY ("green_lot_id") REFERENCES "public"."green_lots"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "roast_samples" ADD CONSTRAINT "roast_samples_batch_id_roast_batches_id_fk" FOREIGN KEY ("batch_id") REFERENCES "public"."roast_batches"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "cupping_scores" ADD CONSTRAINT "cupping_scores_org_id_organizations_id_fk" FOREIGN KEY ("org_id") REFERENCES "public"."organizations"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "cupping_scores" ADD CONSTRAINT "cupping_scores_session_sample_id_cupping_session_samples_id_fk" FOREIGN KEY ("session_sample_id") REFERENCES "public"."cupping_session_samples"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "cupping_scores" ADD CONSTRAINT "cupping_scores_cupper_user_id_users_id_fk" FOREIGN KEY ("cupper_user_id") REFERENCES "public"."users"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "cupping_session_samples" ADD CONSTRAINT "cupping_session_samples_org_id_organizations_id_fk" FOREIGN KEY ("org_id") REFERENCES "public"."organizations"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "cupping_session_samples" ADD CONSTRAINT "cupping_session_samples_session_id_cupping_sessions_id_fk" FOREIGN KEY ("session_id") REFERENCES "public"."cupping_sessions"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "cupping_session_samples" ADD CONSTRAINT "cupping_session_samples_sample_id_samples_id_fk" FOREIGN KEY ("sample_id") REFERENCES "public"."samples"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "cupping_session_samples" ADD CONSTRAINT "cupping_session_samples_green_lot_id_green_lots_id_fk" FOREIGN KEY ("green_lot_id") REFERENCES "public"."green_lots"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "cupping_session_samples" ADD CONSTRAINT "cupping_session_samples_roasted_lot_id_roasted_lots_id_fk" FOREIGN KEY ("roasted_lot_id") REFERENCES "public"."roasted_lots"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "cupping_session_samples" ADD CONSTRAINT "cupping_session_samples_roast_batch_id_roast_batches_id_fk" FOREIGN KEY ("roast_batch_id") REFERENCES "public"."roast_batches"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "cupping_sessions" ADD CONSTRAINT "cupping_sessions_org_id_organizations_id_fk" FOREIGN KEY ("org_id") REFERENCES "public"."organizations"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "cupping_sessions" ADD CONSTRAINT "cupping_sessions_template_id_form_templates_id_fk" FOREIGN KEY ("template_id") REFERENCES "public"."form_templates"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "cupping_sessions" ADD CONSTRAINT "cupping_sessions_location_id_locations_id_fk" FOREIGN KEY ("location_id") REFERENCES "public"."locations"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "cupping_sessions" ADD CONSTRAINT "cupping_sessions_lead_user_id_users_id_fk" FOREIGN KEY ("lead_user_id") REFERENCES "public"."users"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "form_templates" ADD CONSTRAINT "form_templates_org_id_organizations_id_fk" FOREIGN KEY ("org_id") REFERENCES "public"."organizations"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "green_gradings" ADD CONSTRAINT "green_gradings_org_id_organizations_id_fk" FOREIGN KEY ("org_id") REFERENCES "public"."organizations"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "green_gradings" ADD CONSTRAINT "green_gradings_green_lot_id_green_lots_id_fk" FOREIGN KEY ("green_lot_id") REFERENCES "public"."green_lots"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "green_gradings" ADD CONSTRAINT "green_gradings_sample_id_samples_id_fk" FOREIGN KEY ("sample_id") REFERENCES "public"."samples"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "green_gradings" ADD CONSTRAINT "green_gradings_template_id_form_templates_id_fk" FOREIGN KEY ("template_id") REFERENCES "public"."form_templates"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "green_gradings" ADD CONSTRAINT "green_gradings_grader_user_id_users_id_fk" FOREIGN KEY ("grader_user_id") REFERENCES "public"."users"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "blend_components" ADD CONSTRAINT "blend_components_org_id_organizations_id_fk" FOREIGN KEY ("org_id") REFERENCES "public"."organizations"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "blend_components" ADD CONSTRAINT "blend_components_blend_id_blends_id_fk" FOREIGN KEY ("blend_id") REFERENCES "public"."blends"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "blend_components" ADD CONSTRAINT "blend_components_green_lot_id_green_lots_id_fk" FOREIGN KEY ("green_lot_id") REFERENCES "public"."green_lots"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
@@ -1166,6 +1286,21 @@ CREATE UNIQUE INDEX "roast_profiles_org_code_version_idx" ON "roast_profiles" US
 CREATE INDEX "roast_profiles_org_machine_idx" ON "roast_profiles" USING btree ("org_id","machine_id","is_active");--> statement-breakpoint
 CREATE INDEX "roast_profiles_org_created_idx" ON "roast_profiles" USING btree ("org_id","created_at","id");--> statement-breakpoint
 CREATE UNIQUE INDEX "roast_samples_batch_t_idx" ON "roast_samples" USING btree ("batch_id","t");--> statement-breakpoint
+CREATE INDEX "cupping_scores_org_cupper_idx" ON "cupping_scores" USING btree ("org_id","cupper_user_id","submitted_at");--> statement-breakpoint
+CREATE INDEX "cupping_scores_org_total_idx" ON "cupping_scores" USING btree ("org_id","total_score");--> statement-breakpoint
+CREATE UNIQUE INDEX "cupping_samples_session_position_idx" ON "cupping_session_samples" USING btree ("session_id","position");--> statement-breakpoint
+CREATE UNIQUE INDEX "cupping_samples_session_code_idx" ON "cupping_session_samples" USING btree ("session_id","blind_code");--> statement-breakpoint
+CREATE INDEX "cupping_samples_org_green_idx" ON "cupping_session_samples" USING btree ("org_id","green_lot_id");--> statement-breakpoint
+CREATE INDEX "cupping_samples_org_sample_idx" ON "cupping_session_samples" USING btree ("org_id","sample_id");--> statement-breakpoint
+CREATE UNIQUE INDEX "cupping_sessions_org_number_idx" ON "cupping_sessions" USING btree ("org_id","session_number");--> statement-breakpoint
+CREATE INDEX "cupping_sessions_org_status_idx" ON "cupping_sessions" USING btree ("org_id","status","scheduled_at");--> statement-breakpoint
+CREATE INDEX "cupping_sessions_org_created_idx" ON "cupping_sessions" USING btree ("org_id","created_at","id");--> statement-breakpoint
+CREATE UNIQUE INDEX "form_templates_org_kind_name_version_idx" ON "form_templates" USING btree ("org_id","kind","name","version");--> statement-breakpoint
+CREATE UNIQUE INDEX "form_templates_org_kind_default_idx" ON "form_templates" USING btree ("org_id","kind") WHERE is_default;--> statement-breakpoint
+CREATE INDEX "form_templates_org_kind_idx" ON "form_templates" USING btree ("org_id","kind","archived_at");--> statement-breakpoint
+CREATE INDEX "green_gradings_org_lot_idx" ON "green_gradings" USING btree ("org_id","green_lot_id","created_at");--> statement-breakpoint
+CREATE INDEX "green_gradings_org_sample_idx" ON "green_gradings" USING btree ("org_id","sample_id");--> statement-breakpoint
+CREATE INDEX "green_gradings_org_passed_idx" ON "green_gradings" USING btree ("org_id","passed","created_at");--> statement-breakpoint
 CREATE UNIQUE INDEX "blend_components_blend_position_idx" ON "blend_components" USING btree ("blend_id","position");--> statement-breakpoint
 CREATE INDEX "blend_components_green_idx" ON "blend_components" USING btree ("green_lot_id");--> statement-breakpoint
 CREATE INDEX "blend_components_roasted_idx" ON "blend_components" USING btree ("roasted_lot_id");--> statement-breakpoint

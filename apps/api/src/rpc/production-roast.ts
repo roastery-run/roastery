@@ -217,6 +217,19 @@ registerRpc(
     module: "roasting",
   },
   async (input, ctx) => {
+    // Reserving a quarantined lot is blocked, so charging one directly must be
+    // too — otherwise the control is bypassed by taking the shorter path.
+    if (input.greenLotId) {
+      const lot = await ctx.db.findOne(greenLots, eq(greenLots.id, input.greenLotId));
+      if (!lot) throw new NotFound("Green lot not found");
+      if (lot.status === "quarantined") {
+        throw new BadRequest(
+          "This lot is quarantined after a failed grading and cannot be roasted. " +
+            "Release the quarantine first, with a reason.",
+        );
+      }
+    }
+
     let batch: typeof roastBatches.$inferSelect | undefined;
     try {
       [batch] = await ctx.db.insert(roastBatches, {

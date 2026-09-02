@@ -96,7 +96,7 @@ async function applyOnce(tx: OrgDb, input: RoastedMovement) {
     groupId: input.groupId ?? null,
     orderLineId: input.orderLineId ?? null,
     comment: input.comment ?? null,
-    createdBy: tx.actor.type === "user" ? tx.actor.id : null,
+    createdBy: tx.actor.userId,
   });
   if (!row) throw new Error("Ledger insert returned no row");
 

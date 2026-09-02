@@ -31,7 +31,7 @@ export function connect(): { db: WorkerDb; close: () => Promise<void> } {
 }
 
 export function orgDb(db: WorkerDb, orgId: string): OrgDb {
-  return createOrgDb(db, orgId, { id: null, type: "system" });
+  return createOrgDb(db, orgId, { id: null, type: "system", userId: null });
 }
 
 /** A throwaway organization, so concurrent test runs never collide. */

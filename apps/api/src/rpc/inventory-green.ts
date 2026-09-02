@@ -430,6 +430,18 @@ registerRpc(
   },
   async (input, ctx) => {
     const lot = await loadLot(ctx, input.id);
+
+    // Quarantine is enforced HERE, at the point coffee gets committed to
+    // work. A grading that only sets a status nobody checks is a note, not a
+    // control — and the failure it is meant to prevent is a failed lot
+    // reaching production because reserving it was still allowed.
+    if (lot.status === "quarantined") {
+      throw new BadRequest(
+        "This lot is quarantined after a failed grading and cannot be reserved. " +
+          "Release the quarantine first, with a reason.",
+      );
+    }
+
     const want = kg.normalize(input.weightKg);
     const available = kg.sub(lot.currentWeightKg, lot.reservedWeightKg);
     if (kg.cmp(available, want) < 0) {
