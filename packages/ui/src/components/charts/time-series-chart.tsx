@@ -26,6 +26,15 @@ export type ChartSeries = {
   unit?: string;
   /** Index into the token palette. Defaults to position. */
   colorIndex?: number;
+  /**
+   * Which y-scale this series belongs to.
+   *
+   * `"right"` gets its own axis. Rate of rise is the reason this exists: it
+   * runs from about −200 to +40 while bean temperature runs 90 to 220, and
+   * sharing one axis compresses the temperature curve — the thing a roaster is
+   * actually reading — into the top third of the chart.
+   */
+  axis?: "left" | "right";
 };
 
 export type TimeSeriesChartProps = {
@@ -67,7 +76,8 @@ export function TimeSeriesChart({
   // Rebuilt when the SHAPE changes — series count, labels, theme — but never
   // when only the values do. Recreating a plot on every data tick is what makes
   // a live chart flicker and drop frames.
-  const shapeKey = `${series.map((s) => s.label).join("|")}:${tokens.series.join("|")}`;
+  const hasRightAxis = series.some((s) => s.axis === "right");
+  const shapeKey = `${series.map((s) => `${s.label}@${s.axis ?? "left"}`).join("|")}:${tokens.series.join("|")}`;
 
   const builtForRef = React.useRef<string | null>(null);
 
@@ -88,7 +98,11 @@ export function TimeSeriesChart({
       // actively unhelpful.
       cursor: { drag: { x: true, y: false }, points: { show: false } },
       legend: { show: false },
-      scales: { x: { time: false } },
+      scales: {
+        x: { time: false },
+        y: {},
+        ...(hasRightAxis ? { y2: {} } : {}),
+      },
       axes: [
         {
           stroke: tokens.axis,
@@ -98,16 +112,33 @@ export function TimeSeriesChart({
           font: "11px ui-monospace, monospace",
         },
         {
+          scale: "y",
           stroke: tokens.axis,
           grid: { stroke: tokens.grid, width: 1 },
           ticks: { stroke: tokens.grid },
           font: "11px ui-monospace, monospace",
         },
+        ...(hasRightAxis
+          ? [
+              {
+                scale: "y2",
+                side: 1 as const,
+                stroke: tokens.axis,
+                // No grid on the second axis: two overlapping grids at
+                // different intervals is visual noise that helps nobody read
+                // either scale.
+                grid: { show: false },
+                ticks: { stroke: tokens.grid },
+                font: "11px ui-monospace, monospace",
+              },
+            ]
+          : []),
       ],
       series: [
         { label: xLabel },
         ...series.map((s, i) => ({
           label: s.label,
+          scale: s.axis === "right" ? "y2" : "y",
           stroke: tokens.series[s.colorIndex ?? i % tokens.series.length],
           width: 1.75,
           dash: SERIES_DASH[s.colorIndex ?? i % SERIES_DASH.length],
@@ -143,7 +174,7 @@ export function TimeSeriesChart({
     // and the token object all change on every tick; including them would
     // destroy and rebuild the plot 1,800 times during a roast. Data updates
     // take the cheap setData path in the effect below.
-  }, [shapeKey, height, xLabel, data, formatX, series, tokens]);
+  }, [shapeKey, height, xLabel, hasRightAxis, data, formatX, series, tokens]);
 
   // Data-only updates take the cheap path. `false` means "do not rescale",
   // which is what stops the axis jumping on every appended sample.
@@ -210,6 +241,7 @@ export function TimeSeriesChart({
               />
             </svg>
             {s.label}
+            {s.axis === "right" ? <span className="text-muted-foreground/70">(right)</span> : null}
           </span>
         ))}
       </div>

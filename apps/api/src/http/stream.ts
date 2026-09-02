@@ -72,9 +72,13 @@ streamRoutes.get("/stream/v1/roast/:batchId", async (c) => {
   // is set here, server-side; the client cannot grant itself write access.
   const canWrite = can(perms, "production.roast.write");
 
-  return stub.fetch(
-    new Request(`https://do/ws`, {
-      headers: { "X-Viewer-Write": canWrite ? "1" : "0" },
-    }),
-  ) as unknown as Response;
+  // The Upgrade header MUST survive the hop to the Durable Object. Building a
+  // fresh Request and setting only our own header drops it, and the runtime
+  // then refuses the socket the object hands back — "tried to return a
+  // WebSocket in a response to a request which did not contain the header
+  // Upgrade: websocket". Copy the incoming headers, then add ours.
+  const headers = new Headers(c.req.raw.headers);
+  headers.set("X-Viewer-Write", canWrite ? "1" : "0");
+
+  return stub.fetch(new Request("https://do/ws", { headers })) as unknown as Response;
 });

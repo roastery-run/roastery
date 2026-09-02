@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as AppRouteImport } from './routes/_app'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as AppIndexRouteImport } from './routes/_app/index'
+import { Route as RoastBatchIdRouteImport } from './routes/roast.$batchId'
 import { Route as AppInventoryIndexRouteImport } from './routes/_app/inventory/index'
 import { Route as AppInventoryLotIdRouteImport } from './routes/_app/inventory/$lotId'
 import { Route as AppInventoryBlendsRouteImport } from './routes/_app/inventory/blends'
@@ -34,6 +35,11 @@ const AppIndexRoute = AppIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => AppRoute,
+} as any)
+const RoastBatchIdRoute = RoastBatchIdRouteImport.update({
+  id: '/roast/$batchId',
+  path: '/roast/$batchId',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const AppInventoryIndexRoute = AppInventoryIndexRouteImport.update({
   id: '/inventory/',
@@ -79,6 +85,7 @@ const AppSamplesIndexRoute = AppSamplesIndexRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
   '/login': typeof LoginRoute
+  '/roast/$batchId': typeof RoastBatchIdRoute
   '/inventory/$lotId': typeof AppInventoryLotIdRoute
   '/inventory/blends': typeof AppInventoryBlendsRoute
   '/orders/$orderId': typeof AppOrdersOrderIdRoute
@@ -90,6 +97,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/login': typeof LoginRoute
+  '/roast/$batchId': typeof RoastBatchIdRoute
   '/': typeof AppIndexRoute
   '/inventory/$lotId': typeof AppInventoryLotIdRoute
   '/inventory/blends': typeof AppInventoryBlendsRoute
@@ -104,6 +112,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_app': typeof AppRouteWithChildren
   '/login': typeof LoginRoute
+  '/roast/$batchId': typeof RoastBatchIdRoute
   '/_app/': typeof AppIndexRoute
   '/_app/inventory/$lotId': typeof AppInventoryLotIdRoute
   '/_app/inventory/blends': typeof AppInventoryBlendsRoute
@@ -119,6 +128,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/login'
+    | '/roast/$batchId'
     | '/inventory/$lotId'
     | '/inventory/blends'
     | '/orders/$orderId'
@@ -130,6 +140,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/login'
+    | '/roast/$batchId'
     | '/'
     | '/inventory/$lotId'
     | '/inventory/blends'
@@ -143,6 +154,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/_app'
     | '/login'
+    | '/roast/$batchId'
     | '/_app/'
     | '/_app/inventory/$lotId'
     | '/_app/inventory/blends'
@@ -157,6 +169,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   AppRoute: typeof AppRouteWithChildren
   LoginRoute: typeof LoginRoute
+  RoastBatchIdRoute: typeof RoastBatchIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -181,6 +194,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/'
       preLoaderRoute: typeof AppIndexRouteImport
       parentRoute: typeof AppRoute
+    }
+    '/roast/$batchId': {
+      id: '/roast/$batchId'
+      path: '/roast/$batchId'
+      fullPath: '/roast/$batchId'
+      preLoaderRoute: typeof RoastBatchIdRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/_app/inventory/': {
       id: '/_app/inventory/'
@@ -270,6 +290,7 @@ const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
 const rootRouteChildren: RootRouteChildren = {
   AppRoute: AppRouteWithChildren,
   LoginRoute: LoginRoute,
+  RoastBatchIdRoute: RoastBatchIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

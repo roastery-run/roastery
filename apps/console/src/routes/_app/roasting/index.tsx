@@ -43,7 +43,22 @@ const columns: ColumnDef<RoastBatch>[] = [
     accessorKey: "status",
     header: "Status",
     meta: { label: "Status" },
-    cell: ({ row }) => <StatusBadge status={row.original.status} />,
+    cell: ({ row }) => (
+      <span className="flex items-center gap-2">
+        <StatusBadge status={row.original.status} />
+        {/* A running roast is the one thing on this screen somebody needs to
+            reach immediately. */}
+        {row.original.status === "in_progress" || row.original.status === "cooling" ? (
+          <Link
+            to="/roast/$batchId"
+            params={{ batchId: row.original.id }}
+            className="text-primary text-xs hover:underline"
+          >
+            Watch
+          </Link>
+        ) : null}
+      </span>
+    ),
   },
   {
     accessorKey: "chargeWeightKg",

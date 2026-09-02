@@ -1,4 +1,5 @@
 import {
+  Button,
   Card,
   CardContent,
   CardHeader,
@@ -11,7 +12,8 @@ import {
 import { TimeSeriesChart } from "@roastery/ui/charts";
 import { formatDateTime, formatElapsed, formatPercent, formatWeight } from "@roastery/units";
 import { useQuery } from "@tanstack/react-query";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { Radio } from "lucide-react";
 import { DetailLayout } from "@/components/detail-layout";
 
 export const Route = createFileRoute("/_app/roasting/$batchId")({ component: RoastBatchDetail });
@@ -63,6 +65,18 @@ function RoastBatchDetail() {
       title={data?.batchNumber ?? ""}
       subtitle={data?.startedAt ? `Started ${formatDateTime(data.startedAt)}` : undefined}
       status={data ? <StatusBadge status={data.status} /> : null}
+      actions={
+        // Only while it is running: the live screen watches a session that
+        // exists, and offering it for a finished roast leads somewhere empty.
+        data?.status === "in_progress" || data?.status === "cooling" ? (
+          <Button size="sm" asChild>
+            <Link to="/roast/$batchId" params={{ batchId }}>
+              <Radio className="size-3.5" aria-hidden="true" />
+              Watch live
+            </Link>
+          </Button>
+        ) : null
+      }
       facts={[
         { label: "Charge", value: formatWeight(data?.chargeWeightKg) },
         { label: "Drop", value: formatWeight(data?.dropWeightKg) },
@@ -89,7 +103,14 @@ function RoastBatchDetail() {
               series={[
                 { label: "Bean", values: samples.bt, unit: "°C", colorIndex: 0 },
                 { label: "Environment", values: samples.et, unit: "°C", colorIndex: 1 },
-                { label: "Rate of rise", values: samples.ror, unit: "°C/min", colorIndex: 2 },
+                // Its own axis: RoR runs −200 to +40 while bean runs 90 to 220.
+                {
+                  label: "Rate of rise",
+                  values: samples.ror,
+                  unit: "°C/min",
+                  colorIndex: 2,
+                  axis: "right",
+                },
               ]}
             />
           ) : (
