@@ -78,6 +78,17 @@ export type Env = {
   AUTH_RATE_LIMITER?: RateLimit;
   SESSION_RATE_LIMITER?: RateLimit;
 
+  /**
+   * Transactional mail: one HTTPS POST to a provider that accepts
+   * `{from, to, subject, html, text}` with a bearer token. Deliberately not a
+   * vendor SDK — that would put a provider in the middle of sign-in.
+   *
+   * Absent in development, where mail is logged instead.
+   */
+  EMAIL_API_URL?: string;
+  EMAIL_API_KEY?: string;
+  EMAIL_FROM?: string;
+
   BETTER_AUTH_SECRET: string;
   /**
    * Key-encryption key for webhook signing secrets: 32 base64-encoded bytes.
@@ -116,5 +127,10 @@ export function assertProductionBindings(env: Env): void {
   // its secret. Better to refuse to start than to fail one customer at a time.
   if (!env.WEBHOOK_KEK) {
     throw new Error("WEBHOOK_KEK is required in production");
+  }
+  // Without this, sign-in links are written to the log instead of being sent —
+  // a very quiet outage, since every other part of the flow reports success.
+  if (!env.EMAIL_API_URL || !env.EMAIL_API_KEY || !env.EMAIL_FROM) {
+    throw new Error("EMAIL_API_URL, EMAIL_API_KEY and EMAIL_FROM are required in production");
   }
 }

@@ -94,7 +94,10 @@
     "crons": [
       "* * * * *",
       // Keeps the espresso_shots partition window ahead of real time.
-      "0 4 * * *"
+      "0 4 * * *",
+      // The daily alert digest. One email per organization, not one per alert:
+      // an alerting system fails by being muted.
+      "0 7 * * *"
     ]
   },
   "durable_objects": {

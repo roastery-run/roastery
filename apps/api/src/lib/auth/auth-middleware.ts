@@ -2,6 +2,7 @@ import { createAuth } from "@roastery/auth";
 import { createMiddleware } from "hono/factory";
 import type { Env } from "../../env";
 import { closeWorkerDb, createWorkerDb, safeExecutionCtx, type WorkerDb } from "../db/db";
+import { createEmailSender } from "../email/send";
 import { verifyOAuthToken } from "./oauth-token";
 
 export type Credential =
@@ -103,7 +104,7 @@ async function resolveSessionUserId(
   headers: Headers,
 ): Promise<string | null> {
   try {
-    const auth = createAuth(db, env);
+    const auth = createAuth(db, env, createEmailSender(env));
     const session = await auth.api.getSession({ headers });
     return session?.user?.id ?? null;
   } catch {
@@ -123,7 +124,7 @@ export const authMiddleware = createMiddleware<{ Bindings: Env; Variables: AuthV
 
     if (header?.startsWith("Bearer sk_")) {
       const raw = header.slice("Bearer ".length);
-      const auth = createAuth(db, c.env);
+      const auth = createAuth(db, c.env, createEmailSender(c.env));
 
       // The plugin owns hash comparison, expiry, enable/disable, the rate
       // limit and the refill counter, and it stamps requestCount/lastRequest.

@@ -10,6 +10,7 @@ import type { Env } from "../env";
 import { closeWorkerDb, createWorkerDb } from "../lib/db/db";
 import { ensureShotPartitions } from "../lib/domain/shot-ingest";
 import { findDueDeliveries, findPendingFanOut } from "../lib/events/webhook-delivery";
+import { sendAlertDigests } from "./alerts";
 
 export type CronPattern = string;
 
@@ -20,6 +21,9 @@ export async function handleScheduled(cron: CronPattern, env: Env): Promise<void
       break;
     case "0 4 * * *":
       await rollShotPartitions(env);
+      break;
+    case "0 7 * * *":
+      await sendAlertDigests(env);
       break;
     default:
       console.warn(JSON.stringify({ msg: "unhandled_cron", cron }));

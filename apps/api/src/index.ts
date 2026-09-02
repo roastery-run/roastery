@@ -30,6 +30,7 @@ import { authMiddleware } from "./lib/auth/auth-middleware";
 import { QuotaExceeded } from "./lib/auth/entitlements";
 import { orgScope } from "./lib/auth/org-scope";
 import { closeWorkerDb, createWorkerDb, safeExecutionCtx } from "./lib/db/db";
+import { createEmailSender } from "./lib/email/send";
 import {
   handleDeadLetterBatch,
   handleEventQueue,
@@ -113,7 +114,7 @@ app.use("/api/auth/*", async (c, next) => {
 app.on(["GET", "POST"], "/api/auth/*", async (c) => {
   const db = createWorkerDb(c.env);
   try {
-    const auth = createAuth(db, c.env);
+    const auth = createAuth(db, c.env, createEmailSender(c.env));
     return await auth.handler(c.req.raw);
   } finally {
     await closeWorkerDb(db, safeExecutionCtx(c));

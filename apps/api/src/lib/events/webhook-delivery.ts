@@ -7,10 +7,13 @@
  * only its own deliveries, and a fan-out retry cannot re-POST to endpoints
  * that already succeeded.
  */
-import { events, webhookDeliveries, webhookEndpoints } from "@roastery/db/schema";
+import { events, organizations, webhookDeliveries, webhookEndpoints } from "@roastery/db/schema";
 import { and, eq, inArray, isNull, lt, sql } from "drizzle-orm";
+import { notifiedAddresses } from "../../cron/alerts";
 import type { Env } from "../../env";
 import type { WorkerDb } from "../db/db";
+import { trySend } from "../email/send";
+import { webhookDisabled } from "../email/templates";
 import { subscriptionMatches } from "./events";
 import { openSecret, signatureHeader } from "./webhook-crypto";
 
@@ -330,17 +333,19 @@ export async function attemptDelivery(
 
   const durationMs = Date.now() - startedAt;
   const outcome = classifyResponse(statusCode, attempt, networkError, durationMs);
-  await applyOutcome(db, delivery.id, endpoint.id, attempt, outcome);
+  await applyOutcome(db, env, delivery.id, endpoint, attempt, outcome);
   return outcome;
 }
 
 async function applyOutcome(
   db: WorkerDb,
+  env: Env,
   deliveryId: string,
-  endpointId: string,
+  endpoint: { id: string; orgId: string; url: string },
   attempt: number,
   outcome: DeliveryOutcome,
 ): Promise<void> {
+  const endpointId = endpoint.id;
   const now = new Date();
 
   if (outcome.kind === "delivered") {
@@ -384,20 +389,11 @@ async function applyOutcome(
     .where(eq(webhookDeliveries.id, deliveryId));
 
   if (outcome.kind === "disable_endpoint") {
-    await db
-      .update(webhookEndpoints)
-      .set({
-        status: "auto_disabled",
-        disabledAt: now,
-        disabledReason: outcome.error,
-        lastFailureAt: now,
-        updatedAt: now,
-      })
-      .where(eq(webhookEndpoints.id, endpointId));
+    await disableEndpoint(db, env, endpoint, outcome.error, now);
     return;
   }
 
-  const [endpoint] = await db
+  const [updated] = await db
     .update(webhookEndpoints)
     .set({
       consecutiveFailures: sql`${webhookEndpoints.consecutiveFailures} + 1`,
@@ -407,17 +403,70 @@ async function applyOutcome(
     .where(eq(webhookEndpoints.id, endpointId))
     .returning({ failures: webhookEndpoints.consecutiveFailures });
 
-  if (endpoint && endpoint.failures >= AUTO_DISABLE_THRESHOLD) {
-    await db
-      .update(webhookEndpoints)
-      .set({
-        status: "auto_disabled",
-        disabledAt: now,
-        disabledReason: `${endpoint.failures} consecutive delivery failures`,
-        updatedAt: now,
-      })
-      .where(eq(webhookEndpoints.id, endpointId));
+  if (updated && updated.failures >= AUTO_DISABLE_THRESHOLD) {
+    await disableEndpoint(
+      db,
+      env,
+      endpoint,
+      `${updated.failures} consecutive delivery failures`,
+      now,
+    );
   }
+}
+
+/**
+ * Switches an endpoint off, and tells somebody.
+ *
+ * The email is the point. An auto-disabled endpoint is an INVISIBLE failure:
+ * the integration simply stops receiving events, and the person who built it
+ * is not watching our console. Without a message the first anyone hears of it
+ * is a customer asking why their orders stopped syncing.
+ *
+ * Both disable paths route through here so neither can forget to send it.
+ */
+async function disableEndpoint(
+  db: WorkerDb,
+  env: Env,
+  endpoint: { id: string; orgId: string; url: string },
+  reason: string,
+  now: Date,
+): Promise<void> {
+  await db
+    .update(webhookEndpoints)
+    .set({
+      status: "auto_disabled",
+      disabledAt: now,
+      disabledReason: reason,
+      lastFailureAt: now,
+      updatedAt: now,
+    })
+    .where(eq(webhookEndpoints.id, endpoint.id));
+
+  const [org] = await db
+    .select({ name: organizations.name })
+    .from(organizations)
+    .where(eq(organizations.id, endpoint.orgId))
+    .limit(1);
+
+  const recipients = await notifiedAddresses(db, endpoint.orgId);
+  if (!recipients.length) {
+    console.warn(
+      JSON.stringify({ msg: "webhook_disabled_no_recipients", endpointId: endpoint.id }),
+    );
+    return;
+  }
+
+  const consoleUrl = (env.CONSOLE_URL ?? "https://app.roastery.run").replace(/\/$/, "");
+  const message = webhookDisabled(
+    org?.name ?? "your organization",
+    endpoint.url,
+    reason,
+    consoleUrl,
+  );
+
+  // Best effort, and after the row is already updated: a mail provider being
+  // down must not leave an endpoint hammering a dead server.
+  await Promise.all(recipients.map((to) => trySend(env, { to, ...message })));
 }
 
 /** Deliveries whose retry is due. The safety net if a queue message is lost. */
