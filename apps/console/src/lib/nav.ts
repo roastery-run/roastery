@@ -73,6 +73,7 @@ export const NAV: NavSection[] = [
       { label: "Roasted", to: "/inventory/roasted", permission: "inventory.roast.read" },
       { label: "Blends", to: "/inventory/blends", permission: "inventory.blend.read" },
       { label: "Materials", to: "/inventory/materials", permission: "inventory.material.read" },
+      { label: "Bills of materials", to: "/inventory/bom", permission: "inventory.material.read" },
       { label: "Landed costs", to: "/inventory/costs", permission: "inventory.green.read" },
     ],
   },

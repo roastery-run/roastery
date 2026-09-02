@@ -23,6 +23,7 @@ import { Route as AppContractsShipmentsRouteImport } from './routes/_app/contrac
 import { Route as AppInventoryIndexRouteImport } from './routes/_app/inventory/index'
 import { Route as AppInventoryLotIdRouteImport } from './routes/_app/inventory/$lotId'
 import { Route as AppInventoryBlendsRouteImport } from './routes/_app/inventory/blends'
+import { Route as AppInventoryBomRouteImport } from './routes/_app/inventory/bom'
 import { Route as AppInventoryCostsRouteImport } from './routes/_app/inventory/costs'
 import { Route as AppInventoryMaterialsRouteImport } from './routes/_app/inventory/materials'
 import { Route as AppInventoryRoastedRouteImport } from './routes/_app/inventory/roasted'
@@ -115,6 +116,11 @@ const AppInventoryLotIdRoute = AppInventoryLotIdRouteImport.update({
 const AppInventoryBlendsRoute = AppInventoryBlendsRouteImport.update({
   id: '/inventory/blends',
   path: '/inventory/blends',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppInventoryBomRoute = AppInventoryBomRouteImport.update({
+  id: '/inventory/bom',
+  path: '/inventory/bom',
   getParentRoute: () => AppRoute,
 } as any)
 const AppInventoryCostsRoute = AppInventoryCostsRouteImport.update({
@@ -249,6 +255,7 @@ export interface FileRoutesByFullPath {
   '/contracts/shipments': typeof AppContractsShipmentsRoute
   '/inventory/$lotId': typeof AppInventoryLotIdRoute
   '/inventory/blends': typeof AppInventoryBlendsRoute
+  '/inventory/bom': typeof AppInventoryBomRoute
   '/inventory/costs': typeof AppInventoryCostsRoute
   '/inventory/materials': typeof AppInventoryMaterialsRoute
   '/inventory/roasted': typeof AppInventoryRoastedRoute
@@ -288,6 +295,7 @@ export interface FileRoutesByTo {
   '/contracts/shipments': typeof AppContractsShipmentsRoute
   '/inventory/$lotId': typeof AppInventoryLotIdRoute
   '/inventory/blends': typeof AppInventoryBlendsRoute
+  '/inventory/bom': typeof AppInventoryBomRoute
   '/inventory/costs': typeof AppInventoryCostsRoute
   '/inventory/materials': typeof AppInventoryMaterialsRoute
   '/inventory/roasted': typeof AppInventoryRoastedRoute
@@ -329,6 +337,7 @@ export interface FileRoutesById {
   '/_app/contracts/shipments': typeof AppContractsShipmentsRoute
   '/_app/inventory/$lotId': typeof AppInventoryLotIdRoute
   '/_app/inventory/blends': typeof AppInventoryBlendsRoute
+  '/_app/inventory/bom': typeof AppInventoryBomRoute
   '/_app/inventory/costs': typeof AppInventoryCostsRoute
   '/_app/inventory/materials': typeof AppInventoryMaterialsRoute
   '/_app/inventory/roasted': typeof AppInventoryRoastedRoute
@@ -370,6 +379,7 @@ export interface FileRouteTypes {
     | '/contracts/shipments'
     | '/inventory/$lotId'
     | '/inventory/blends'
+    | '/inventory/bom'
     | '/inventory/costs'
     | '/inventory/materials'
     | '/inventory/roasted'
@@ -409,6 +419,7 @@ export interface FileRouteTypes {
     | '/contracts/shipments'
     | '/inventory/$lotId'
     | '/inventory/blends'
+    | '/inventory/bom'
     | '/inventory/costs'
     | '/inventory/materials'
     | '/inventory/roasted'
@@ -449,6 +460,7 @@ export interface FileRouteTypes {
     | '/_app/contracts/shipments'
     | '/_app/inventory/$lotId'
     | '/_app/inventory/blends'
+    | '/_app/inventory/bom'
     | '/_app/inventory/costs'
     | '/_app/inventory/materials'
     | '/_app/inventory/roasted'
@@ -583,6 +595,13 @@ declare module '@tanstack/react-router' {
       path: '/inventory/blends'
       fullPath: '/inventory/blends'
       preLoaderRoute: typeof AppInventoryBlendsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/inventory/bom': {
+      id: '/_app/inventory/bom'
+      path: '/inventory/bom'
+      fullPath: '/inventory/bom'
+      preLoaderRoute: typeof AppInventoryBomRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/inventory/costs': {
@@ -764,6 +783,7 @@ interface AppRouteChildren {
   AppContractsShipmentsRoute: typeof AppContractsShipmentsRoute
   AppInventoryLotIdRoute: typeof AppInventoryLotIdRoute
   AppInventoryBlendsRoute: typeof AppInventoryBlendsRoute
+  AppInventoryBomRoute: typeof AppInventoryBomRoute
   AppInventoryCostsRoute: typeof AppInventoryCostsRoute
   AppInventoryMaterialsRoute: typeof AppInventoryMaterialsRoute
   AppInventoryRoastedRoute: typeof AppInventoryRoastedRoute
@@ -801,6 +821,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppContractsShipmentsRoute: AppContractsShipmentsRoute,
   AppInventoryLotIdRoute: AppInventoryLotIdRoute,
   AppInventoryBlendsRoute: AppInventoryBlendsRoute,
+  AppInventoryBomRoute: AppInventoryBomRoute,
   AppInventoryCostsRoute: AppInventoryCostsRoute,
   AppInventoryMaterialsRoute: AppInventoryMaterialsRoute,
   AppInventoryRoastedRoute: AppInventoryRoastedRoute,
