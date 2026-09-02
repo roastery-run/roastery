@@ -318,3 +318,15 @@ export const roastGoalMetricEnum = pgEnum("roast_goal_metric", [
 ]);
 
 export const goalResultEnum = pgEnum("goal_result", ["pass", "warn", "fail", "not_evaluated"]);
+
+export const roastedLotKindEnum = pgEnum("roasted_lot_kind", ["loose", "packaged", "blended"]);
+
+/**
+ * When components are combined.
+ *
+ * A PRE-roast blend goes into the drum together and comes out as one lot; a
+ * POST-roast blend combines separately-roasted lots afterwards. They taste
+ * different and cost differently, so the distinction is recorded rather than
+ * inferred.
+ */
+export const blendTypeEnum = pgEnum("blend_type", ["pre_roast", "post_roast"]);

@@ -1,8 +1,10 @@
 import { OpenAPIHono } from "@hono/zod-openapi";
 import {
+  greenLots,
   machineBridgeTokens,
   roastBatches,
   roastEvents,
+  roastedLots,
   roastProfiles,
   roastSamples,
 } from "@roastery/db/schema";
@@ -33,6 +35,7 @@ import { isUniqueViolation } from "../lib/db";
 import { BadRequest, Conflict, NotFound } from "../lib/errors";
 import { applyInventoryTransaction, kg, recordTransformation } from "../lib/inventory";
 import { buildPreview, deriveMetrics, flushRoast } from "../lib/roast-flush";
+import { applyRoastedTransaction } from "../lib/roasted";
 import { type RpcAppEnv, registerRpc } from "../lib/rpc";
 
 export const productionRoast = new OpenAPIHono<RpcAppEnv>();
@@ -283,8 +286,11 @@ registerRpc(
       dropWeightKg: input.dropWeightKg ?? null,
     });
 
-    // Deduct the green only now, and only through the ledger.
+    // A roast both CONSUMES green and PRODUCES roasted. Doing only the first
+    // would leave a roastery whose green shrinks and whose sellable stock
+    // never appears — the books balance to nothing.
     const meta = batch.notes ? (JSON.parse(batch.notes) as { greenLotId?: string }) : {};
+
     if (meta.greenLotId && batch.chargeWeightKg) {
       const txn = await applyInventoryTransaction(ctx.db, {
         greenLotId: meta.greenLotId,
@@ -301,6 +307,49 @@ registerRpc(
         weightKg: batch.chargeWeightKg,
         transactionId: txn.id,
       });
+    }
+
+    // The roasted output, opened at zero and filled through its own ledger for
+    // the same reason green is: no path may set a balance without a movement.
+    const dropWeight = input.dropWeightKg ?? null;
+    if (dropWeight) {
+      const source = meta.greenLotId
+        ? await ctx.db.findOne(greenLots, eq(greenLots.id, meta.greenLotId))
+        : null;
+
+      const [produced] = await ctx.db.insert(roastedLots, {
+        name: source ? `${source.name} (roasted)` : batch.batchNumber,
+        lotCode: `${batch.batchNumber}-R`,
+        lotKind: "loose",
+        roastBatchId: batch.id,
+        initialWeightKg: dropWeight,
+        currentWeightKg: "0",
+        locationId: batch.locationId,
+        roastedAt: new Date(),
+        // Roasted coffee has a usable window measured in weeks, which is why
+        // allocation is by expiry rather than by arrival order.
+        bestBeforeAt: new Date(Date.now() + 42 * 86_400_000),
+        status: "available",
+      });
+
+      if (produced) {
+        await applyRoastedTransaction(ctx.db, {
+          roastedLotId: produced.id,
+          eventType: "receive",
+          deltaKg: dropWeight,
+          locationId: batch.locationId,
+          comment: `Produced by ${batch.batchNumber}`,
+        });
+        // Closes the traceability chain: green lot -> roast batch -> roasted
+        // lot, so a recall can walk either direction.
+        await recordTransformation(ctx.db, {
+          sourceKind: "roast_batch",
+          sourceId: batch.id,
+          targetKind: "roasted_lot",
+          targetId: produced.id,
+          weightKg: dropWeight,
+        });
+      }
     }
 
     // Only now is the buffer safe to drop.

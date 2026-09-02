@@ -117,6 +117,14 @@ export const TENANT_DIRECT = {
     column: s.machineBridgeTokens.orgId,
     field: "orgId",
   },
+  blends: { table: s.blends, column: s.blends.orgId, field: "orgId" },
+  blend_components: { table: s.blendComponents, column: s.blendComponents.orgId, field: "orgId" },
+  roasted_lots: { table: s.roastedLots, column: s.roastedLots.orgId, field: "orgId" },
+  roasted_lot_transactions: {
+    table: s.roastedLotTransactions,
+    column: s.roastedLotTransactions.orgId,
+    field: "orgId",
+  },
   alert_notifications: {
     table: s.alertNotifications,
     column: s.alertNotifications.orgId,

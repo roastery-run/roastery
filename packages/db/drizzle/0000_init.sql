@@ -1,4 +1,5 @@
 CREATE TYPE "public"."actor_type" AS ENUM('user', 'api_key', 'oauth_client', 'system');--> statement-breakpoint
+CREATE TYPE "public"."blend_type" AS ENUM('pre_roast', 'post_roast');--> statement-breakpoint
 CREATE TYPE "public"."contract_price_type" AS ENUM('fixed', 'differential', 'to_be_fixed', 'formula');--> statement-breakpoint
 CREATE TYPE "public"."contract_status" AS ENUM('draft', 'pending', 'confirmed', 'partially_shipped', 'shipped', 'arrived', 'closed', 'canceled', 'defaulted');--> statement-breakpoint
 CREATE TYPE "public"."cost_component_kind" AS ENUM('base_price', 'differential', 'futures', 'fx_adjustment', 'carry', 'storage', 'freight', 'insurance', 'duty', 'customs', 'handling', 'financing', 'broker_fee', 'sampling', 'certification', 'other');--> statement-breakpoint
@@ -20,6 +21,7 @@ CREATE TYPE "public"."roast_event_kind" AS ENUM('charge', 'turning_point', 'dry_
 CREATE TYPE "public"."roast_goal_metric" AS ENUM('development_time_ratio', 'weight_loss_pct', 'drop_temp', 'total_time', 'first_crack_time', 'agtron_ground', 'agtron_whole', 'ror_at_drop', 'moisture_pct');--> statement-breakpoint
 CREATE TYPE "public"."roast_machine_type" AS ENUM('drum', 'fluid_bed', 'recirculating', 'sample', 'tangential', 'centrifugal');--> statement-breakpoint
 CREATE TYPE "public"."roast_purpose" AS ENUM('production', 'sample', 'development', 'calibration', 'training');--> statement-breakpoint
+CREATE TYPE "public"."roasted_lot_kind" AS ENUM('loose', 'packaged', 'blended');--> statement-breakpoint
 CREATE TYPE "public"."sample_status" AS ENUM('requested', 'in_transit', 'received', 'roasted', 'cupped', 'approved', 'rejected', 'archived');--> statement-breakpoint
 CREATE TYPE "public"."sample_type" AS ENUM('offer', 'pre_shipment', 'arrival', 'type', 'spot', 'production', 'competition');--> statement-breakpoint
 CREATE TYPE "public"."shipment_status" AS ENUM('booked', 'loaded', 'in_transit', 'arrived', 'cleared', 'delivered', 'delayed', 'canceled');--> statement-breakpoint
@@ -756,6 +758,70 @@ CREATE TABLE "roast_samples" (
 	"drum_rpm" numeric(6, 2)
 );
 --> statement-breakpoint
+CREATE TABLE "blend_components" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"org_id" uuid NOT NULL,
+	"blend_id" uuid NOT NULL,
+	"green_lot_id" uuid,
+	"roasted_lot_id" uuid,
+	"target_ratio_pct" numeric(7, 4) NOT NULL,
+	"position" integer DEFAULT 0 NOT NULL,
+	CONSTRAINT "blend_component_one_source" CHECK (num_nonnulls(green_lot_id, roasted_lot_id) = 1)
+);
+--> statement-breakpoint
+CREATE TABLE "blends" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"org_id" uuid NOT NULL,
+	"name" text NOT NULL,
+	"code" text NOT NULL,
+	"blend_type" "blend_type" NOT NULL,
+	"target_weight_loss_pct" numeric(5, 2),
+	"is_active" boolean DEFAULT true NOT NULL,
+	"notes" text,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "roasted_lot_transactions" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"org_id" uuid NOT NULL,
+	"roasted_lot_id" uuid NOT NULL,
+	"seq" bigint NOT NULL,
+	"event_type" "inventory_event" NOT NULL,
+	"location_id" uuid,
+	"weight_before_kg" numeric(14, 4) NOT NULL,
+	"delta_kg" numeric(14, 4) NOT NULL,
+	"weight_after_kg" numeric(14, 4) NOT NULL,
+	"group_id" uuid,
+	"order_line_id" uuid,
+	"comment" text,
+	"occurred_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"created_by" text,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "roasted_lots" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"org_id" uuid NOT NULL,
+	"name" text NOT NULL,
+	"lot_code" text NOT NULL,
+	"lot_kind" "roasted_lot_kind" DEFAULT 'loose' NOT NULL,
+	"blend_id" uuid,
+	"roast_batch_id" uuid,
+	"roast_level" text,
+	"agtron" numeric(6, 2),
+	"initial_weight_kg" numeric(14, 4) NOT NULL,
+	"current_weight_kg" numeric(14, 4) DEFAULT '0' NOT NULL,
+	"reserved_weight_kg" numeric(14, 4) DEFAULT '0' NOT NULL,
+	"location_id" uuid,
+	"roasted_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"best_before_at" timestamp with time zone,
+	"unit_cost_base" numeric(18, 6),
+	"status" "lot_status" DEFAULT 'available' NOT NULL,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
 CREATE TABLE "alert_notifications" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"org_id" uuid NOT NULL,
@@ -961,6 +1027,18 @@ ALTER TABLE "roast_profiles" ADD CONSTRAINT "roast_profiles_org_id_organizations
 ALTER TABLE "roast_profiles" ADD CONSTRAINT "roast_profiles_machine_id_machines_id_fk" FOREIGN KEY ("machine_id") REFERENCES "public"."machines"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "roast_profiles" ADD CONSTRAINT "roast_profiles_green_lot_id_green_lots_id_fk" FOREIGN KEY ("green_lot_id") REFERENCES "public"."green_lots"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "roast_samples" ADD CONSTRAINT "roast_samples_batch_id_roast_batches_id_fk" FOREIGN KEY ("batch_id") REFERENCES "public"."roast_batches"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "blend_components" ADD CONSTRAINT "blend_components_org_id_organizations_id_fk" FOREIGN KEY ("org_id") REFERENCES "public"."organizations"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "blend_components" ADD CONSTRAINT "blend_components_blend_id_blends_id_fk" FOREIGN KEY ("blend_id") REFERENCES "public"."blends"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "blend_components" ADD CONSTRAINT "blend_components_green_lot_id_green_lots_id_fk" FOREIGN KEY ("green_lot_id") REFERENCES "public"."green_lots"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "blends" ADD CONSTRAINT "blends_org_id_organizations_id_fk" FOREIGN KEY ("org_id") REFERENCES "public"."organizations"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "roasted_lot_transactions" ADD CONSTRAINT "roasted_lot_transactions_org_id_organizations_id_fk" FOREIGN KEY ("org_id") REFERENCES "public"."organizations"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "roasted_lot_transactions" ADD CONSTRAINT "roasted_lot_transactions_roasted_lot_id_roasted_lots_id_fk" FOREIGN KEY ("roasted_lot_id") REFERENCES "public"."roasted_lots"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "roasted_lot_transactions" ADD CONSTRAINT "roasted_lot_transactions_location_id_locations_id_fk" FOREIGN KEY ("location_id") REFERENCES "public"."locations"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "roasted_lot_transactions" ADD CONSTRAINT "roasted_lot_transactions_created_by_users_id_fk" FOREIGN KEY ("created_by") REFERENCES "public"."users"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "roasted_lots" ADD CONSTRAINT "roasted_lots_org_id_organizations_id_fk" FOREIGN KEY ("org_id") REFERENCES "public"."organizations"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "roasted_lots" ADD CONSTRAINT "roasted_lots_blend_id_blends_id_fk" FOREIGN KEY ("blend_id") REFERENCES "public"."blends"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "roasted_lots" ADD CONSTRAINT "roasted_lots_roast_batch_id_roast_batches_id_fk" FOREIGN KEY ("roast_batch_id") REFERENCES "public"."roast_batches"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "roasted_lots" ADD CONSTRAINT "roasted_lots_location_id_locations_id_fk" FOREIGN KEY ("location_id") REFERENCES "public"."locations"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "alert_notifications" ADD CONSTRAINT "alert_notifications_org_id_organizations_id_fk" FOREIGN KEY ("org_id") REFERENCES "public"."organizations"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "contract_lines" ADD CONSTRAINT "contract_lines_org_id_organizations_id_fk" FOREIGN KEY ("org_id") REFERENCES "public"."organizations"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "contract_lines" ADD CONSTRAINT "contract_lines_contract_id_contracts_id_fk" FOREIGN KEY ("contract_id") REFERENCES "public"."contracts"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
@@ -1088,6 +1166,21 @@ CREATE UNIQUE INDEX "roast_profiles_org_code_version_idx" ON "roast_profiles" US
 CREATE INDEX "roast_profiles_org_machine_idx" ON "roast_profiles" USING btree ("org_id","machine_id","is_active");--> statement-breakpoint
 CREATE INDEX "roast_profiles_org_created_idx" ON "roast_profiles" USING btree ("org_id","created_at","id");--> statement-breakpoint
 CREATE UNIQUE INDEX "roast_samples_batch_t_idx" ON "roast_samples" USING btree ("batch_id","t");--> statement-breakpoint
+CREATE UNIQUE INDEX "blend_components_blend_position_idx" ON "blend_components" USING btree ("blend_id","position");--> statement-breakpoint
+CREATE INDEX "blend_components_green_idx" ON "blend_components" USING btree ("green_lot_id");--> statement-breakpoint
+CREATE INDEX "blend_components_roasted_idx" ON "blend_components" USING btree ("roasted_lot_id");--> statement-breakpoint
+CREATE UNIQUE INDEX "blends_org_code_idx" ON "blends" USING btree ("org_id","code");--> statement-breakpoint
+CREATE INDEX "blends_org_type_active_idx" ON "blends" USING btree ("org_id","blend_type","is_active");--> statement-breakpoint
+CREATE INDEX "blends_org_created_idx" ON "blends" USING btree ("org_id","created_at","id");--> statement-breakpoint
+CREATE UNIQUE INDEX "roasted_txn_lot_seq_idx" ON "roasted_lot_transactions" USING btree ("roasted_lot_id","seq");--> statement-breakpoint
+CREATE INDEX "roasted_txn_org_lot_time_idx" ON "roasted_lot_transactions" USING btree ("org_id","roasted_lot_id","occurred_at");--> statement-breakpoint
+CREATE INDEX "roasted_txn_org_event_idx" ON "roasted_lot_transactions" USING btree ("org_id","event_type","occurred_at");--> statement-breakpoint
+CREATE UNIQUE INDEX "roasted_lots_org_code_idx" ON "roasted_lots" USING btree ("org_id","lot_code");--> statement-breakpoint
+CREATE INDEX "roasted_lots_org_status_roasted_idx" ON "roasted_lots" USING btree ("org_id","status","roasted_at");--> statement-breakpoint
+CREATE INDEX "roasted_lots_org_best_before_idx" ON "roasted_lots" USING btree ("org_id","best_before_at");--> statement-breakpoint
+CREATE INDEX "roasted_lots_org_blend_idx" ON "roasted_lots" USING btree ("org_id","blend_id");--> statement-breakpoint
+CREATE INDEX "roasted_lots_org_batch_idx" ON "roasted_lots" USING btree ("org_id","roast_batch_id");--> statement-breakpoint
+CREATE INDEX "roasted_lots_org_created_idx" ON "roasted_lots" USING btree ("org_id","created_at","id");--> statement-breakpoint
 CREATE UNIQUE INDEX "alert_notifications_dedupe_idx" ON "alert_notifications" USING btree ("org_id","rule_id","subject_id","digest_date");--> statement-breakpoint
 CREATE INDEX "alert_notifications_org_date_idx" ON "alert_notifications" USING btree ("org_id","digest_date");--> statement-breakpoint
 CREATE UNIQUE INDEX "contract_lines_contract_position_idx" ON "contract_lines" USING btree ("contract_id","position");--> statement-breakpoint
