@@ -4,6 +4,7 @@ import { lotStatusSchema, positiveWeightKgSchema, weightKgSchema } from "./inven
 
 export const roastedLotKindSchema = z.enum(["loose", "packaged", "blended"]);
 export const blendTypeSchema = z.enum(["pre_roast", "post_roast"]);
+export const roastLevelSchema = z.enum(["light", "medium", "dark"]);
 
 export const roastedLotSchema = z.object({
   id: uuidSchema,
@@ -64,6 +65,8 @@ export const blendSchema = z.object({
   code: z.string(),
   blendType: blendTypeSchema,
   targetWeightLossPct: z.string().nullable(),
+  roastLevel: roastLevelSchema.nullable(),
+  isDecaf: z.boolean(),
   isActive: z.boolean(),
   components: z.array(blendComponentSchema),
   createdAt: z.string(),
@@ -84,6 +87,9 @@ export const createBlendInput = z.object({
   code: codeSchema,
   blendType: blendTypeSchema,
   targetWeightLossPct: z.string().optional(),
+  /** Both feed production sequencing; see the note on the blends table. */
+  roastLevel: roastLevelSchema.optional(),
+  isDecaf: z.boolean().optional(),
   components: z
     .array(
       z.object({

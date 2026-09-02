@@ -155,6 +155,8 @@ async function blendWithComponents(ctx: { db: RpcAppEnv["Variables"]["orgDb"] },
     code: blend.code,
     blendType: blend.blendType,
     targetWeightLossPct: blend.targetWeightLossPct ?? null,
+    roastLevel: (blend.roastLevel as "light" | "medium" | "dark" | null) ?? null,
+    isDecaf: blend.isDecaf,
     isActive: blend.isActive,
     components: components.map((c) => ({
       id: c.id,
@@ -197,6 +199,8 @@ registerRpc(
         code: b.code,
         blendType: b.blendType,
         targetWeightLossPct: b.targetWeightLossPct ?? null,
+        roastLevel: (b.roastLevel as "light" | "medium" | "dark" | null) ?? null,
+        isDecaf: b.isDecaf,
         isActive: b.isActive,
         createdAt: b.createdAt.toISOString(),
       })),
@@ -265,6 +269,8 @@ registerRpc(
           code: input.code,
           blendType: input.blendType,
           targetWeightLossPct: input.targetWeightLossPct ?? null,
+          roastLevel: input.roastLevel ?? null,
+          isDecaf: input.isDecaf ?? false,
         });
       } catch (err) {
         if (isUniqueViolation(err)) throw new Conflict(`Blend "${input.code}" already exists`);

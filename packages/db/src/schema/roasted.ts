@@ -52,6 +52,16 @@ export const blends = pgTable(
     blendType: blendTypeEnum("blend_type").notNull(),
     /** Expected roast loss, for planning how much green a blend needs. */
     targetWeightLossPct: numeric("target_weight_loss_pct", { precision: 5, scale: 2 }),
+    /**
+     * Both of these exist for the production scheduler, not for display.
+     * Sequencing a roast day means light before dark, because a dark roast
+     * leaves oil and chaff in the drum that the next batch picks up, and decaf
+     * dead last regardless of how light it is, since decaffeinated beans shed
+     * far more chaff and scorch at temperatures the same colour of regular
+     * coffee tolerates.
+     */
+    roastLevel: text("roast_level"),
+    isDecaf: boolean("is_decaf").notNull().default(false),
     isActive: boolean("is_active").notNull().default(true),
     notes: text("notes"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

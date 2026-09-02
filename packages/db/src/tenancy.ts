@@ -134,6 +134,25 @@ export const TENANT_DIRECT = {
   },
   cupping_scores: { table: s.cuppingScores, column: s.cuppingScores.orgId, field: "orgId" },
   green_gradings: { table: s.greenGradings, column: s.greenGradings.orgId, field: "orgId" },
+  customers: { table: s.customers, column: s.customers.orgId, field: "orgId" },
+  sales_orders: { table: s.salesOrders, column: s.salesOrders.orgId, field: "orgId" },
+  sales_order_lines: {
+    table: s.salesOrderLines,
+    column: s.salesOrderLines.orgId,
+    field: "orgId",
+  },
+  allocations: { table: s.allocations, column: s.allocations.orgId, field: "orgId" },
+  fulfillments: { table: s.fulfillments, column: s.fulfillments.orgId, field: "orgId" },
+  production_schedules: {
+    table: s.productionSchedules,
+    column: s.productionSchedules.orgId,
+    field: "orgId",
+  },
+  scheduled_batches: {
+    table: s.scheduledBatches,
+    column: s.scheduledBatches.orgId,
+    field: "orgId",
+  },
   alert_notifications: {
     table: s.alertNotifications,
     column: s.alertNotifications.orgId,

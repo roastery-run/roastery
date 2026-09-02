@@ -15,6 +15,7 @@ export * from "./enums";
 export * from "./inventory";
 export * from "./materials";
 export * from "./oauth";
+export * from "./orders";
 export * from "./org";
 export * from "./production";
 export * from "./quality";

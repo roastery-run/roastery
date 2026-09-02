@@ -368,3 +368,67 @@ export const cuppingSessionStatusEnum = pgEnum("cupping_session_status", [
   "finalized",
   "canceled",
 ]);
+
+/* --------------------------------------------------------------- orders */
+
+export const customerTypeEnum = pgEnum("customer_type", [
+  "wholesale",
+  "cafe",
+  "retail",
+  "distributor",
+  "subscription",
+  "internal",
+  "export",
+]);
+
+export const salesChannelKindEnum = pgEnum("sales_channel_kind", [
+  "direct",
+  "webstore",
+  "edi",
+  "marketplace",
+  "api",
+]);
+
+export const salesOrderStatusEnum = pgEnum("sales_order_status", [
+  "draft",
+  "confirmed",
+  "in_production",
+  "partially_fulfilled",
+  "fulfilled",
+  "invoiced",
+  "paid",
+  "canceled",
+]);
+
+/**
+ * How stock is chosen to satisfy an order.
+ *
+ * FEFO — first expiry, first out — is the default for roasted coffee, because
+ * it has a usable window measured in weeks. FIFO would ship the oldest coffee
+ * that happens to have arrived first, which is not the same thing once lots
+ * are roasted on different days.
+ */
+export const allocationStrategyEnum = pgEnum("allocation_strategy", [
+  "fefo",
+  "fifo",
+  "lifo",
+  "manual",
+]);
+
+export const fulfillmentStatusEnum = pgEnum("fulfillment_status", [
+  "pending",
+  "picking",
+  "packed",
+  "shipped",
+  "delivered",
+  "returned",
+  "canceled",
+]);
+
+export const scheduleStatusEnum = pgEnum("schedule_status", [
+  "draft",
+  "released",
+  "in_progress",
+  "completed",
+  "canceled",
+]);
