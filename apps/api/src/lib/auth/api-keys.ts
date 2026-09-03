@@ -1,6 +1,7 @@
 import { defaultKeyHasher } from "@better-auth/api-key";
 import { apiKeys } from "@roastery/db/schema";
-import { desc, eq } from "drizzle-orm";
+import { desc, eq, sql } from "drizzle-orm";
+import type { WorkerDb } from "../db/db";
 import type { OrgDb } from "../db/org-db";
 
 /**
@@ -151,4 +152,97 @@ export async function listApiKeys(db: OrgDb) {
       .where(scope(apiKeys))
       .orderBy(desc(apiKeys.createdAt)),
   );
+}
+
+/* ------------------------------------------------------------ verification */
+
+export type VerifiedApiKey = {
+  id: string;
+  referenceId: string;
+  metadata: KeyMetadata;
+};
+
+/**
+ * Verifies a key in ONE query.
+ *
+ * The plugin's `verifyApiKey` issued four statements per request: the lookup,
+ * a rate-limit counter update, an `updatedAt` bump, and a sweep of expired
+ * keys. Measured against staging that was 450ms of a 600ms request — not
+ * because any of it is slow, but because each statement is a round trip to a
+ * database in another region, and only the first one answers a question the
+ * request needs answered.
+ *
+ * Verifying here rather than through the plugin is symmetric with `issueApiKey`
+ * above, which already writes the row directly using the plugin's own hasher.
+ * The security-relevant behaviour is unchanged and deliberately still
+ * synchronous, on the caching-DISABLED handle: a revoked or expired key stops
+ * working on the next request, not a cache TTL later.
+ *
+ * What moved:
+ *
+ *  - The per-key rate limit is gone, because it duplicated the Worker's
+ *    `RPC_SUSTAINED_LIMITER` exactly — same 300-per-60s budget, keyed on the
+ *    same credential — while costing a database write per request to enforce.
+ *    The binding is the authoritative limit; see `clientKey` in api/rate-limit.
+ *  - `lastRequest` and `requestCount` are stamped AFTER the response, by the
+ *    caller passing `recordUse`. They exist so a person can see when a
+ *    credential was last used, which does not need to be true to the
+ *    millisecond and never needed to block a request.
+ *  - Sweeping expired keys belongs to the daily cron, not to every caller.
+ */
+export async function verifyApiKey(db: WorkerDb, raw: string): Promise<VerifiedApiKey | null> {
+  const hashed = await defaultKeyHasher(raw);
+
+  const [row] = await db.select().from(apiKeys).where(eq(apiKeys.key, hashed)).limit(1);
+  if (!row || !row.enabled) return null;
+  if (row.expiresAt && row.expiresAt.getTime() <= Date.now()) return null;
+
+  // A key with no organization cannot be scoped to one, so it authenticates as
+  // nothing rather than as everything.
+  if (!row.referenceId) return null;
+
+  const metadata = parseMetadata(row.metadata);
+  if (!metadata) return null;
+
+  return { id: row.id, referenceId: row.referenceId, metadata };
+}
+
+/** The plugin stores metadata as a JSON string; `issueApiKey` writes it the same way. */
+function parseMetadata(value: unknown): KeyMetadata | null {
+  const raw = typeof value === "string" ? safeJson(value) : value;
+  if (!raw || typeof raw !== "object") return null;
+  const meta = raw as Partial<KeyMetadata>;
+  // No role means no permissions can be resolved. Failing closed is the point:
+  // the alternative is inventing a default nobody deliberately granted.
+  if (typeof meta.roleSlug !== "string" || !meta.roleSlug) return null;
+  return {
+    roleSlug: meta.roleSlug,
+    scopes: Array.isArray(meta.scopes) ? meta.scopes : null,
+    createdBy: typeof meta.createdBy === "string" ? meta.createdBy : null,
+  };
+}
+
+function safeJson(value: string): unknown {
+  try {
+    return JSON.parse(value);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Stamps usage. Fire-and-forget by design — see `verifyApiKey`.
+ *
+ * Errors are swallowed: failing to record that a key was used must never fail
+ * the request that used it.
+ */
+export function recordApiKeyUse(db: WorkerDb, id: string): Promise<void> {
+  return db
+    .update(apiKeys)
+    .set({ lastRequest: new Date(), requestCount: sql`${apiKeys.requestCount} + 1` })
+    .where(eq(apiKeys.id, id))
+    .then(
+      () => undefined,
+      () => undefined,
+    );
 }

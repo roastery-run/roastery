@@ -155,22 +155,7 @@ function ssoPlugins(env: AuthEnv) {
  * Built per request, not once per module: the Drizzle client is request-scoped
  * because each Worker invocation opens its own Hyperdrive connection.
  */
-/**
- * `runInBackground` lets non-critical work finish after the response.
- *
- * On Workers this is `ctx.waitUntil`. Passing it is what makes the api-key
- * plugin's `deferUpdates` safe: the request's postgres client is closed with a
- * five-second graceful drain, so a write already in flight completes rather
- * than being cut off mid-query.
- */
-export type BackgroundRunner = (promise: Promise<unknown>) => void;
-
-export function createAuth(
-  db: WorkerDb,
-  env: AuthEnv,
-  sendEmail?: EmailSender,
-  runInBackground?: BackgroundRunner,
-) {
+export function createAuth(db: WorkerDb, env: AuthEnv, sendEmail?: EmailSender) {
   return betterAuth({
     database: drizzleAdapter(db, {
       provider: "pg",
@@ -223,13 +208,9 @@ export function createAuth(
     // Cloudflare and cannot be spoofed by the client.
     trustedOrigins: [resolveWebUrl(env), resolveConsoleUrl(env)],
     advanced: isLocal(env)
-      ? {
-          ipAddress: { ipAddressHeaders: ["cf-connecting-ip"] },
-          ...(runInBackground ? { backgroundTasks: { handler: runInBackground } } : {}),
-        }
+      ? { ipAddress: { ipAddressHeaders: ["cf-connecting-ip"] } }
       : {
           ipAddress: { ipAddressHeaders: ["cf-connecting-ip"] },
-          ...(runInBackground ? { backgroundTasks: { handler: runInBackground } } : {}),
           cookiePrefix: cookiePrefix(env),
           crossSubDomainCookies: { enabled: true, domain: cookieDomain(env) },
           defaultCookieAttributes: { secure: true, sameSite: "lax" },
@@ -295,24 +276,10 @@ export function createAuth(
         // also rate-limits per credential; this is the per-key ceiling that
         // survives independently of edge limits.
         rateLimit: { enabled: true, timeWindow: 60_000, maxRequests: 300 },
-        /**
-         * Verification LOOKS UP the key synchronously and defers only the
-         * bookkeeping — usage counters, the rate-limit window, last-used
-         * timestamps.
-         *
-         * Measured on staging, `verifyApiKey` was 475ms of a 600ms request:
-         * a read to find the key, then a re-read and a write to stamp it, each
-         * a round trip to a database in another region. Deferring the second
-         * pair is most of that back.
-         *
-         * What is NOT deferred is the part that matters: the key is still read
-         * and validated before the request proceeds, so a revoked or expired
-         * credential stops working immediately rather than a window later.
-         * The cost is that the per-key counters are eventually consistent, and
-         * the authoritative abuse control is the Worker's rate-limit binding
-         * anyway — this ceiling is a second line, not the first.
-         */
-        deferUpdates: Boolean(runInBackground),
+        // NOTE: the plugin's `deferUpdates` does not cover verification — its
+        // usage claim is awaited regardless — which is why authentication
+        // verifies the key itself. See `verifyApiKey` in the API's
+        // lib/auth/api-keys.
       }),
       magicLink({
         expiresIn: 300,

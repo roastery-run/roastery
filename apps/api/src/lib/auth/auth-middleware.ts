@@ -4,6 +4,7 @@ import type { Env } from "../../env";
 import { startTimings, type Timings, timed } from "../api/timing";
 import { closeWorkerDb, createWorkerDb, safeExecutionCtx, type WorkerDb } from "../db/db";
 import { createEmailSender } from "../email/send";
+import { recordApiKeyUse, verifyApiKey } from "./api-keys";
 import { verifyOAuthToken } from "./oauth-token";
 
 export type Credential =
@@ -44,63 +45,11 @@ export type AuthVariables = {
 };
 
 /**
- * Failures that mean "slow down", not "your credential is bad".
+ * The session cookie's user, or nothing.
  *
- * Matched on both code and message because the plugin surfaces them
- * inconsistently across its error paths, and misclassifying a throttle as an
- * auth failure is worse than the redundancy.
+ * Never throws: an unreadable cookie must authenticate as nobody rather than
+ * turning into a 500 on the authentication path.
  */
-function isThrottled(failure: string | null): boolean {
-  if (!failure) return false;
-  const f = failure.toUpperCase();
-  return (
-    f.includes("RATE_LIMIT") ||
-    f.includes("RATE LIMIT") ||
-    f.includes("USAGE_EXCEEDED") ||
-    f.includes("USAGE LIMIT")
-  );
-}
-
-/** The subset of the plugin's ApiKey we depend on. */
-type VerifiedKey = {
-  id: string;
-  referenceId: string;
-  metadata: unknown;
-};
-
-type KeyMetadata = {
-  roleSlug: string | null;
-  /** null = no down-scoping; [] = explicitly inert. See loadPermissions. */
-  scopes: string[] | null;
-  createdBy: string | null;
-};
-
-/**
- * The plugin stores metadata as a JSON string and parses it back on read, so
- * this accepts either shape and never throws — malformed metadata must not
- * turn into a 500 on the authentication path.
- */
-function parseKeyMetadata(raw: unknown): KeyMetadata {
-  let obj: Record<string, unknown> | null = null;
-  if (typeof raw === "string") {
-    try {
-      obj = JSON.parse(raw) as Record<string, unknown>;
-    } catch {
-      obj = null;
-    }
-  } else if (typeof raw === "object" && raw !== null) {
-    obj = raw as Record<string, unknown>;
-  }
-  if (!obj) return { roleSlug: null, scopes: null, createdBy: null };
-
-  const scopes = obj.scopes;
-  return {
-    roleSlug: typeof obj.roleSlug === "string" ? obj.roleSlug : null,
-    scopes: Array.isArray(scopes) ? scopes.filter((x): x is string => typeof x === "string") : null,
-    createdBy: typeof obj.createdBy === "string" ? obj.createdBy : null,
-  };
-}
-
 async function resolveSessionUserId(
   db: WorkerDb,
   env: Env,
@@ -124,67 +73,43 @@ export const authMiddleware = createMiddleware<{ Bindings: Env; Variables: AuthV
 
     let userId: string | null = null;
     let credential: Credential | null = null;
+    /** Set once a key authenticates; stamped after the response. */
+    let usedKeyId: string | null = null;
 
     const header = c.req.header("Authorization");
 
     if (header?.startsWith("Bearer sk_")) {
       const raw = header.slice("Bearer ".length);
-      // The background runner is what lets the plugin defer its usage
-      // bookkeeping; without one it falls back to doing the writes inline.
-      const background = safeExecutionCtx(c);
-      const auth = createAuth(
-        db,
-        c.env,
-        createEmailSender(c.env),
-        background ? (promise) => background.waitUntil(promise) : undefined,
-      );
 
-      // The plugin owns hash comparison, expiry, enable/disable, the rate
-      // limit and the refill counter, and it stamps requestCount/lastRequest.
-      // An invalid key authenticates as no one rather than erroring, so a
-      // stale key behaves exactly like an unknown one.
-      let verified: VerifiedKey | null = null;
-      let failure: string | null = null;
-      try {
-        const result = await timed(timings, "verifyKey", () =>
-          auth.api.verifyApiKey({ body: { key: raw } }),
-        );
-        if (result.valid && result.key) verified = result.key as VerifiedKey;
-        else {
-          const e = result.error as { code?: string; message?: string } | null;
-          failure = e?.code ?? e?.message ?? null;
-        }
-      } catch {
-        verified = null;
-      }
-
-      // A throttled caller is authenticated, just over budget. Returning 401
-      // would tell them to re-authenticate, which cannot help and invites a
-      // credential-rotation loop; 429 tells them to back off.
-      if (!verified && isThrottled(failure)) {
-        const window = c.req.header("Retry-After") ?? "60";
-        return c.json({ error: "Rate limit exceeded", code: "rate_limited" }, 429, {
-          "Retry-After": window,
-        });
-      }
+      /**
+       * One indexed read, on the caching-disabled handle.
+       *
+       * The plugin's `verifyApiKey` issued four statements — lookup, rate-limit
+       * counters, an `updatedAt` bump, and a sweep of expired keys — and only
+       * the first answers a question this request needs answered. See
+       * `verifyApiKey` in ../auth/api-keys for what moved where.
+       *
+       * An invalid key authenticates as no one rather than erroring, so a
+       * stale key behaves exactly like an unknown one.
+       */
+      const verified = await timed(timings, "verifyKey", () => verifyApiKey(db, raw));
 
       if (verified) {
-        const meta = parseKeyMetadata(verified.metadata);
-        // A key whose metadata carries no role cannot be authorized against
-        // our permissions table, so it authenticates as nothing. Failing
-        // closed here is deliberate: the alternative is inventing a default
-        // role for a credential nobody deliberately granted one.
-        if (meta.roleSlug) {
-          credential = {
-            type: "api_key",
-            id: verified.id,
-            orgId: verified.referenceId,
-            roleSlug: meta.roleSlug,
-            scopes: meta.scopes,
-            createdBy: meta.createdBy ?? null,
-          };
-          userId = meta.createdBy ?? null;
-        }
+        credential = {
+          type: "api_key",
+          id: verified.id,
+          orgId: verified.referenceId,
+          roleSlug: verified.metadata.roleSlug,
+          scopes: verified.metadata.scopes,
+          createdBy: verified.metadata.createdBy,
+        };
+        userId = verified.metadata.createdBy;
+
+        // Stamped after the handler, not here: the request holds a single
+        // pooled connection (`max: 1` behind Hyperdrive), so firing the update
+        // now makes the handler's own query queue behind it. Measured, that
+        // moved 130ms out of `verifyKey` and straight into `handler`.
+        usedKeyId = verified.id;
       }
     } else if (header?.startsWith("Bearer ")) {
       // An OAuth access token from the client_credentials grant. Validation is
@@ -210,7 +135,12 @@ export const authMiddleware = createMiddleware<{ Bindings: Env; Variables: AuthV
     try {
       await next();
     } finally {
-      await closeWorkerDb(db, safeExecutionCtx(c));
+      const background = safeExecutionCtx(c);
+      // Ordering matters: the usage stamp is queued before the close, and
+      // `closeWorkerDb` ends the client with a five-second graceful drain, so
+      // the update completes rather than being cut off mid-query.
+      if (usedKeyId) background?.waitUntil(recordApiKeyUse(db, usedKeyId));
+      await closeWorkerDb(db, background);
     }
   },
 );
