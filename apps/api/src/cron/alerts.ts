@@ -15,7 +15,7 @@
 import { organizations, orgMembers, users } from "@roastery/db/schema";
 import { eq } from "drizzle-orm";
 import type { Env } from "../env";
-import { closeWorkerDb, createWorkerDb, type WorkerDb } from "../lib/db/db";
+import { closeWorkerDb, createOwnedWorkerDb, type WorkerDb } from "../lib/db/db";
 import { withOrgDb } from "../lib/db/org-db";
 import { markAlertsSent, recordNewAlerts, scanAlerts } from "../lib/domain/alerts";
 import { trySend } from "../lib/email/send";
@@ -25,7 +25,7 @@ import { alertDigest } from "../lib/email/templates";
 const NOTIFIED_ROLES = ["owner", "manager"];
 
 export async function sendAlertDigests(env: Env): Promise<void> {
-  const db = createWorkerDb(env);
+  const db = createOwnedWorkerDb(env);
   try {
     const orgs = await db
       .select({ id: organizations.id, name: organizations.name })

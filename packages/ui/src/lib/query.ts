@@ -27,7 +27,9 @@ export function createQueryClient(): QueryClient {
     defaultOptions: {
       queries: {
         staleTime: 30_000,
-        gcTime: 5 * 60_000,
+        // Must outlive the persister's maxAge, or an entry restored from
+        // localStorage is garbage-collected before anything can read it.
+        gcTime: 24 * 60 * 60 * 1000,
         // The window regaining focus is not evidence the data changed, and on
         // a shop-floor tablet that switches apps all day it means a refetch
         // storm every time somebody picks it up.

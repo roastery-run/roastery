@@ -7,9 +7,10 @@
  * filters everything to nothing or, worse, is sent to an API that rejects it
  * with an error nobody can explain.
  */
-import { getActiveOrg, rpc, setActiveOrg } from "@roastery/ui";
+import { ensureCacheOwner, getActiveOrg, rpc, setActiveOrg } from "@roastery/ui";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import * as React from "react";
+import { ORIGINS } from "@/lib/origins";
 
 export type Membership = {
   orgId: string;
@@ -115,7 +116,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
   const meQuery = useQuery({
     queryKey: ["session.me"],
     queryFn: async (): Promise<Me> => {
-      const response = await fetch(`${import.meta.env.VITE_API_URL ?? ""}/session/v1/me`, {
+      const response = await fetch(`${ORIGINS.api}/session/v1/me`, {
         credentials: "include",
       });
       if (!response.ok) throw new Error("Could not load your session");
@@ -156,6 +157,18 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
         entitlements: accessQuery.data?.entitlements ?? null,
       }
     : null;
+
+  /**
+   * The persisted query cache is scoped to one person.
+   *
+   * Two people sharing a shop-floor terminal is normal, and without this the
+   * second one is served the first one's organisation straight out of
+   * localStorage.
+   */
+  const userId = session?.user?.id;
+  React.useEffect(() => {
+    if (userId) ensureCacheOwner(userId, queryClient);
+  }, [userId, queryClient]);
 
   const locationsQuery = useQuery({
     queryKey: ["catalog.location.listLocations", org?.orgId],

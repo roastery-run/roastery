@@ -7,7 +7,7 @@
  * the one organization large enough to matter, and nobody will find out.
  */
 import type { Env } from "../env";
-import { closeWorkerDb, createWorkerDb } from "../lib/db/db";
+import { closeWorkerDb, createOwnedWorkerDb } from "../lib/db/db";
 import { ensureShotPartitions } from "../lib/domain/shot-ingest";
 import { findDueDeliveries, findPendingFanOut } from "../lib/events/webhook-delivery";
 import { sendAlertDigests } from "./alerts";
@@ -44,7 +44,7 @@ export async function handleScheduled(cron: CronPattern, env: Env): Promise<void
  * missing, for the same reason.
  */
 async function sweepOutbox(env: Env): Promise<void> {
-  const db = createWorkerDb(env);
+  const db = createOwnedWorkerDb(env);
   try {
     const eventIds = await findPendingFanOut(db, { olderThanSeconds: 30, limit: 200 });
     if (eventIds.length > 0 && env.EVENT_QUEUE) {
@@ -81,7 +81,7 @@ async function sweepOutbox(env: Env): Promise<void> {
  * only ever happens to a bridge with a badly wrong clock.
  */
 async function rollShotPartitions(env: Env): Promise<void> {
-  const db = createWorkerDb(env);
+  const db = createOwnedWorkerDb(env);
   try {
     const created = await ensureShotPartitions(db, 3);
     console.log(JSON.stringify({ msg: "shot_partitions_ensured", partitions: created }));

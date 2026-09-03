@@ -17,6 +17,7 @@
     "@roastery/ui": "workspace:*",
     "@roastery/units": "workspace:*",
     "@tanstack/react-query": "catalog:",
+    "@tanstack/react-query-persist-client": "catalog:",
     "@tanstack/react-router": "catalog:",
     "@tanstack/react-table": "catalog:",
     "better-auth": "catalog:",

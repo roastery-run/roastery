@@ -20,6 +20,7 @@ export * from "./lib/api";
 export * from "./lib/auth-client";
 export * from "./lib/color";
 export * from "./lib/query";
+export * from "./lib/query-cache";
 export * from "./lib/table-search";
 export * from "./lib/theme";
 export { cn } from "./lib/utils";

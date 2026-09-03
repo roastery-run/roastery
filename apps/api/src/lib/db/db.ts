@@ -44,16 +44,26 @@ export function safeExecutionCtx(c: { executionCtx: WaitUntil }): WaitUntil | un
 function buildWorkerDb(connectionString: string): WorkerDb {
   const client = postgres(connectionString, {
     prepare: false,
-    // One connection per isolate-request is correct behind Hyperdrive, which
-    // does the real pooling upstream.
-    max: 1,
+    // Behind Hyperdrive, which does the real pooling upstream. More than one
+    // so two concurrent requests in the same isolate do not queue on a single
+    // socket — which is exactly what made a deferred write push the handler's
+    // own query behind it.
+    max: 5,
   });
   const db = drizzle(client, { schema });
   clientsByDb.set(db, client);
   return db;
 }
 
-/** The default client: cache-disabled, correct for writes and authorization. */
+/**
+ * The default client: cache-disabled, correct for writes and authorization.
+ *
+ * One per REQUEST, never shared across them. Holding a client at module scope
+ * to skip the ~65ms of connection setup looks tempting and does not work:
+ * Workers forbid using an I/O object created in one request from another, so
+ * the second request onto a reused socket fails outright. Measured as a 500 on
+ * roughly half of all requests before this was reverted.
+ */
 export function createWorkerDb(env: Env): WorkerDb {
   return buildWorkerDb(
     env.HYPERDRIVE_CACHE_DISABLED?.connectionString ?? env.HYPERDRIVE.connectionString,
@@ -63,6 +73,19 @@ export function createWorkerDb(env: Env): WorkerDb {
 /** Read-only catalogue browse where a stale read is acceptable. */
 export function createWorkerDbCached(env: Env): WorkerDb {
   return buildWorkerDb(env.HYPERDRIVE.connectionString);
+}
+
+/**
+ * A handle a QUEUE or CRON consumer owns and must close.
+ *
+ * Deliberately not shared: a consumer's batch is unbounded and long-running,
+ * and a leaked connection there exhausts the Hyperdrive pool far faster than
+ * one in a request. See `withWorkerDb`, which closes in a `finally`.
+ */
+export function createOwnedWorkerDb(env: Env): WorkerDb {
+  return buildWorkerDb(
+    env.HYPERDRIVE_CACHE_DISABLED?.connectionString ?? env.HYPERDRIVE.connectionString,
+  );
 }
 
 /**
@@ -83,7 +106,7 @@ export function closeWorkerDb(db: object, ctx?: WaitUntil): Promise<void> {
 }
 
 export async function withWorkerDb<T>(env: Env, fn: (db: WorkerDb) => Promise<T>): Promise<T> {
-  const db = createWorkerDb(env);
+  const db = createOwnedWorkerDb(env);
   try {
     return await fn(db);
   } finally {

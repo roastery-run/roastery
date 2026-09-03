@@ -16,7 +16,7 @@ import type {
   ShotQueueMessage,
   WebhookQueueMessage,
 } from "../env";
-import { closeWorkerDb, createWorkerDb } from "../lib/db/db";
+import { closeWorkerDb, createOwnedWorkerDb } from "../lib/db/db";
 import {
   type IncomingShot,
   prepareShots,
@@ -31,7 +31,7 @@ export async function handleEventQueue(
   batch: MessageBatch<EventQueueMessage>,
   env: Env,
 ): Promise<void> {
-  const db = createWorkerDb(env);
+  const db = createOwnedWorkerDb(env);
   try {
     for (const message of batch.messages) {
       try {
@@ -66,7 +66,7 @@ export async function handleWebhookQueue(
   batch: MessageBatch<WebhookQueueMessage>,
   env: Env,
 ): Promise<void> {
-  const db = createWorkerDb(env);
+  const db = createOwnedWorkerDb(env);
   try {
     for (const message of batch.messages) {
       const { deliveryId } = message.body;
@@ -110,7 +110,7 @@ export async function handleDeadLetterBatch(
   batch: MessageBatch<EventQueueMessage | WebhookQueueMessage>,
   env: Env,
 ): Promise<void> {
-  const db = createWorkerDb(env);
+  const db = createOwnedWorkerDb(env);
   try {
     for (const message of batch.messages) {
       const body = message.body as Partial<EventQueueMessage & WebhookQueueMessage>;
@@ -144,7 +144,7 @@ export async function handleShotQueue(
   batch: MessageBatch<ShotQueueMessage>,
   env: Env,
 ): Promise<void> {
-  const db = createWorkerDb(env);
+  const db = createOwnedWorkerDb(env);
   try {
     // Grouped by site so a chain posting from twelve bars at once produces one
     // upsert and one live-view call per site, not one per message.
@@ -224,7 +224,7 @@ export async function handleReportQueue(
   batch: MessageBatch<ReportQueueMessage>,
   env: Env,
 ): Promise<void> {
-  const db = createWorkerDb(env);
+  const db = createOwnedWorkerDb(env);
   try {
     for (const message of batch.messages) {
       try {
