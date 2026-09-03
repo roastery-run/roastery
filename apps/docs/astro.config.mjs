@@ -10,7 +10,9 @@ import { defineConfig } from "astro/config";
  * generated — there is nothing interactive to hydrate.
  */
 export default defineConfig({
-  site: "https://docs.roastery.run",
+  // Per environment: a staging copy that claims the production
+  // canonical competes with it in search.
+  site: process.env.DOCS_URL ?? "https://docs.roastery.run",
   integrations: [
     starlight({
       title: "ROASTERY",

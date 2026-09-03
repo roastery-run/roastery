@@ -1,6 +1,7 @@
 import { Button } from "@roastery/ui";
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 import { ArrowRight, Check } from "lucide-react";
+import { canonical, SITE } from "@/content/site";
 import { SOLUTIONS, solutionBySlug } from "@/content/solutions";
 
 export const Route = createFileRoute("/solutions/$slug")({
@@ -24,21 +25,19 @@ export const Route = createFileRoute("/solutions/$slug")({
             { property: "og:description", content: loaderData.summary },
             {
               property: "og:url",
-              content: `https://roastery.run/solutions/${loaderData.slug}`,
+              content: `${canonical(`/solutions/${loaderData.slug}`)}`,
             },
           ],
           links: [
             {
               rel: "canonical",
-              href: `https://roastery.run/solutions/${loaderData.slug}`,
+              href: `${canonical(`/solutions/${loaderData.slug}`)}`,
             },
           ],
         }
       : {},
   component: SolutionView,
 });
-
-const CONSOLE_URL = import.meta.env.VITE_CONSOLE_URL ?? "http://localhost:5174";
 
 /**
  * One renderer for all seven solution pages.
@@ -102,13 +101,13 @@ function SolutionView() {
           </p>
           <div className="mt-4 flex flex-wrap gap-3">
             <Button asChild size="sm">
-              <a href={`${CONSOLE_URL}/login`}>
+              <a href={`${SITE.console}/login`}>
                 Get started
                 <ArrowRight className="size-4" aria-hidden="true" />
               </a>
             </Button>
             <Button variant="outline" size="sm" asChild>
-              <a href="http://localhost:8787/docs">API reference</a>
+              <a href={`${SITE.docs}`}>API reference</a>
             </Button>
           </div>
         </div>

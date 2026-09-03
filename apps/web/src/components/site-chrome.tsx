@@ -3,10 +3,8 @@ import { Link } from "@tanstack/react-router";
 import type * as React from "react";
 import { HeaderNav } from "@/components/header-nav";
 import { HEADER_NAV } from "@/content/nav";
+import { SITE } from "@/content/site";
 import { SOLUTIONS } from "@/content/solutions";
-
-const CONSOLE_URL = import.meta.env.VITE_CONSOLE_URL ?? "http://localhost:5174";
-const DOCS_URL = import.meta.env.VITE_DOCS_URL ?? "http://localhost:4321";
 
 function Mark({ className }: { className?: string }) {
   return (
@@ -43,10 +41,10 @@ export function SiteHeader() {
 
         <div className="ml-auto flex items-center gap-2">
           <Button variant="ghost" size="sm" asChild>
-            <a href={`${CONSOLE_URL}/login`}>Sign in</a>
+            <a href={`${SITE.console}/login`}>Sign in</a>
           </Button>
           <Button size="sm" asChild>
-            <a href={`${CONSOLE_URL}/login`}>Get started</a>
+            <a href={`${SITE.console}/login`}>Get started</a>
           </Button>
         </div>
       </div>
@@ -84,7 +82,7 @@ export function SiteFooter() {
         <FooterColumn title="Product">
           <FooterLink to="/pricing">Pricing</FooterLink>
           <li>
-            <a href={DOCS_URL} className="text-muted-foreground text-sm hover:text-foreground">
+            <a href={SITE.docs} className="text-muted-foreground text-sm hover:text-foreground">
               API reference
             </a>
           </li>
@@ -93,7 +91,9 @@ export function SiteFooter() {
 
       <div className="border-border border-t">
         <div className="mx-auto max-w-6xl px-6 py-5 font-mono text-muted-foreground text-xs">
-          roastery.run
+          {/* The host this build actually serves, so a staging copy says so
+              rather than claiming to be the production site. */}
+          {new URL(SITE.web).host}
         </div>
       </div>
     </footer>

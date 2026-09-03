@@ -3,6 +3,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { Check } from "lucide-react";
 import { CompareTable } from "@/components/compare-table";
 import { EVERY_PLAN, FAQS, PLANS } from "@/content/pricing";
+import { canonical } from "@/content/site";
 
 export const Route = createFileRoute("/pricing")({
   head: () => ({
@@ -16,13 +17,13 @@ export const Route = createFileRoute("/pricing")({
       { property: "og:title", content: "ROASTERY pricing" },
     ],
     links: [
-      { rel: "canonical", href: "https://roastery.run/pricing" },
+      { rel: "canonical", href: canonical("/pricing") },
       // The same page as markdown, for agents and anything that would rather
       // read text than parse a layout.
       {
         rel: "alternate",
         type: "text/markdown",
-        href: "https://roastery.run/pricing.md",
+        href: canonical("/pricing.md"),
       },
     ],
   }),

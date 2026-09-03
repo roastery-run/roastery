@@ -12,6 +12,7 @@
  * asserts the two agree, so the duplication cannot rot.
  */
 import type { ModuleKey } from "@roastery/schemas";
+import { SITE } from "./site";
 
 export type Plan = {
   slug: string;
@@ -30,8 +31,6 @@ export type Plan = {
   ctaNote?: string;
   highlighted?: boolean;
 };
-
-const CONSOLE_URL = import.meta.env?.VITE_CONSOLE_URL ?? "http://localhost:5174";
 
 export const PLANS: Plan[] = [
   {
@@ -53,7 +52,7 @@ export const PLANS: Plan[] = [
       { label: "Machines", value: "1" },
       { label: "Users", value: "3" },
     ],
-    cta: { label: "Start free", href: `${CONSOLE_URL}/login` },
+    cta: { label: "Start free", href: `${SITE.console}/login` },
     ctaNote: "No card required. A real plan, not a trial.",
   },
   {
@@ -75,7 +74,7 @@ export const PLANS: Plan[] = [
       { label: "Machines", value: "3" },
       { label: "Users", value: "10" },
     ],
-    cta: { label: "Start with Core", href: `${CONSOLE_URL}/login` },
+    cta: { label: "Start with Core", href: `${SITE.console}/login` },
   },
   {
     slug: "scale",
@@ -97,7 +96,7 @@ export const PLANS: Plan[] = [
       { label: "Users", value: "30" },
     ],
     highlighted: true,
-    cta: { label: "Start with Scale", href: `${CONSOLE_URL}/login` },
+    cta: { label: "Start with Scale", href: `${SITE.console}/login` },
     ctaNote: "Most roasteries buying their own green start here.",
   },
   {
@@ -130,7 +129,7 @@ export const PLANS: Plan[] = [
       { label: "Machines", value: "Unlimited" },
       { label: "Users", value: "Unlimited" },
     ],
-    cta: { label: "Start with Advanced", href: `${CONSOLE_URL}/login` },
+    cta: { label: "Start with Advanced", href: `${SITE.console}/login` },
   },
 ];
 

@@ -9,6 +9,7 @@ import {
   MODULE_LABEL,
   PLANS,
 } from "@/content/pricing";
+import { canonical, SITE } from "@/content/site";
 
 /**
  * Pricing as plain markdown.
@@ -57,7 +58,7 @@ function render(): string {
       "separate integration tier.",
   );
   out.push("");
-  out.push("Human version: https://roastery.run/pricing");
+  out.push(`Human version: ${canonical("/pricing")}`);
   out.push("");
 
   out.push("## Plans");
@@ -118,7 +119,7 @@ function render(): string {
 
   out.push("---");
   out.push("");
-  out.push("API reference: https://docs.roastery.run");
+  out.push(`API reference: ${SITE.docs}`);
   out.push("");
 
   return out.join("\n");

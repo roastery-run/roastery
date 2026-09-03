@@ -3,17 +3,16 @@ import { formatWeight } from "@roastery/units";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowRight } from "lucide-react";
 import { ProductFrame } from "@/components/product-frame";
+import { canonical, SITE } from "@/content/site";
 import { SOLUTIONS } from "@/content/solutions";
 
 export const Route = createFileRoute("/")({
   head: () => ({
-    links: [{ rel: "canonical", href: "https://roastery.run/" }],
-    meta: [{ property: "og:url", content: "https://roastery.run/" }],
+    links: [{ rel: "canonical", href: canonical("/") }],
+    meta: [{ property: "og:url", content: canonical("/") }],
   }),
   component: Home,
 });
-
-const CONSOLE_URL = import.meta.env.VITE_CONSOLE_URL ?? "http://localhost:5174";
 
 /** Fixed fixtures for the product visuals. Real components, stable data. */
 const DEMO_LOTS = [
@@ -42,13 +41,13 @@ function Home() {
             </p>
             <div className="flex flex-wrap gap-3">
               <Button asChild>
-                <a href={`${CONSOLE_URL}/login`}>
+                <a href={`${SITE.console}/login`}>
                   Get started
                   <ArrowRight className="size-4" aria-hidden="true" />
                 </a>
               </Button>
               <Button variant="outline" asChild>
-                <a href="http://localhost:8787/docs">Read the API docs</a>
+                <a href={`${SITE.docs}`}>Read the API docs</a>
               </Button>
             </div>
             <p className="font-mono text-muted-foreground text-xs">
@@ -133,7 +132,7 @@ function Home() {
             impossible here, because building one would mean building it twice.
           </p>
           <pre className="mt-6 overflow-x-auto rounded-md border border-border bg-card p-4 font-mono text-xs">
-            <code>{`curl -X POST https://api.roastery.run/rpc/v1/inventory.green.listGreenLots \\
+            <code>{`curl -X POST ${SITE.api}/rpc/v1/inventory.green.listGreenLots \\
   -H "Authorization: Bearer $ROASTERY_API_KEY" \\
   -H "X-Roastery-Org: $ORG_ID" \\
   -d '{"filter":{"status":"available"},"page":{"limit":50}}'`}</code>

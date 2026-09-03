@@ -21,6 +21,11 @@ import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node
 import { dirname, join } from "node:path";
 
 const API_URL = process.env.API_URL ?? "http://localhost:8787";
+
+// The base shown in copyable curl examples. Not API_URL: the docs are built
+// against whichever API is reachable, but a reader copying a command wants the
+// public endpoint for the environment being documented.
+const API_PUBLIC_URL = process.env.API_PUBLIC_URL ?? "https://api.roastery.run";
 const OUT = join(import.meta.dirname, "..", "src", "content", "docs", "reference");
 const SNAPSHOT = join(import.meta.dirname, "..", "openapi.snapshot.json");
 
@@ -137,7 +142,7 @@ ${fields ? `### Request\n\n${fields}\n` : ""}
 ### Example
 
 \`\`\`bash
-curl -X POST ${escapeMdx(`https://api.roastery.run${path}`)} \\
+curl -X POST ${escapeMdx(`${API_PUBLIC_URL}${path}`)} \\
   -H "Authorization: Bearer $ROASTERY_API_KEY" \\
   -H "X-Roastery-Org: $ORG_ID" \\
   -H "Content-Type: application/json" \\

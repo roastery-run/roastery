@@ -5,14 +5,12 @@
  * restated, so a page cannot exist without appearing in the menu or appear in
  * the menu without existing.
  */
+import { SITE } from "./site";
 import { SOLUTIONS } from "./solutions";
 
 export type MenuLink = { label: string; href: string; description: string; external?: boolean };
 export type MenuSection = { title: string; items: MenuLink[] };
 export type HeaderNavItem = { label: string; href?: string; sections?: MenuSection[] };
-
-const DOCS_URL = import.meta.env?.VITE_DOCS_URL ?? "http://localhost:4321";
-const API_URL = import.meta.env?.VITE_API_URL ?? "http://localhost:8787";
 
 const solutionLink = (slug: string): MenuLink => {
   const page = SOLUTIONS.find((s) => s.slug === slug);
@@ -52,19 +50,19 @@ export const HEADER_NAV: HeaderNavItem[] = [
         items: [
           {
             label: "API reference",
-            href: DOCS_URL,
+            href: SITE.docs,
             description: "Every operation, generated from the API's own schema",
             external: true,
           },
           {
             label: "Webhooks",
-            href: `${DOCS_URL}/guides/webhooks/`,
+            href: `${SITE.docs}/guides/webhooks/`,
             description: "Signature verification, retries, and ordering guarantees",
             external: true,
           },
           {
             label: "Machine telemetry",
-            href: `${DOCS_URL}/guides/telemetry/`,
+            href: `${SITE.docs}/guides/telemetry/`,
             description: "Streaming roast curves and shots from shop-floor hardware",
             external: true,
           },
@@ -75,13 +73,13 @@ export const HEADER_NAV: HeaderNavItem[] = [
         items: [
           {
             label: "Interactive explorer",
-            href: `${API_URL}/docs`,
+            href: `${SITE.api}/docs`,
             description: "Call any operation against a live API from the browser",
             external: true,
           },
           {
             label: "OpenAPI document",
-            href: `${API_URL}/openapi.public.json`,
+            href: `${SITE.api}/openapi.public.json`,
             description: "Generate a client in your own language",
             external: true,
           },

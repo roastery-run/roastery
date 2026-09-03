@@ -36,11 +36,16 @@ echo "==> api"
 pnpm --filter @roastery/api exec wrangler deploy --config wrangler.staging.jsonc
 
 echo "==> web, console, docs"
-pnpm --filter @roastery/web build
+# --mode staging selects .env.staging. Without it Vite uses "production" mode
+# for a build, which here would silently bake production URLs into the staging
+# site — or, with no env file at all, localhost.
+pnpm --filter @roastery/web exec vite build --mode staging
 pnpm --filter @roastery/web exec wrangler deploy --config wrangler.staging.jsonc
-pnpm --filter @roastery/console build
+pnpm --filter @roastery/console exec vite build --mode staging
 pnpm --filter @roastery/console exec wrangler deploy --config wrangler.staging.jsonc
-pnpm --filter @roastery/docs build
+DOCS_URL=https://docs-staging.roastery.run \
+  API_PUBLIC_URL=https://api-staging.roastery.run \
+  pnpm --filter @roastery/docs build
 pnpm --filter @roastery/docs exec wrangler deploy --config wrangler.staging.jsonc
 
 echo "==> Deployed"

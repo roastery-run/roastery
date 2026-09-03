@@ -1,6 +1,7 @@
 import type { QueryClient } from "@tanstack/react-query";
 import { createRootRouteWithContext, HeadContent, Outlet, Scripts } from "@tanstack/react-router";
 import { SiteFooter, SiteHeader } from "@/components/site-chrome";
+import { INDEXABLE } from "@/content/site";
 import appCss from "../index.css?url";
 
 export type RouterContext = { queryClient: QueryClient };
@@ -18,6 +19,9 @@ export const Route = createRootRouteWithContext<RouterContext>()({
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
+      // A robots.txt Disallow stops the crawl but does not remove a page a
+      // crawler already knows about from a link elsewhere. This does.
+      ...(INDEXABLE ? [] : [{ name: "robots", content: "noindex, nofollow" }]),
       { title: "ROASTERY — coffee operations, from the contract to the cup" },
       {
         name: "description",
