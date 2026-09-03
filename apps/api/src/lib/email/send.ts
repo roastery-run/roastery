@@ -1,9 +1,14 @@
 /**
  * Sending mail.
  *
- * Deliberately provider-agnostic: one HTTPS POST to a configured endpoint with
- * a bearer token. Every transactional provider worth using accepts that shape,
- * and hard-coding one would put a vendor in the middle of sign-in.
+ * Two paths, tried in that order.
+ *
+ * 1. Cloudflare Email Sending, through the `send_email` binding. No key to
+ *    rotate, no third party in the middle of sign-in, and SPF, DKIM and DMARC
+ *    are provisioned with the sending domain rather than assembled by hand.
+ * 2. An HTTPS POST to a configured endpoint with a bearer token. Every
+ *    transactional provider worth using accepts that shape, so this is the
+ *    escape hatch that keeps a single vendor from being load-bearing.
  *
  * When it is not configured, mail is LOGGED rather than dropped, and the caller
  * is told nothing failed. That is right for local development — a magic link on
@@ -24,7 +29,21 @@ export type SendResult = { delivered: boolean; reason?: string };
  * leave a developer waiting for an email that was never going to arrive.
  */
 export function createEmailSender(env: Env): EmailSender | undefined {
-  if (!env.EMAIL_API_URL || !env.EMAIL_API_KEY || !env.EMAIL_FROM) return undefined;
+  if (!env.EMAIL_FROM) return undefined;
+
+  if (env.EMAIL) {
+    const binding = env.EMAIL;
+    const from = env.EMAIL_FROM;
+    return async ({ to, subject, html, text }) => {
+      // Both bodies, always. A text/plain alternative is not politeness: a
+      // mail client that renders only text would otherwise show an empty
+      // message where the sign-in link should be, and spam filters score a
+      // single-part HTML message worse.
+      await binding.send({ from, to, subject, html, text });
+    };
+  }
+
+  if (!env.EMAIL_API_URL || !env.EMAIL_API_KEY) return undefined;
 
   return async ({ to, subject, html, text }) => {
     const response = await fetch(env.EMAIL_API_URL as string, {

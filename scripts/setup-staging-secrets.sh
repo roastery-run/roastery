@@ -34,10 +34,15 @@ put_secret() {
 put_secret BETTER_AUTH_SECRET
 put_secret WEBHOOK_KEK
 
-# Optional: absent, mail is logged rather than sent and social sign-in is off.
+# Required for mail. Staging sends through the Cloudflare `send_email` binding
+# declared in wrangler.staging.jsonc, so only the From address is a secret —
+# EMAIL_API_URL and EMAIL_API_KEY are the fallback for an HTTPS provider and
+# are unset here.
+put_secret EMAIL_FROM
+
+# Optional: an HTTPS provider instead of the binding.
 put_secret EMAIL_API_URL
 put_secret EMAIL_API_KEY
-put_secret EMAIL_FROM
 put_secret GITHUB_CLIENT_ID
 put_secret GITHUB_CLIENT_SECRET
 put_secret GOOGLE_CLIENT_ID

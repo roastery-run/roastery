@@ -85,6 +85,12 @@ export type Env = {
    *
    * Absent in development, where mail is logged instead.
    */
+  /**
+   * Cloudflare Email Sending. Present when the Worker declares `send_email`
+   * and the sending domain is enabled; absent in local development, where
+   * mail is logged instead.
+   */
+  EMAIL?: SendEmail;
   EMAIL_API_URL?: string;
   EMAIL_API_KEY?: string;
   EMAIL_FROM?: string;
@@ -128,9 +134,14 @@ export function assertProductionBindings(env: Env): void {
   if (!env.WEBHOOK_KEK) {
     throw new Error("WEBHOOK_KEK is required in production");
   }
-  // Without this, sign-in links are written to the log instead of being sent —
-  // a very quiet outage, since every other part of the flow reports success.
-  if (!env.EMAIL_API_URL || !env.EMAIL_API_KEY || !env.EMAIL_FROM) {
-    throw new Error("EMAIL_API_URL, EMAIL_API_KEY and EMAIL_FROM are required in production");
+  // Without a way to send, sign-in links are written to the log instead — a
+  // very quiet outage, since every other part of the flow reports success.
+  // Either path will do: the Cloudflare binding, or an HTTPS provider.
+  const canSend = Boolean(env.EMAIL) || Boolean(env.EMAIL_API_URL && env.EMAIL_API_KEY);
+  if (!canSend || !env.EMAIL_FROM) {
+    throw new Error(
+      "Production needs a way to send mail: either the send_email binding or " +
+        "EMAIL_API_URL + EMAIL_API_KEY, and EMAIL_FROM in both cases",
+    );
   }
 }

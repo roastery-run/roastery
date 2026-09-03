@@ -55,6 +55,11 @@
 
   "kv_namespaces": [{ "binding": "ROASTERY_KV", "id": "a03f6fdaa808423099b0710f6399abed" }],
 
+  // Cloudflare Email Sending. Sends from mail-staging.roastery.run, a
+  // subdomain of its own so a staging mishap cannot spend production's sending
+  // reputation. SPF, DKIM and DMARC are provisioned with the domain.
+  "send_email": [{ "name": "EMAIL" }],
+
   "r2_buckets": [{ "binding": "ROASTERY_R2", "bucket_name": "roastery-curves-staging" }],
 
   "durable_objects": {
