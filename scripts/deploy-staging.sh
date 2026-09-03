@@ -40,8 +40,10 @@ echo "==> web, console, docs"
 # for a build, which here would silently bake production URLs into the staging
 # site — or, with no env file at all, localhost.
 pnpm --filter @roastery/web exec vite build --mode staging
+node scripts/verify-build-env.mjs apps/web/dist/client staging
 pnpm --filter @roastery/web exec wrangler deploy --config wrangler.staging.jsonc
 pnpm --filter @roastery/console exec vite build --mode staging
+node scripts/verify-build-env.mjs apps/console/dist staging
 pnpm --filter @roastery/console exec wrangler deploy --config wrangler.staging.jsonc
 DOCS_URL=https://docs-staging.roastery.run \
   API_PUBLIC_URL=https://api-staging.roastery.run \

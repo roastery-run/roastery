@@ -15,6 +15,8 @@ export type AuthEnv = {
   BETTER_AUTH_URL: string;
   WEB_URL?: string;
   CONSOLE_URL?: string;
+  /** Namespaces cookies so environments sharing a domain do not collide. */
+  ENVIRONMENT?: string;
   GITHUB_CLIENT_ID?: string;
   GITHUB_CLIENT_SECRET?: string;
   GOOGLE_CLIENT_ID?: string;
@@ -47,24 +49,66 @@ export function resolveWebUrl(env: AuthEnv): string {
 }
 
 /**
- * The cookie domain shared by the marketing site, the console and the API.
+ * The cookie domain that covers EVERY origin this deployment serves.
  *
- * Derived from the configured web URL rather than hardcoded: a literal
- * ".roastery.run" silently breaks every session the moment this is deployed to
- * a preview, a staging domain, or a customer's own — the cookie is simply
- * never sent back, which presents as "login does nothing".
+ * Derived from the web URL alone, this returned `.staging.roastery.run` for a
+ * staging deployment whose console is `app-staging.roastery.run` — a SIBLING,
+ * not a subdomain. The session cookie was therefore never sent to the console,
+ * and a successful sign-in landed straight back on the login page. Production
+ * worked only by accident: its console happens to be a subdomain of its web
+ * URL, so the same logic produced a domain wide enough.
+ *
+ * So it is the longest domain suffix shared by all three origins, not one of
+ * them. Hardcoding ".roastery.run" instead would break the moment this runs on
+ * a preview domain or a customer's own.
+ *
+ * Better Auth's docs caution against scoping to a root domain, since the
+ * cookie then reaches every subdomain. That is accepted deliberately: the
+ * console has to be reachable and it is a sibling host, so no narrower scope
+ * exists. Two things bound the cost — every subdomain of roastery.run is ours,
+ * and `cookiePrefix` namespaces the environments, so a staging session cookie
+ * cannot be mistaken for a production one even though both are sent to both.
  *
  * Returns undefined for a single-label host (localhost), where a domain
- * attribute is invalid.
+ * attribute is invalid, and when the origins share no usable parent — better
+ * to fall back to host-only cookies than to scope one to a public suffix.
  */
 export function cookieDomain(env: AuthEnv): string | undefined {
-  try {
-    const host = new URL(resolveWebUrl(env)).hostname;
-    if (!host.includes(".") || /^[\d.]+$/.test(host)) return undefined;
-    return `.${host.replace(/^www\./, "")}`;
-  } catch {
-    return undefined;
+  const hosts: string[] = [];
+  for (const url of [resolveWebUrl(env), resolveConsoleUrl(env), env.BETTER_AUTH_URL]) {
+    try {
+      hosts.push(new URL(url).hostname.replace(/^www\./, ""));
+    } catch {
+      // A malformed URL narrows nothing; the remaining origins still decide.
+    }
   }
+  if (hosts.length === 0) return undefined;
+
+  const labels = hosts.map((h) => h.split(".").reverse());
+  const shared: string[] = [];
+  for (let i = 0; i < Math.min(...labels.map((l) => l.length)); i++) {
+    const label = labels[0]?.[i];
+    if (!label || !labels.every((l) => l[i] === label)) break;
+    shared.push(label);
+  }
+
+  // Two labels minimum: a one-label result is either "localhost" or a public
+  // suffix like "com", and no browser accepts a cookie scoped to either.
+  if (shared.length < 2) return undefined;
+  return `.${shared.reverse().join(".")}`;
+}
+
+/**
+ * Namespaces the cookies, so staging and production do not overwrite each
+ * other's session in one browser.
+ *
+ * They share a cookie domain by construction — both are subdomains of
+ * roastery.run — so without this, signing in to staging silently signs you out
+ * of production and vice versa.
+ */
+export function cookiePrefix(env: AuthEnv): string {
+  const environment = env.ENVIRONMENT?.trim();
+  return environment && environment !== "production" ? `roastery-${environment}` : "roastery";
 }
 
 function socialProviders(env: AuthEnv) {
@@ -167,6 +211,7 @@ export function createAuth(db: WorkerDb, env: AuthEnv, sendEmail?: EmailSender) 
       ? { ipAddress: { ipAddressHeaders: ["cf-connecting-ip"] } }
       : {
           ipAddress: { ipAddressHeaders: ["cf-connecting-ip"] },
+          cookiePrefix: cookiePrefix(env),
           crossSubDomainCookies: { enabled: true, domain: cookieDomain(env) },
           defaultCookieAttributes: { secure: true, sameSite: "lax" },
         },
