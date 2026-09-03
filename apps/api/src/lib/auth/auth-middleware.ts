@@ -1,6 +1,7 @@
 import { createAuth } from "@roastery/auth";
 import { createMiddleware } from "hono/factory";
 import type { Env } from "../../env";
+import { startTimings, type Timings, timed } from "../api/timing";
 import { closeWorkerDb, createWorkerDb, safeExecutionCtx, type WorkerDb } from "../db/db";
 import { createEmailSender } from "../email/send";
 import { verifyOAuthToken } from "./oauth-token";
@@ -38,6 +39,8 @@ export type AuthVariables = {
    * authorization test unless annotated `// unsafe-db-ok: <reason>`.
    */
   unsafeDb: WorkerDb;
+  /** Per-layer durations, emitted as `Server-Timing`. */
+  timings: Timings;
 };
 
 /**
@@ -114,6 +117,8 @@ async function resolveSessionUserId(
 
 export const authMiddleware = createMiddleware<{ Bindings: Env; Variables: AuthVariables }>(
   async (c, next) => {
+    const timings = startTimings();
+    c.set("timings", timings);
     const db = createWorkerDb(c.env);
     c.set("unsafeDb", db);
 
@@ -124,7 +129,15 @@ export const authMiddleware = createMiddleware<{ Bindings: Env; Variables: AuthV
 
     if (header?.startsWith("Bearer sk_")) {
       const raw = header.slice("Bearer ".length);
-      const auth = createAuth(db, c.env, createEmailSender(c.env));
+      // The background runner is what lets the plugin defer its usage
+      // bookkeeping; without one it falls back to doing the writes inline.
+      const background = safeExecutionCtx(c);
+      const auth = createAuth(
+        db,
+        c.env,
+        createEmailSender(c.env),
+        background ? (promise) => background.waitUntil(promise) : undefined,
+      );
 
       // The plugin owns hash comparison, expiry, enable/disable, the rate
       // limit and the refill counter, and it stamps requestCount/lastRequest.
@@ -133,7 +146,9 @@ export const authMiddleware = createMiddleware<{ Bindings: Env; Variables: AuthV
       let verified: VerifiedKey | null = null;
       let failure: string | null = null;
       try {
-        const result = await auth.api.verifyApiKey({ body: { key: raw } });
+        const result = await timed(timings, "verifyKey", () =>
+          auth.api.verifyApiKey({ body: { key: raw } }),
+        );
         if (result.valid && result.key) verified = result.key as VerifiedKey;
         else {
           const e = result.error as { code?: string; message?: string } | null;

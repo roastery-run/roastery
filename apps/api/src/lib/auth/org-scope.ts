@@ -3,6 +3,7 @@ import { and, eq } from "drizzle-orm";
 import { createMiddleware } from "hono/factory";
 import type { Env } from "../../env";
 import type { RpcVariables } from "../api/rpc";
+import { timed } from "../api/timing";
 import type { WorkerDb } from "../db/db";
 import { type Actor, createOrgDb, type EmittedEvent } from "../db/org-db";
 import type { AuthContext } from "./auth-middleware";
@@ -83,7 +84,9 @@ export const orgScope = createMiddleware<{ Bindings: Env; Variables: RpcVariable
       if (!UUID_RE.test(requested)) {
         return c.json({ error: "Forbidden", code: "org_forbidden" }, 403);
       }
-      const member = await getOrgMembership(db, requested, auth.userId);
+      const member = await timed(c.var.timings, "membership", () =>
+        getOrgMembership(db, requested, auth.userId as string),
+      );
       // Deliberately indistinguishable from "that organization does not
       // exist": a non-member must not be able to probe which org ids are real.
       if (!member) {
@@ -96,8 +99,8 @@ export const orgScope = createMiddleware<{ Bindings: Env; Variables: RpcVariable
     // A session is never down-scoped; a machine credential may be.
     const scopes = machine ? machine.scopes : null;
     const [perms, entitlements] = await Promise.all([
-      loadPermissions(c.env, db, orgId, roleSlug, scopes),
-      loadEntitlements(c.env, db, orgId),
+      timed(c.var.timings, "perms", () => loadPermissions(c.env, db, orgId, roleSlug, scopes)),
+      timed(c.var.timings, "entitlements", () => loadEntitlements(c.env, db, orgId)),
     ]);
 
     const actor = toActor(auth);

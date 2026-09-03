@@ -1,17 +1,37 @@
 {
-  // Client-only SPA behind auth. No `main`: it is static assets and nothing
-  // else, so there is no Worker to run and no server render to pay for.
+  // A client-only SPA, plus a thin Worker whose only job is to serve the API
+  // on this same origin (see src/worker.ts) — that is what removes a CORS
+  // preflight from every single RPC call.
   "name": "roastery-console-staging",
+  "main": "src/worker.ts",
   "compatibility_date": "2025-09-01",
   "workers_dev": false,
   "preview_urls": false,
+  "observability": { "enabled": true, "head_sampling_rate": 1 },
+  "upload_source_maps": true,
+  "services": [{ "binding": "API", "service": "roastery-api-staging" }],
   "assets": {
     "directory": "dist",
+    "binding": "ASSETS",
+    // Only the proxied paths need the Worker. Left unset, EVERY hashed chunk,
+    // font and image would be an inbound Worker invocation — billed at the
+    // standard request rate, when asset requests are otherwise free — and
+    // routed through a pointless extra hop. Paths matching no asset still
+    // reach the Worker, so SPA deep links keep working via
+    // `not_found_handling`.
+    "run_worker_first": [
+      "/rpc/*",
+      "/api/*",
+      "/session/*",
+      "/stream/*",
+      "/ingest/*",
+      "/trace/*",
+      "/reports/v1/*"
+    ],
     // Every path falls through to the SPA shell, because the router owns the
     // URL space. `single-page-application` also stops a deep link 404ing on a
     // hard refresh, which is the classic SPA-on-static-hosting bug.
     "not_found_handling": "single-page-application"
   },
-  "routes": [{ "pattern": "app-staging.roastery.run", "custom_domain": true }],
-  "observability": { "enabled": true, "head_sampling_rate": 1 }
+  "routes": [{ "pattern": "app-staging.roastery.run", "custom_domain": true }]
 }

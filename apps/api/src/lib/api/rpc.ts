@@ -9,6 +9,7 @@ import type { WorkerDb } from "../db/db";
 import type { Actor, EmittedEvent, OrgDb } from "../db/org-db";
 import * as idempotency from "./idempotency";
 import { entitlementErrorSchema, errorResponses } from "./openapi";
+import { serverTimingHeader, type Timings, timed } from "./timing";
 
 export type RpcVariables = {
   auth: AuthContext;
@@ -20,6 +21,8 @@ export type RpcVariables = {
   actor: Actor;
   /** Outbox rows written by this request, awaiting fan-out. */
   emittedEvents: EmittedEvent[];
+  /** Per-layer durations, emitted as `Server-Timing`. */
+  timings: Timings;
 };
 
 export type RpcAppEnv = { Bindings: Env; Variables: RpcVariables };
@@ -256,7 +259,7 @@ export function registerRpc<Req extends z.ZodTypeAny, Res extends z.ZodTypeAny>(
 
       let result: unknown;
       try {
-        result = await handler(input, buildRpcContext(c));
+        result = await timed(c.var.timings, "handler", () => handler(input, buildRpcContext(c)));
       } catch (err) {
         // Release the claim so a transient failure does not lock the client
         // out of its own key for the full retention window.
@@ -270,7 +273,11 @@ export function registerRpc<Req extends z.ZodTypeAny, Res extends z.ZodTypeAny>(
         await idempotency.complete(c.env, c.var.orgId, name, idemKey, input, result);
       }
       flushEvents(c);
-      return c.json(result as never, 200);
+      return c.json(result as never, 200, {
+        // Rendered inline by browser devtools, so a slow screen explains
+        // itself without anyone opening Worker logs.
+        "Server-Timing": serverTimingHeader(c.var.timings),
+      });
       // OpenAPIHono types a handler by the union of its declared status codes;
       // this generic wrapper cannot express that union, so the cast is load-bearing.
       // biome-ignore lint/suspicious/noExplicitAny: see above.

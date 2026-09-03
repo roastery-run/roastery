@@ -32,6 +32,41 @@ function routePaths(): string[] {
   );
 }
 
+/**
+ * The deployed console Worker proxies the same prefixes the dev server does.
+ * Both lists shadow console routes in exactly the same way, so both are
+ * checked against exactly the same rule.
+ */
+function workerPrefixes(): string[] {
+  const source = readFileSync(join(here, "worker.ts"), "utf8");
+  const block = source.match(/const API_PREFIXES = \[([\s\S]*?)\]/);
+  if (!block?.[1]) throw new Error("Could not find API_PREFIXES in worker.ts");
+  return [...block[1].matchAll(/"([^"]+)"/g)].map((m) => (m[1] ?? "").replace(/\/$/, ""));
+}
+
+describe("console worker proxy", () => {
+  it("does not shadow any console route", () => {
+    const prefixes = workerPrefixes();
+    const shadowed = routePaths().flatMap((route) =>
+      prefixes
+        .filter((prefix) => route === prefix || route.startsWith(`${prefix}/`))
+        .map((prefix) => `${prefix} shadows ${route}`),
+    );
+    expect(
+      shadowed,
+      "The console Worker forwards routes the SPA owns to the API:\n" + shadowed.join("\n"),
+    ).toEqual([]);
+  });
+
+  it("keeps /reports for the SPA while proxying the API's versioned path", () => {
+    // The console owns /reports and /reports/labels; the API owns
+    // /reports/v1/<id> signed downloads. Getting this wrong 404'd the whole
+    // Reports section once already.
+    expect(workerPrefixes()).not.toContain("/reports");
+    expect(readFileSync(join(here, "worker.ts"), "utf8")).toContain("reports\\/v1");
+  });
+});
+
 describe("dev proxy", () => {
   it("does not shadow any console route", () => {
     const prefixes = proxyPrefixes();

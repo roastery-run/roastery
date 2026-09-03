@@ -93,6 +93,20 @@ app.use(
     credentials: true,
     allowHeaders: ["Content-Type", "Authorization", "X-Roastery-Org", "Idempotency-Key"],
     exposeHeaders: ["RateLimit-Limit", "RateLimit-Reset", "Retry-After"],
+    /**
+     * Without this the browser re-runs the preflight before EVERY call.
+     *
+     * Every RPC request carries `Authorization` and `X-Roastery-Org`, so none
+     * of them are simple requests — each one was costing a second round trip,
+     * measured at 130–475ms against staging, purely to be told the same answer
+     * as a moment earlier. Chrome caps the cache at 7200s and takes the lower
+     * of the two, so asking for a day is really asking for two hours.
+     *
+     * The console avoids preflights entirely by being served same-origin (see
+     * apps/console/src/worker.ts); this is for third-party browser clients,
+     * which are cross-origin by definition and cannot.
+     */
+    maxAge: 86_400,
   }),
 );
 
@@ -214,13 +228,34 @@ app.get("/health", async (c) => {
 
   const db = createWorkerDb(c.env);
   try {
+    /**
+     * Timed from inside the Worker, which is the only place the number means
+     * anything: measured from a laptop it is dominated by the laptop's own
+     * distance to the edge.
+     *
+     * `firstQueryMs` includes acquiring a connection through Hyperdrive;
+     * `secondQueryMs` is a warm round trip on that connection. The gap between
+     * them is pooling, and the size of `secondQueryMs` is how far this Worker
+     * is running from the database — single digits means co-located, tens of
+     * milliseconds means it is not.
+     */
+    const startedAt = Date.now();
     const who = await db.execute(
       "select current_database() as db, current_schema() as schema, " +
         "(select count(*) from information_schema.tables where table_schema='public') as tables",
     );
+    const firstQueryMs = Date.now() - startedAt;
+
+    const warmAt = Date.now();
+    await db.execute("select 1");
+    const secondQueryMs = Date.now() - warmAt;
+
     return c.json({
       ok: true,
       database: "up",
+      firstQueryMs,
+      secondQueryMs,
+      colo: c.req.raw.cf?.colo ?? null,
       connection: who[0] ?? null,
       operations: RPC_REGISTRY.length,
     });
