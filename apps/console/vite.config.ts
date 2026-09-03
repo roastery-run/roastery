@@ -16,14 +16,30 @@ export default defineConfig({
         // bust the whole vendor cache. The router still code-splits per route
         // on top of this, which is what keeps the first paint small in an app
         // with nearly sixty routes.
+        /**
+         * Grouped by PACKAGE NAME, never by substring of the path.
+         *
+         * pnpm encodes peer dependencies in its directory names, so
+         * `sonner@2.0.7_react-dom@19.2.0_react@19.2.0/node_modules/sonner`
+         * contains the substring "react-dom". Matching the raw id therefore
+         * swept sonner and several @tanstack packages into the `react` chunk —
+         * which then imported the `tanstack` chunk, which imported `react`
+         * back. ES modules resolve a cycle by leaving one binding undefined,
+         * and the console died on load with "Cannot read properties of
+         * undefined (reading 'createContext')".
+         *
+         * That only happens in a BUILD — dev serves unbundled modules — so it
+         * shipped to staging and the page was simply blank.
+         */
         manualChunks(id) {
-          if (!id.includes("node_modules")) return;
-          if (id.includes("react-dom") || id.includes("/react/") || id.includes("scheduler")) {
-            return "react";
-          }
-          if (id.includes("@tanstack")) return "tanstack";
-          if (id.includes("radix-ui") || id.includes("@radix-ui")) return "radix";
-          if (id.includes("uplot")) return "charts";
+          const pkg = /\/node_modules\/(?:\.pnpm\/[^/]+\/node_modules\/)?((?:@[^/]+\/)?[^/]+)/.exec(
+            id,
+          )?.[1];
+          if (!pkg) return;
+          if (pkg === "react" || pkg === "react-dom" || pkg === "scheduler") return "react";
+          if (pkg.startsWith("@tanstack/")) return "tanstack";
+          if (pkg === "radix-ui" || pkg.startsWith("@radix-ui/")) return "radix";
+          if (pkg === "uplot") return "charts";
         },
       },
     },

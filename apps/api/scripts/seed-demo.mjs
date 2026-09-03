@@ -6,25 +6,43 @@
  * — a seeder that writes rows directly will happily create states the product
  * cannot, and then the screens built against it are wrong.
  *
+ * Local (defaults to the docker Postgres and a key in /tmp/k.json):
  *   node apps/api/scripts/seed-demo.mjs
+ *
+ * A deployed environment — run bootstrap-org.mjs first for the org and key:
+ *   RPC_URL=https://api-staging.roastery.run \
+ *   API_KEY=sk_… ORG_ID=… DATABASE_URL=… \
+ *   node apps/api/scripts/seed-demo.mjs --yes
  */
-import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
+import pg from "pg";
 
-const KEY = JSON.parse(readFileSync("/tmp/k.json", "utf8")).raw;
-const RPC = "http://localhost:8787/rpc/v1";
-const ORG = "11111111-1111-1111-1111-111111111111";
+const LOCAL_DB = "postgres://roastery:roastery@localhost:55432/roastery";
 
-const sql = (q) =>
-  execFileSync(
-    "psql",
-    ["-h", "localhost", "-p", "55432", "-U", "roastery", "-d", "roastery", "-tAq", "-c", q],
-    {
-      env: { ...process.env, PGPASSWORD: "roastery" },
-    },
-  )
-    .toString()
-    .trim();
+const KEY = process.env.API_KEY ?? JSON.parse(readFileSync("/tmp/k.json", "utf8")).raw;
+const RPC = `${(process.env.RPC_URL ?? "http://localhost:8787").replace(/\/$/, "")}/rpc/v1`;
+const ORG = process.env.ORG_ID ?? "11111111-1111-1111-1111-111111111111";
+const DB = process.env.DATABASE_URL ?? LOCAL_DB;
+
+// This script TRUNCATES before seeding. Against localhost that is the point;
+// anywhere else it needs saying out loud, because the failure mode is silent
+// and total.
+const isLocal = /localhost|127\.0\.0\.1/.test(DB);
+if (!isLocal && !process.argv.includes("--yes")) {
+  console.error(
+    `Refusing to truncate a non-local database.\n` +
+      `  target: ${DB.replace(/\/\/[^@]*@/, "//…@")}\n` +
+      `Pass --yes if that is really what you want.`,
+  );
+  process.exit(1);
+}
+
+const client = new pg.Client({ connectionString: DB });
+await client.connect();
+const sql = async (q) => {
+  const result = await client.query(q);
+  return result.rows[0] ? Object.values(result.rows[0])[0] : "";
+};
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -49,8 +67,9 @@ async function rpc(op, input) {
   }
 }
 
+console.log(`Seeding ${RPC}`);
 console.log("Clearing previous demo data…");
-sql(`truncate green_lots, roast_batches, roasted_lots, blends, customers, sales_orders,
+await sql(`truncate green_lots, roast_batches, roasted_lots, blends, customers, sales_orders,
      contracts, samples, cupping_sessions, machines, partners, producers, products,
      cafe_sites, cafe_machines, espresso_shots, shot_rollups_hourly, events, audit_events,
      traceability_records, reports, lot_consumption
@@ -280,5 +299,8 @@ for (const [label, table] of [
   ["samples", "samples"],
   ["events", "events"],
 ]) {
-  console.log(`  ${String(sql(`select count(*) from ${table}`)).padStart(4)}  ${label}`);
+  const n = await sql(`select count(*) from ${table}`);
+  console.log(`  ${String(n).padStart(4)}  ${label}`);
 }
+
+await client.end();

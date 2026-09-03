@@ -294,6 +294,20 @@ export { app };
  * is the sweeper that makes the outbox durable rather than merely fast — see
  * src/cron/index.ts for why both exist.
  */
+/**
+ * The role a queue plays, with the project prefix and environment suffix
+ * stripped: `roastery-events-staging` is an `events` queue.
+ *
+ * Matching the whole name is what the first staging deploy shipped, and every
+ * message fell through to `default` — which ACKS. The outbox never fanned out,
+ * the cron sweeper re-enqueued the same events every minute, and each pass
+ * acked them again: a silent, self-renewing loss that looked like a working
+ * deploy from the outside.
+ */
+export function queueRole(queue: string): string {
+  return queue.replace(/^roastery-/, "").replace(/-(?:staging|production|preview)$/, "");
+}
+
 export default {
   fetch: app.fetch,
 
@@ -303,23 +317,26 @@ export default {
     >,
     env: Env,
   ): Promise<void> {
-    switch (batch.queue) {
-      case "roastery-events":
+    switch (queueRole(batch.queue)) {
+      case "events":
         return handleEventQueue(batch as never, env);
-      case "roastery-webhooks":
+      case "webhooks":
         return handleWebhookQueue(batch as never, env);
-      case "roastery-shots":
+      case "shots":
         return handleShotQueue(batch as never, env);
-      case "roastery-reports":
+      case "reports":
         return handleReportQueue(batch as never, env);
-      case "roastery-events-dlq":
-      case "roastery-webhooks-dlq":
-      case "roastery-shots-dlq":
-      case "roastery-reports-dlq":
+      case "events-dlq":
+      case "webhooks-dlq":
+      case "shots-dlq":
+      case "reports-dlq":
         return handleDeadLetterBatch(batch as never, env);
       default:
         // Acknowledged rather than retried: an unknown queue name means a
         // configuration change, and redelivering forever would not fix it.
+        // `queue-dispatch.test.ts` reads every wrangler config and asserts each
+        // declared queue reaches a handler, which is what keeps this branch
+        // unreachable rather than merely unlikely.
         console.error(JSON.stringify({ msg: "unknown_queue", queue: batch.queue }));
         for (const message of batch.messages) message.ack();
     }

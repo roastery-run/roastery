@@ -1,5 +1,6 @@
 import type * as React from "react";
 import { BrandMark } from "@/components/brand-mark";
+import { ORIGINS } from "@/lib/origins";
 
 /**
  * The sign-in surface.
@@ -51,7 +52,9 @@ export function AuthShell({ children }: { children: React.ReactNode }) {
           </ul>
         </div>
 
-        <p className="relative z-10 font-mono text-muted-foreground text-xs">roastery.run</p>
+        <p className="relative z-10 font-mono text-muted-foreground text-xs">
+          {new URL(ORIGINS.web).host}
+        </p>
       </aside>
 
       <div className="flex flex-col bg-background">

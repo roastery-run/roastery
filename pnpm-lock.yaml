@@ -165,6 +165,9 @@ importers:
       '@roastery/tsconfig':
         specifier: workspace:*
         version: link:../../packages/tsconfig
+      pg:
+        specifier: ^8.23.0
+        version: 8.23.0
       typescript:
         specifier: 'catalog:'
         version: 5.9.3

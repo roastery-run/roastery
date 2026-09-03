@@ -40,6 +40,7 @@ import {
   resolveBinding,
   SIZE_MM,
 } from "@/lib/label-layout";
+import { ORIGINS } from "@/lib/origins";
 import { useWorkspace } from "@/lib/workspace";
 
 /**
@@ -544,7 +545,10 @@ function MmInput({ value, onChange }: { value: number; onChange: (value: number)
   );
 }
 
-const TRACE_ORIGIN = "https://roastery.run";
+// The public site for THIS environment. A staging test print that encoded
+// the production origin would scan through to a certificate this deployment
+// has never heard of.
+const TRACE_ORIGIN = ORIGINS.web;
 
 function LabelPreview({ draft, certificate }: { draft: Draft; certificate: Certificate }) {
   const url = `${TRACE_ORIGIN}/trace/${certificate.qrToken}`;

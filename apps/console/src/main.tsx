@@ -3,12 +3,13 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { createRouter, RouterProvider } from "@tanstack/react-router";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
+import { ORIGINS } from "@/lib/origins";
 import { routeTree } from "./routeTree.gen";
 import "./index.css";
 
 // Empty in development: Vite proxies to the API worker so the session cookie
 // stays first-party.
-configureApi({ baseUrl: import.meta.env.VITE_API_URL ?? "" });
+configureApi({ baseUrl: ORIGINS.api });
 
 const queryClient = createQueryClient();
 
