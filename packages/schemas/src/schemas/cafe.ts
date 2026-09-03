@@ -248,3 +248,21 @@ export const listReconciliationsInput = z.object({
   page: pageInputSchema,
 });
 export const listReconciliationsOutput = listOutput(posReconciliationSchema);
+
+/**
+ * A streaming credential for bar equipment.
+ *
+ * Separate from the roasting machine version because the permission differs:
+ * whoever runs the cafés credentials the bars, and whoever runs production
+ * credentials the roasters. One operation covering both would have to pick a
+ * single permission and would hand one of them authority over the other.
+ */
+export const issueCafeBridgeTokenInput = z.object({
+  cafeMachineId: uuidSchema,
+  expiresInHours: z.number().int().min(1).max(720).default(24),
+});
+export const issueCafeBridgeTokenOutput = z.object({
+  token: z.string(),
+  cafeMachineId: uuidSchema,
+  expiresAt: z.string(),
+});

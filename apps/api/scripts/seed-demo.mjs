@@ -16,6 +16,7 @@
  */
 import { readFileSync } from "node:fs";
 import pg from "pg";
+import { createRoastSimulator } from "../../../packages/roast-sim/src/index.ts";
 
 const LOCAL_DB = "postgres://roastery:roastery@localhost:55432/roastery";
 
@@ -67,12 +68,30 @@ async function rpc(op, input) {
   }
 }
 
+/** Machine telemetry: a different prefix, a different credential. */
+async function ingest(path, token, body) {
+  const response = await fetch(`${RPC.replace("/rpc/v1", "")}${path}`, {
+    method: "POST",
+    headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
+    body: JSON.stringify(body),
+  });
+  const parsed = await response.json().catch(() => null);
+  if (!response.ok) throw new Error(`${path} → ${response.status} ${JSON.stringify(parsed)}`);
+  return parsed;
+}
+
+const chunk = (items, size) =>
+  Array.from({ length: Math.ceil(items.length / size) }, (_, i) =>
+    items.slice(i * size, i * size + size),
+  );
+
 console.log(`Seeding ${RPC}`);
 console.log("Clearing previous demo data…");
 await sql(`truncate green_lots, roast_batches, roasted_lots, blends, customers, sales_orders,
      contracts, samples, cupping_sessions, machines, partners, producers, products,
      cafe_sites, cafe_machines, espresso_shots, shot_rollups_hourly, events, audit_events,
-     traceability_records, reports, lot_consumption
+     traceability_records, reports, lot_consumption, green_gradings,
+     machine_bridge_tokens, roast_profiles
      restart identity cascade`);
 
 const stamp = Date.now() % 100000;
@@ -288,6 +307,340 @@ for (let i = 0; i < 6; i++) {
   });
 }
 
+/* ------------------------------------------------------- green contracts */
+console.log("Contracts…");
+const day = 86_400_000;
+const isoDay = (offsetDays) => new Date(Date.now() + offsetDays * day).toISOString().slice(0, 10);
+
+const contracts = [];
+for (const [number, partnerIndex, producerIndex, weight, price, differential] of [
+  ["GC-COL-01", 0, 0, "19320", "5.95", null],
+  ["GC-ETH-01", 1, 1, "9660", null, "1.85"],
+]) {
+  contracts.push(
+    await rpc("sourcing.contract.createContract", {
+      contractNumber: `${number}-${stamp}`,
+      partnerId: partners[partnerIndex].id,
+      currency: "USD",
+      priceType: differential ? "differential" : "fixed",
+      incoterm: "FOB",
+      contractDate: isoDay(-45),
+      paymentTermsDays: 30,
+      lines: [
+        {
+          description: `${producers[producerIndex].name} — ${producers[producerIndex].region}`,
+          producerId: producers[producerIndex].id,
+          weightKg: weight,
+          bagCount: Math.round(Number(weight) / 69),
+          bagWeightKg: "69",
+          ...(price ? { unitPrice: price } : { differential, futuresMonth: "2026-12" }),
+        },
+      ],
+    }),
+  );
+}
+
+// One milestone deliberately OVERDUE. The alert scan and the dashboard's
+// "needs attention" panel are only worth looking at when something is.
+for (const [contractIndex, kind, dueInDays] of [
+  [0, "contract_signed", -40],
+  [0, "fixation", -3],
+  [0, "vessel_departure", 5],
+  [1, "contract_signed", -38],
+  [1, "shipment", 12],
+]) {
+  const milestone = await rpc("sourcing.contract.createContractMilestone", {
+    contractId: contracts[contractIndex].id,
+    kind,
+    dueAt: new Date(Date.now() + dueInDays * day).toISOString(),
+  });
+  if (kind === "contract_signed") {
+    await rpc("sourcing.contract.completeContractMilestone", { id: milestone.id });
+  }
+}
+
+// A shipment that arrives becomes a green lot, with its cost derived from the
+// contract rather than typed in again.
+const shipment = await rpc("sourcing.contract.createContractShipment", {
+  contractId: contracts[0].id,
+  reference: `SHP-${stamp}-01`,
+  weightKg: "9660",
+  vessel: "MV Cap San Raphael",
+  carrier: "Hapag-Lloyd",
+  containerNumber: `HLCU${stamp}`,
+  portOfLoading: "Cartagena",
+  portOfDischarge: "Oakland",
+  etd: isoDay(-28),
+  eta: isoDay(-4),
+  destinationLocationId: roastery.id,
+});
+const contractDetail = await rpc("sourcing.contract.getContract", { id: contracts[0].id });
+await rpc("sourcing.contract.receiveContractShipment", {
+  shipmentId: shipment.id,
+  locationId: roastery.id,
+  lines: [
+    {
+      contractLineId: contractDetail.lines[0].id,
+      weightKg: "9660",
+      lotCode: `COL-CT-${stamp}`,
+      lotName: "Huila Washed — contract arrival",
+    },
+  ],
+});
+
+/* -------------------------------------------------------------- grading */
+console.log("Grading…");
+// One pass, one fail. A failing grade quarantines the lot, which is the whole
+// point of recording one — a result that is not enforced is decoration.
+await rpc("quality.grading.recordGrading", {
+  greenLotId: lots[0].id,
+  standard: "sca",
+  moisturePct: 10.8,
+  waterActivity: 0.55,
+  screenSizeAvg: 17.2,
+  densityGPerL: 712,
+  defectsPrimary: 0,
+  defectsSecondary: 4,
+  notes: "Clean screen, even colour.",
+});
+await rpc("quality.grading.recordGrading", {
+  greenLotId: lots[3].id,
+  standard: "sca",
+  moisturePct: 13.4,
+  waterActivity: 0.68,
+  screenSizeAvg: 15.1,
+  defectsPrimary: 2,
+  defectsSecondary: 9,
+  notes: "Over moisture and two full defects. Quarantined pending re-sample.",
+});
+
+/* --------------------------------------------------------- roast batches */
+console.log("Roasting…");
+/**
+ * Every batch is roasted for real.
+ *
+ * `completeRoastBatch` refuses a batch with no telemetry, so there is no
+ * shortcut here — the samples go through the ingest endpoint to the Durable
+ * Object, and completion reads the curve back out and writes it to Postgres
+ * and R2. That is deliberate: it means seeding a demo exercises the live-roast
+ * path rather than quietly inserting rows the product could never produce.
+ */
+const bridgeTokens = new Map();
+for (const machine of machines) {
+  const issued = await rpc("catalog.machine.issueMachineBridgeToken", {
+    machineId: machine.id,
+    expiresInHours: 24,
+  });
+  bridgeTokens.set(machine.id, issued.token);
+}
+
+const batches = [];
+const ROASTS = [
+  [0, 0, 0, 10, "medium", 62],
+  [1, 1, 2, 26, "dark", 70],
+  [0, 2, 1, 9, "light", 58],
+  [2, 0, 0, 30, "medium", 66],
+  [1, 1, 4, 24, "medium", 64],
+  [0, 2, 1, 11, "light", 60],
+];
+
+for (const [machineIndex, profileIndex, lotIndex, chargeKg, level, gas] of ROASTS) {
+  const machine = machines[machineIndex];
+  const batch = await rpc("production.roast.startRoastBatch", {
+    batchNumber: `RB-${stamp}-${batches.length + 1}`,
+    machineId: machine.id,
+    profileId: profiles[profileIndex].id,
+    greenLotId: lots[lotIndex].id,
+    chargeWeightKg: String(chargeKg),
+    locationId: roastery.id,
+  });
+
+  // The same simulator the tests use, so a demo curve and an asserted curve
+  // cannot drift apart.
+  const sim = createRoastSimulator({
+    seed: `${stamp}-${batch.batchNumber}`,
+    chargeKg,
+    capacityKg: Number(machine.capacityKg ?? chargeKg),
+    gas,
+    sampleRateHz: 1,
+  });
+  // Not realtime: a seed should not take twelve minutes per batch. The curve
+  // is identical either way; only the wall clock differs.
+  const samples = [];
+  for await (const sample of sim.stream({ realtime: false })) samples.push(sample);
+  const events = sim.emittedEvents;
+
+  // 200 per request is the endpoint's cap: a bridge chunks its buffer rather
+  // than sending a whole roast in one POST.
+  let seq = 0;
+  for (const group of chunk(samples, 200)) {
+    await ingest(`/ingest/v1/roast/${batch.id}/samples`, bridgeTokens.get(machine.id), {
+      seq: seq++,
+      samples: group.map((s) => ({
+        t: s.t,
+        bt: s.bt,
+        et: s.et,
+        ror: s.ror,
+        gas: s.gas,
+        airflow: s.airflow,
+        drumRpm: s.drumRpm,
+      })),
+      // First crack is a SOUND, observed by a person. The bridge carries the
+      // operator's marks alongside the probe readings.
+      events: events.map((e) => ({ t: e.t, kind: e.kind })),
+    });
+  }
+
+  const drop = samples.at(-1);
+  const completed = await rpc("production.roast.completeRoastBatch", {
+    id: batch.id,
+    // A believable 14–16% weight loss, from the curve rather than a constant.
+    dropWeightKg: (chargeKg * (1 - (0.14 + ((drop?.t ?? 600) % 20) / 1000))).toFixed(4),
+    notes: `${level} roast, dropped at ${Math.round(drop?.bt ?? 0)}°C`,
+  });
+  batches.push(completed);
+}
+
+// Completing a batch creates a roasted lot; the batch response does not carry
+// its id, so read them back rather than guessing.
+const roastedLots = (await rpc("inventory.roast.listRoastedLots", { page: { limit: 50 } })).items;
+
+/* -------------------------------------------------------------- cupping */
+console.log("Cupping…");
+const session = await rpc("quality.cupping.createCuppingSession", {
+  sessionNumber: `CUP-${stamp}-01`,
+  name: "Weekly production panel",
+  mode: "blind",
+  samples: batches.slice(0, 4).map((batch) => ({ roastBatchId: batch.id })),
+});
+
+const table = await rpc("quality.cupping.getCuppingTable", { sessionId: session.id });
+// Three cuppers, deliberately not identical. A panel with no spread has
+// nothing to calibrate against, and the variance is the interesting number.
+const CUPPERS = ["Ana", "Priya", "Tom"];
+for (const [cupperIndex, cupper] of CUPPERS.entries()) {
+  for (const [sampleIndex, sample] of table.samples.entries()) {
+    const lean = (cupperIndex - 1) * 0.25;
+    const base = 7.25 + ((sampleIndex * 3) % 5) * 0.25;
+    const attr = (offset) => Math.min(9.75, Math.max(6, base + offset + lean));
+    await rpc("quality.cupping.submitCuppingScore", {
+      sessionSampleId: sample.id,
+      cupperName: cupper,
+      scores: {
+        fragrance: attr(0),
+        flavor: attr(0.25),
+        aftertaste: attr(-0.25),
+        acidity: attr(0.5),
+        body: attr(0),
+        balance: attr(0.25),
+        uniformity: 10,
+        cleanCup: 10,
+        sweetness: 10,
+        overall: attr(0.25),
+      },
+      defectsPenalty: sampleIndex === 3 ? 2 : 0,
+      descriptors: ["stone fruit", "cocoa", "citrus"].slice(0, 1 + (sampleIndex % 3)),
+      notes: `${cupper}: table ${sampleIndex + 1}`,
+    });
+  }
+}
+await rpc("quality.cupping.finalizeCuppingSession", { sessionId: session.id });
+
+/* ----------------------------------------------------------------- café */
+console.log("Café…");
+const site = await rpc("cafe.createSite", {
+  name: "Ferry Building Bar",
+  code: `FBB-${stamp}`,
+  locationId: roastery.id,
+  timezone: "America/Los_Angeles",
+});
+
+const barMachines = [];
+for (const [name, code, kind, groups] of [
+  ["La Marzocco Linea PB", "LM-1", "espresso_machine", 3],
+  ["Mahlkönig E80", "GR-1", "grinder", 1],
+]) {
+  barMachines.push(
+    await rpc("cafe.registerMachine", {
+      siteId: site.id,
+      name,
+      code: `${code}-${stamp}`,
+      kind,
+      groupCount: groups,
+      brand: name.split(" ")[0],
+    }),
+  );
+}
+
+const barToken = (
+  await rpc("cafe.issueBridgeToken", { cafeMachineId: barMachines[0].id, expiresInHours: 24 })
+).token;
+
+/**
+ * A day of service on a three-group machine.
+ *
+ * Group 2 starts channelling partway through service: water finds a path
+ * through the puck, so the shot runs SHORT and yields MORE — a high ratio
+ * reached quickly. Modelling it as short-and-low instead produces a choked
+ * group, which the classifier correctly calls `fast` and which never trips the
+ * channelling detector.
+ *
+ * One failing group hidden behind two healthy ones is the most common real
+ * fault on a three-group machine, which is why the live detector judges each
+ * group separately rather than averaging the machine.
+ */
+const shots = [];
+const openedAt = new Date(Date.now() - 9 * 3_600_000);
+for (let i = 0; i < 240; i++) {
+  const group = (i % 3) + 1;
+  const drifting = group === 2 && i > 90;
+  shots.push({
+    externalId: `shot-${stamp}-${i}`,
+    machineId: barMachines[0].id,
+    groupNumber: group,
+    pulledAt: new Date(openedAt.getTime() + i * 90_000).toISOString(),
+    doseG: 18 + ((i % 5) - 2) * 0.1,
+    // Ratio > 2.6 in under 22s is the signature; in spec is 1.6–2.6 over 22–34s.
+    yieldG: drifting ? 48 + (i % 3) : 36 + ((i % 7) - 3) * 0.5,
+    durationS: drifting ? 17 + (i % 3) : 27 + ((i % 5) - 2) * 0.4,
+    brewTempC: 93 + ((i % 3) - 1) * 0.2,
+    peakPressureBar: 9 + ((i % 4) - 2) * 0.1,
+    grindSetting: drifting ? "3.8" : "4.2",
+    baristaRef: CUPPERS[i % CUPPERS.length],
+    discarded: drifting && i % 11 === 0,
+  });
+}
+for (const group of chunk(shots, 200)) {
+  await ingest("/ingest/v1/cafe/shots", barToken, { siteId: site.id, shots: group });
+}
+
+/* ------------------------------------------------- traceability, reports */
+console.log("Certificates and reports…");
+for (const lot of roastedLots.slice(0, 3)) {
+  await rpc("traceability.issueCertificate", { roastedLotId: lot.id });
+}
+
+await rpc("reporting.generateReport", {
+  kind: "inventory_valuation",
+  title: "Inventory valuation — seed",
+  parameters: { locationId: roastery.id },
+});
+
+/**
+ * Shots are queue-batched, so they are not in Postgres the instant ingest
+ * returns 200. Counting immediately reported "0 shots" for a seed that had
+ * just posted 240 of them — a number that looks like a failure and is not.
+ */
+async function settled(table, expected) {
+  for (let attempt = 0; attempt < 20; attempt++) {
+    const n = Number(await sql(`select count(*) from ${table}`));
+    if (n >= expected) return n;
+    await sleep(1500);
+  }
+  return Number(await sql(`select count(*) from ${table}`));
+}
+await settled("espresso_shots", shots.length);
+
 console.log("\nSeeded:");
 for (const [label, table] of [
   ["green lots", "green_lots"],
@@ -297,6 +650,13 @@ for (const [label, table] of [
   ["customers", "customers"],
   ["orders", "sales_orders"],
   ["samples", "samples"],
+  ["roast batches", "roast_batches"],
+  ["roasted lots", "roasted_lots"],
+  ["contracts", "contracts"],
+  ["gradings", "green_gradings"],
+  ["cupping scores", "cupping_scores"],
+  ["shots", "espresso_shots"],
+  ["certificates", "traceability_records"],
   ["events", "events"],
 ]) {
   const n = await sql(`select count(*) from ${table}`);

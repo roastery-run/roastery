@@ -6,8 +6,15 @@
  * authorization chain and rate budget.
  */
 import { OpenAPIHono } from "@hono/zod-openapi";
-import { espressoShots, shotRollupsHourly } from "@roastery/db/schema";
 import {
+  cafeMachines,
+  espressoShots,
+  machineBridgeTokens,
+  shotRollupsHourly,
+} from "@roastery/db/schema";
+import {
+  issueCafeBridgeTokenInput,
+  issueCafeBridgeTokenOutput,
   listShotsInput,
   listShotsOutput,
   liveBarInput,
@@ -17,7 +24,9 @@ import {
 } from "@roastery/schemas";
 import { and, asc, desc, eq, gte, lte, type SQL } from "drizzle-orm";
 import type { CafeSiteDO } from "../../durable-objects/cafe-site";
+import { NotFound } from "../../lib/api/errors";
 import { type RpcAppEnv, registerRpc } from "../../lib/api/rpc";
+import { sha256 } from "../../lib/crypto";
 
 export const cafeShots = new OpenAPIHono<RpcAppEnv>();
 
@@ -180,5 +189,44 @@ registerRpc(
       })),
       anomalies: snapshot.anomalies,
     };
+  },
+);
+
+/* ------------------------------------------------------------ bridge token */
+
+registerRpc(
+  cafeShots,
+  {
+    namespace: "cafe",
+    operation: "issueBridgeToken",
+    summary: "Issue a streaming credential for bar equipment",
+    description:
+      "Scoped to one machine and able to do nothing but post shots. Without this the " +
+      "shot ingest endpoint was unreachable: it requires a token bound to a CAFE " +
+      "machine, and only roasting machines could be credentialed.",
+    input: issueCafeBridgeTokenInput,
+    output: issueCafeBridgeTokenOutput,
+    permission: "cafe.write",
+    module: "cafe",
+  },
+  async (input, ctx) => {
+    // Scoped read first: the insert below sets cafeMachineId, which carries no
+    // foreign key, so nothing else would catch an id from another org.
+    const machine = await ctx.db.findOne(cafeMachines, eq(cafeMachines.id, input.cafeMachineId));
+    if (!machine) throw new NotFound("No café machine with that id");
+
+    const raw = `rb_${[...crypto.getRandomValues(new Uint8Array(24))]
+      .map((b) => b.toString(16).padStart(2, "0"))
+      .join("")}`;
+    const expiresAt = new Date(Date.now() + input.expiresInHours * 3_600_000);
+
+    await ctx.db.insert(machineBridgeTokens, {
+      cafeMachineId: machine.id,
+      tokenHash: await sha256(raw),
+      tokenPrefix: raw.slice(0, 10),
+      expiresAt,
+    });
+
+    return { token: raw, cafeMachineId: machine.id, expiresAt: expiresAt.toISOString() };
   },
 );

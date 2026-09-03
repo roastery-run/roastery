@@ -14,6 +14,7 @@ import { formatDateTime, formatElapsed, formatPercent, formatWeight } from "@roa
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Radio } from "lucide-react";
+import * as React from "react";
 import { DetailLayout } from "@/components/detail-layout";
 
 export const Route = createFileRoute("/_app/roasting/$batchId")({ component: RoastBatchDetail });
@@ -31,9 +32,23 @@ type Batch = {
   startedAt: string | null;
 };
 
+/**
+ * What the API actually returns: one row per sample, with decimal STRINGS.
+ *
+ * This screen was written against the columnar `curvePreview` shape used in
+ * lists, and read `samples.t.length` on a plain array — so the first completed
+ * batch with a real curve crashed the whole screen with "Cannot read
+ * properties of undefined". Nothing caught it because until staging was seeded
+ * there had never been a completed batch to open.
+ */
 type Curve = {
-  samples: { t: number[]; bt: (number | null)[]; et: (number | null)[]; ror: (number | null)[] };
-  events: { kind: string; atSeconds: number }[];
+  samples: {
+    t: string;
+    beanTempC: string | null;
+    envTempC: string | null;
+    rorCPerMin: string | null;
+  }[];
+  events: { kind: string; atSeconds: string; note: string | null }[];
 };
 
 function RoastBatchDetail() {
@@ -57,7 +72,27 @@ function RoastBatchDetail() {
   }
 
   const data = batch.data;
-  const samples = curve.data?.samples;
+
+  /**
+   * Rows of strings in, one array per series out.
+   *
+   * Converted here rather than in the API: a JSON number is a float by the
+   * time it reaches a client, so the wire keeps decimal strings, and the chart
+   * stays ignorant of the transport. A missing reading becomes NaN rather than
+   * zero, so the line breaks where the probe did instead of diving to the
+   * bottom of the axis and inventing a crash that never happened.
+   */
+  const samples = React.useMemo(() => {
+    const rows = curve.data?.samples;
+    if (!rows?.length) return null;
+    const num = (v: string | null) => (v === null ? Number.NaN : Number(v));
+    return {
+      t: rows.map((r) => Number(r.t)),
+      bt: rows.map((r) => num(r.beanTempC)),
+      et: rows.map((r) => num(r.envTempC)),
+      ror: rows.map((r) => num(r.rorCPerMin)),
+    };
+  }, [curve.data]);
 
   return (
     <DetailLayout
