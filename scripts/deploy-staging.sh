@@ -11,6 +11,17 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
+# Wrangler prefers CF_API_TOKEN / CLOUDFLARE_API_TOKEN over the OAuth login in
+# ~/Library/Preferences/.wrangler, silently. A scoped token that is missing one
+# permission then fails only the operations needing it — Hyperdrive returned a
+# bare "Authentication error [code: 10000]" while Queues, KV, R2 and Workers
+# all worked, which reads as a broken product rather than a missing scope.
+# Unset here so a deploy uses the interactive login unless a token is passed
+# deliberately.
+if [[ -z "${USE_CF_API_TOKEN:-}" ]]; then
+  unset CF_API_TOKEN CLOUDFLARE_API_TOKEN
+fi
+
 echo "==> Gate"
 pnpm check
 pnpm typecheck

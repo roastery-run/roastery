@@ -42,14 +42,14 @@
     {
       // Caching-ENABLED. Staleness-tolerant catalogue reads only.
       "binding": "HYPERDRIVE",
-      "id": "HYPERDRIVE_STAGING_ID"
+      "id": "a8eb8a199fad45629274826c0d7e39fc"
     },
     {
       // Caching-DISABLED over the same database, and the default for
       // everything: the query cache does not participate in transactions, and
       // a revoked credential has to stop working now rather than in 60s.
       "binding": "HYPERDRIVE_CACHE_DISABLED",
-      "id": "HYPERDRIVE_STAGING_NOCACHE_ID"
+      "id": "21c4f55b89d845c4a6538d522b32f6cf"
     }
   ],
 
