@@ -9,13 +9,16 @@
  *   2  every /rpc/v1 path has a registry entry with a permission and a module
  *   3  every declared permission slug actually exists
  *   4  a route's module agrees with its permission's module
- *   5  (live probes — added in Phase 2, once a seeded database is available)
+ *   5  live probes: the documented failure order, over HTTP
  *   6  src/rpc/** never touches the unscoped database handle
  *   7  every table is tenant-classified
- *   8  (cross-tenant fuzz — Phase 2, needs a database)
+ *   8  cross-tenant fuzz: no list operation returns another tenant's rows
  *
  * Checks 1-4, 6 and 7 are static: no database, no network, so they stay in the
- * fast feedback loop and run on every save.
+ * fast feedback loop and run on every save. Checks 5 and 8 need a real request
+ * and a real database, so they live in `authorization-live.test.ts` and skip
+ * without TEST_DATABASE_URL — which CI sets, and `integration test wiring`
+ * fails the run if it does not.
  */
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
