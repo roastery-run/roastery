@@ -133,6 +133,22 @@ registerRpc(
     });
     const row = await ctx.db.findOne(roastedLots, eq(roastedLots.id, input.id));
     if (!row) throw new NotFound("Roasted lot not found");
+
+    // The green ledger's equivalent already published; this one did not, so a
+    // subscriber to inventory.roasted_lot.* received nothing however the stock
+    // moved — indistinguishable, from outside, from a filter that is wrong.
+    await ctx.db.emit({
+      type: "inventory.roasted_lot.adjusted",
+      resourceType: "roasted_lot",
+      resourceId: row.id,
+      payload: {
+        id: row.id,
+        lotCode: row.lotCode,
+        reason: input.reason,
+        deltaKg: input.deltaKg,
+        weightKg: row.currentWeightKg,
+      },
+    });
     return toDto(row);
   },
 );

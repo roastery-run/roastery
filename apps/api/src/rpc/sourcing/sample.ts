@@ -114,13 +114,27 @@ registerRpc(
   },
   async (input, ctx) => {
     try {
-      const [row] = await ctx.db.insert(samples, {
-        ...input,
-        trackingNumbers: input.trackingNumbers ?? [],
-        dueAt: input.dueAt ? new Date(input.dueAt) : null,
-        requestedAt: new Date(),
+      const row = await ctx.db.transaction(async (tx) => {
+        const [created] = await tx.insert(samples, {
+          ...input,
+          trackingNumbers: input.trackingNumbers ?? [],
+          dueAt: input.dueAt ? new Date(input.dueAt) : null,
+          requestedAt: new Date(),
+        });
+        if (!created) throw new Error("Insert returned no row");
+        await tx.emit({
+          type: "sourcing.sample.created",
+          resourceType: "sample",
+          resourceId: created.id,
+          payload: {
+            id: created.id,
+            sampleNumber: created.sampleNumber,
+            sampleType: created.sampleType,
+            status: created.status,
+          },
+        });
+        return created;
       });
-      if (!row) throw new Error("Insert returned no row");
       return toDto(row);
     } catch (err) {
       if (isUniqueViolation(err)) {

@@ -380,6 +380,20 @@ registerRpc(
         weightKg: weight,
         transactionId: out.id,
       });
+      await tx.emit({
+        type: "inventory.green_lot.split",
+        resourceType: "green_lot",
+        resourceId: source.id,
+        // Both ids and the weight that moved: enough for a receiver to follow
+        // the lineage without replaying the ledger.
+        payload: {
+          id: source.id,
+          lotCode: source.lotCode,
+          childId: child.id,
+          childLotCode: child.lotCode,
+          weightKg: weight,
+        },
+      });
       return child.id;
     });
 

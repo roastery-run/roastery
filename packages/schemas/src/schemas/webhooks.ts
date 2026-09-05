@@ -48,10 +48,14 @@ export const eventTypeSchema = z.enum([
   "orders.order.confirmed",
   "orders.order.allocated",
 
+  // Deliberately no `cafe.shots.recorded`: a busy bar pulls thousands of shots
+  // a day and each batch of a hundred would be an outbox row and a delivery
+  // per subscriber. A webhook is a notification, not a replication feed — the
+  // hourly rollups and the live view are how shot volume is meant to be read.
+  // Removed before launch rather than after: taking a type out of a published
+  // contract breaks whoever subscribed to it.
   "cafe.site.created",
   "cafe.machine.registered",
-  "cafe.shots.recorded",
-  "cafe.anomaly.detected",
   "cafe.pos.reconciled",
 
   "traceability.certificate.issued",
