@@ -4,6 +4,10 @@ import { tanstackRouter } from "@tanstack/router-plugin/vite";
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
 
+// Overridable so a second Worker on 8787 does not block console development:
+// `API_PROXY_TARGET=http://localhost:8788 pnpm --filter @roastery/console dev`.
+const API = process.env.API_PROXY_TARGET ?? "http://localhost:8787";
+
 export default defineConfig({
   plugins: [tanstackRouter({ target: "react", autoCodeSplitting: true }), react(), tailwindcss()],
   resolve: {
@@ -51,15 +55,15 @@ export default defineConfig({
     // Proxied same-origin so the Better Auth session cookie stays first-party.
     // A cross-origin cookie is exactly what modern browsers now drop.
     proxy: {
-      "/api": "http://localhost:8787",
-      "/rpc": "http://localhost:8787",
-      "/session": "http://localhost:8787",
-      "/stream": { target: "http://localhost:8787", ws: true },
+      "/api": API,
+      "/rpc": API,
+      "/session": API,
+      "/stream": { target: API, ws: true },
       // Only the API's signed download path, never the whole prefix: the
       // console owns /reports itself, and a bare "/reports" rule proxies its
       // own pages away to a 404 that looks like a routing bug.
-      "/reports/v1": "http://localhost:8787",
-      "/openapi.json": "http://localhost:8787",
+      "/reports/v1": API,
+      "/openapi.json": API,
     },
   },
 });

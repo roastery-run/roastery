@@ -1,4 +1,4 @@
-import { cookiePrefix, createAuth } from "@roastery/auth";
+import { createAuth, sessionCookiePrefix } from "@roastery/auth";
 import { createMiddleware } from "hono/factory";
 import type { Env } from "../../env";
 import { startTimings, type Timings, timed } from "../api/timing";
@@ -68,7 +68,7 @@ async function resolveSessionUserId(
  *  session cookie is present. Constructed from the same env values as createAuth.
  */
 function sessionCookieNames(env: Env): string[] {
-  const prefix = cookiePrefix(env);
+  const prefix = sessionCookiePrefix(env);
   return [`${prefix}.session_token`, `__Secure-${prefix}.session_token`];
 }
 
