@@ -36,7 +36,7 @@
     // Every minute: the outbox sweeper, which is what makes "committed but
     // never enqueued" recoverable. 04:00 shot partition window, 07:00 alert
     // digests.
-    "crons": ["* * * * *", "30 3 * * *", "0 4 * * *", "0 7 * * *"]
+    "crons": ["* * * * *", "*/5 * * * *", "30 3 * * *", "0 4 * * *", "0 7 * * *"]
   },
 
   "observability": { "enabled": true, "head_sampling_rate": 1 },
@@ -55,6 +55,11 @@
       "id": "TODO_ID_HYPERDRIVE_UNCACHED"
     }
   ],
+
+  // Operational counters: dead letters, 5xx, failed scheduled work. Queue
+  // depth is not readable from a binding, so the DLQ consumer counts
+  // messages as they arrive and the */5 cron reads them back.
+  "analytics_engine_datasets": [{ "binding": "OPS_METRICS", "dataset": "roastery_ops" }],
 
   "kv_namespaces": [{ "binding": "ROASTERY_KV", "id": "TODO_ID_KV" }],
 

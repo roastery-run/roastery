@@ -33,7 +33,7 @@
   "triggers": {
     // Every minute: the outbox sweeper, which is what makes "committed but
     // never enqueued" recoverable. 04:00 snapshots, 07:00 alert digests.
-    "crons": ["* * * * *", "30 3 * * *", "0 4 * * *", "0 7 * * *"]
+    "crons": ["* * * * *", "*/5 * * * *", "30 3 * * *", "0 4 * * *", "0 7 * * *"]
   },
 
   "observability": { "enabled": true, "head_sampling_rate": 1 },
@@ -52,6 +52,11 @@
       "id": "21c4f55b89d845c4a6538d522b32f6cf"
     }
   ],
+
+  // Operational counters: dead letters, 5xx, failed scheduled work. Queue
+  // depth is not readable from a binding, so the DLQ consumer counts
+  // messages as they arrive and the */5 cron reads them back.
+  "analytics_engine_datasets": [{ "binding": "OPS_METRICS", "dataset": "roastery_ops_staging" }],
 
   "kv_namespaces": [{ "binding": "ROASTERY_KV", "id": "a03f6fdaa808423099b0710f6399abed" }],
 

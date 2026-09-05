@@ -17,6 +17,7 @@ import type {
   ShotQueueMessage,
   WebhookQueueMessage,
 } from "../env";
+import { recordMetric } from "../lib/api/metrics";
 import { closeWorkerDb, createOwnedWorkerDb } from "../lib/db/db";
 import { withOrgDb } from "../lib/db/org-db";
 import { reconcileOrg } from "../lib/domain/reconciliation";
@@ -136,6 +137,7 @@ export async function handleMaintenanceQueue(
             error: err instanceof Error ? err.message : String(err),
           }),
         );
+        recordMetric(env, { kind: "maintenance_failed", job });
         message.retry();
       }
     }
@@ -167,6 +169,10 @@ export async function handleDeadLetterBatch(
           deliveryId: body.deliveryId,
         }),
       );
+      // Counted as well as logged: a log line is only found by somebody who
+      // already suspects a problem, and the whole point of a dead letter is
+      // that nobody suspects one.
+      recordMetric(env, { kind: "dead_letter", queue: batch.queue });
       if (body.deliveryId) {
         const { markDead } = await import("../lib/events/webhook-dead-letter");
         await markDead(db, body.deliveryId, `Dead-lettered from ${batch.queue}`);

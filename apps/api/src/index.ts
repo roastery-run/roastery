@@ -18,12 +18,13 @@ import type {
   ShotQueueMessage,
   WebhookQueueMessage,
 } from "./env";
-import { assertProductionBindings } from "./env";
+import { assertProductionBindings, isProduction } from "./env";
 import { ingestRoutes } from "./http/ingest";
 import { publicRoutes } from "./http/public";
 import { sessionRoutes } from "./http/session";
 import { streamRoutes } from "./http/stream";
 import { isHttpError } from "./lib/api/errors";
+import { recordMetric } from "./lib/api/metrics";
 import { openApiTags } from "./lib/api/openapi";
 import { rateLimit } from "./lib/api/rate-limit";
 import { RPC_REGISTRY, type RpcAppEnv, rpcPath } from "./lib/api/rpc";
@@ -68,6 +69,10 @@ const app = new OpenAPIHono<RpcAppEnv>({
 app.use("*", async (c, next) => {
   assertProductionBindings(c.env);
   await next();
+  // The denominator. An error COUNT cannot distinguish a broken deploy from a
+  // busy morning; a rate can, so every request is counted here and the 5xx
+  // path counts itself below.
+  recordMetric(c.env, { kind: "request", operation: c.req.path });
 });
 
 app.use("*", secureHeaders());
@@ -242,6 +247,19 @@ app.get("/health", async (c) => {
   const deep = c.req.query("deep") === "1";
   if (!deep) return c.json({ ok: true, operations: RPC_REGISTRY.length });
 
+  // The deep check opens a Hyperdrive connection and reports the database
+  // name, the schema and its table count. That is a useful thing for an
+  // operator to see and a free fingerprint for anyone else, so it needs a
+  // token — which the uptime monitor holds. Unset, the deep check is simply
+  // unavailable rather than open: an absent secret must not mean "no check".
+  if (c.env.HEALTH_TOKEN) {
+    if (c.req.header("x-health-token") !== c.env.HEALTH_TOKEN) {
+      return c.json({ error: "Not found", code: "not_found" }, 404);
+    }
+  } else if (isProduction(c.env)) {
+    return c.json({ error: "Not found", code: "not_found" }, 404);
+  }
+
   const db = createWorkerDb(c.env);
   try {
     /**
@@ -325,6 +343,7 @@ app.onError((err, c) => {
       stack: err instanceof Error ? err.stack : undefined,
     }),
   );
+  recordMetric(c.env, { kind: "server_error", operation: c.req.path });
   return c.json({ error: "Internal error", correlationId }, 500);
 });
 

@@ -64,6 +64,14 @@ put_secret EMAIL_FROM
 # Optional: an HTTPS provider instead of the binding.
 put_secret EMAIL_API_URL
 put_secret EMAIL_API_KEY
+# Operational alerting: where our own failures go, and what reads the counters
+# back. Without them the */5 check simply does not run.
+put_secret OPS_ALERT_EMAIL
+put_secret CF_ACCOUNT_ID
+put_secret CF_ANALYTICS_TOKEN
+# Gates /health?deep=1. The uptime monitor sends it as X-Health-Token.
+put_secret HEALTH_TOKEN
+
 put_secret GITHUB_CLIENT_ID
 put_secret GITHUB_CLIENT_SECRET
 put_secret GOOGLE_CLIENT_ID

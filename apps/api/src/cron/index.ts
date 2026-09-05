@@ -8,10 +8,12 @@
  */
 import { organizations } from "@roastery/db/schema";
 import type { Env } from "../env";
+import { recordMetric } from "../lib/api/metrics";
 import { closeWorkerDb, createOwnedWorkerDb } from "../lib/db/db";
 import { ensureShotPartitions } from "../lib/domain/shot-ingest";
 import { findDueDeliveries, findPendingFanOut } from "../lib/events/webhook-delivery";
 import { sendAlertDigests } from "./alerts";
+import { checkOpsThresholds } from "./ops";
 
 export type CronPattern = string;
 
@@ -28,6 +30,9 @@ export async function handleScheduled(cron: CronPattern, env: Env): Promise<void
       break;
     case "0 7 * * *":
       await sendAlertDigests(env);
+      break;
+    case "*/5 * * * *":
+      await checkOpsThresholds(env);
       break;
     default:
       console.warn(JSON.stringify({ msg: "unhandled_cron", cron }));
@@ -71,6 +76,18 @@ async function sweepOutbox(env: Env): Promise<void> {
         }),
       );
     }
+  } catch (err) {
+    // The sweeper IS the durability half of the outbox. If it is failing, the
+    // guarantee that a committed change eventually fans out is not holding —
+    // and an unhandled throw in a scheduled handler is invisible, which is the
+    // worst possible way for that to be true.
+    console.error(
+      JSON.stringify({
+        msg: "outbox_sweep_failed",
+        error: err instanceof Error ? err.message : String(err),
+      }),
+    );
+    recordMetric(env, { kind: "maintenance_failed", job: "outbox_sweep" });
   } finally {
     await closeWorkerDb(db);
   }
@@ -129,6 +146,7 @@ async function rollShotPartitions(env: Env): Promise<void> {
         error: err instanceof Error ? err.message : String(err),
       }),
     );
+    recordMetric(env, { kind: "maintenance_failed", job: "shot_partitions" });
   } finally {
     await closeWorkerDb(db);
   }

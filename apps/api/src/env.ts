@@ -1,4 +1,5 @@
 import type {
+  AnalyticsEngineDataset,
   DurableObjectNamespace,
   Hyperdrive,
   KVNamespace,
@@ -83,6 +84,13 @@ export type Env = {
    */
   BROWSER?: import("@cloudflare/puppeteer").BrowserWorker;
 
+  /**
+   * Operational counters: dead letters, 5xx, failed scheduled jobs. Optional,
+   * because local development and tests run without it — `recordMetric` is a
+   * no-op when it is absent.
+   */
+  OPS_METRICS?: AnalyticsEngineDataset;
+
   RPC_SUSTAINED_LIMITER?: RateLimit;
   RPC_BURST_LIMITER?: RateLimit;
   /** Machine telemetry. Its own namespace, so a busy bar cannot starve the API. */
@@ -129,6 +137,24 @@ export type Env = {
   SSO_SCOPES?: string;
 
   ENVIRONMENT?: string;
+
+  /**
+   * Where operational alerts go: dead letters, error-rate spikes, scheduled
+   * work that failed. Deliberately not a customer address — these are our
+   * failures, and `cron/alerts.ts` is the one that writes to tenants.
+   *
+   * All three are optional so that a deployment without them simply does not
+   * alert, rather than failing every five minutes trying.
+   */
+  /**
+   * Gates `/health?deep=1`, which discloses the database name, schema and
+   * table count and opens a connection per call. The uptime monitor holds it.
+   */
+  HEALTH_TOKEN?: string;
+  OPS_ALERT_EMAIL?: string;
+  CF_ACCOUNT_ID?: string;
+  /** Reads the Analytics Engine dataset back; the binding only writes. */
+  CF_ANALYTICS_TOKEN?: string;
 };
 
 /**
