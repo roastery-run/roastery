@@ -1,4 +1,4 @@
-import { EntitlementProvider, ErrorState, Toaster } from "@roastery/ui";
+import { ApiError, EntitlementProvider, ErrorState, Toaster } from "@roastery/ui";
 import type { QueryClient } from "@tanstack/react-query";
 import { createRootRouteWithContext, Outlet, useRouter } from "@tanstack/react-router";
 import { useWorkspace, WorkspaceProvider } from "@/lib/workspace";
@@ -38,11 +38,16 @@ function Entitlements({ children }: { children: React.ReactNode }) {
 
 function RootError({ error }: { error: Error }) {
   const router = useRouter();
+  // A 500 carries the id the API logged it under. Surfacing it is the whole
+  // difference between a support conversation that starts with a log line and
+  // one that starts with "it said something went wrong".
+  const correlationId = error instanceof ApiError ? error.correlationId : undefined;
   return (
     <div className="grid min-h-dvh place-items-center p-6">
       <ErrorState
         title="This screen failed to load"
         description={error.message}
+        correlationId={correlationId}
         onRetry={() => router.invalidate()}
         className="max-w-lg"
       />

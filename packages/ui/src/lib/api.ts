@@ -34,6 +34,11 @@ export class ApiError extends Error {
     return this.body?.fields ?? {};
   }
 
+  /** The id support searches the logs by. Only a 500 carries one. */
+  get correlationId(): string | undefined {
+    return this.body?.correlationId;
+  }
+
   /** A 402 is "your plan does not include this", never "you may not". */
   get isEntitlement(): boolean {
     return this.status === 402;
@@ -49,6 +54,15 @@ export type ApiErrorBody = {
   limit?: number;
   current?: number;
   plan?: string;
+  /**
+   * The `cf-ray` the API logged this failure under.
+   *
+   * Present on a 500 and nothing else. It is the only thing that connects what
+   * a person saw to the log line that explains it, so it is kept rather than
+   * discarded with the rest of the body — support asking "what did it say?"
+   * and being told "something went wrong" is the situation this avoids.
+   */
+  correlationId?: string;
 } | null;
 
 export type RpcOptions = {

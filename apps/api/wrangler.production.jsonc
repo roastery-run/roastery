@@ -39,6 +39,16 @@
     "crons": ["* * * * *", "*/5 * * * *", "30 3 * * *", "0 4 * * *", "0 7 * * *"]
   },
 
+  // Workers Logs keeps a limited window, and the correlation id the API hands
+  // a customer is worthless once the line it points at has aged out. Logpush
+  // sends them somewhere with a retention policy of our choosing; the
+  // destination is configured in the dashboard, this only opts the Worker in.
+  "logpush": true,
+
+  // 100% while volume is low, which is the right trade in a private beta: the
+  // failures worth catching are rare, and sampling is how a rare failure
+  // becomes an unreproducible one. Revisit against real ingest volume — the
+  // shots queue is sized for ten thousand a batch.
   "observability": { "enabled": true, "head_sampling_rate": 1 },
 
   "hyperdrive": [
