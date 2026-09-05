@@ -11,6 +11,32 @@ the shipping is skipped. It starts deploying by itself once the secrets exist.
 That is deliberate. A workflow that is red for a reason nobody intends to fix
 today is one people stop reading, and a real failure then goes unread with it.
 
+## Before the first automatic staging deploy
+
+Staging deploys on every push to `main`, so the first merge after the secrets
+exist will ship on its own. Two queues added by the production-readiness work
+have never been created, and wrangler does not create them for you — the deploy
+fails on a missing queue rather than provisioning one:
+
+```bash
+wrangler queues create roastery-maintenance-staging
+wrangler queues create roastery-maintenance-dlq-staging
+```
+
+Everything else staging needs already exists from earlier deploys: the KV
+namespace, the R2 bucket, both Hyperdrive configs and the other eight queues.
+Rate-limit namespaces are configuration rather than resources, and the
+Analytics Engine dataset is created on first write.
+
+Two secrets turn the deploy on, and until both exist the job skips with a
+notice rather than failing: `CLOUDFLARE_API_TOKEN` (Workers, KV, Queues, R2 and
+Hyperdrive scopes) and `DATABASE_URL` for the Neon `staging` branch. Worker
+secrets are separate, and go on with
+`scripts/setup-secrets.sh staging`.
+
+`logpush: true` opts the Worker in; the destination is a Logpush job configured
+in the dashboard. Its absence does not fail a deploy.
+
 ## Staging
 
 Automatic on every push to `main` (`.github/workflows/deploy.yml`). To deploy by
