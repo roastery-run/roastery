@@ -14,6 +14,7 @@ import { organizations, orgMembers, users } from "@roastery/db/schema";
 import { eq } from "drizzle-orm";
 import { Hono } from "hono";
 import type { Env } from "../env";
+import { serverTimingHeader } from "../lib/api/timing";
 import type { AuthVariables } from "../lib/auth/auth-middleware";
 
 export const sessionRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>();
@@ -21,7 +22,9 @@ export const sessionRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables 
 sessionRoutes.get("/session/v1/me", async (c) => {
   const auth = c.var.auth;
   if (!auth?.userId) {
-    return c.json({ user: null, memberships: [] });
+    return c.json({ user: null, memberships: [] }, 200, {
+      "Server-Timing": serverTimingHeader(c.var.timings),
+    });
   }
 
   const rows = await c.var.unsafeDb
@@ -42,5 +45,7 @@ sessionRoutes.get("/session/v1/me", async (c) => {
     .where(eq(users.id, auth.userId))
     .limit(1);
 
-  return c.json({ user: user ?? null, memberships: rows });
+  return c.json({ user: user ?? null, memberships: rows }, 200, {
+    "Server-Timing": serverTimingHeader(c.var.timings),
+  });
 });

@@ -1,4 +1,4 @@
-import { createAuth } from "@roastery/auth";
+import { cookiePrefix, createAuth } from "@roastery/auth";
 import { createMiddleware } from "hono/factory";
 import type { Env } from "../../env";
 import { startTimings, type Timings, timed } from "../api/timing";
@@ -64,6 +64,20 @@ async function resolveSessionUserId(
   }
 }
 
+/** Mirrors Better Auth's cookie naming so we can skip the heavy init when no
+ *  session cookie is present. Constructed from the same env values as createAuth.
+ */
+function sessionCookieNames(env: Env): string[] {
+  const prefix = cookiePrefix(env);
+  return [`${prefix}.session_token`, `__Secure-${prefix}.session_token`];
+}
+
+/** True if the request carries a cookie that could be a Better Auth session. */
+function hasSessionCookie(headers: Headers, env: Env): boolean {
+  const cookie = headers.get("cookie") ?? "";
+  return sessionCookieNames(env).some((name) => cookie.includes(name));
+}
+
 export const authMiddleware = createMiddleware<{ Bindings: Env; Variables: AuthVariables }>(
   async (c, next) => {
     const timings = startTimings();
@@ -125,8 +139,10 @@ export const authMiddleware = createMiddleware<{ Bindings: Env; Variables: AuthV
           scopes: claims.scopes,
         };
       }
-    } else {
-      userId = await resolveSessionUserId(db, c.env, c.req.raw.headers);
+    } else if (hasSessionCookie(c.req.raw.headers, c.env)) {
+      userId = await timed(timings, "resolveSession", () =>
+        resolveSessionUserId(db, c.env, c.req.raw.headers),
+      );
       if (userId) credential = { type: "session" };
     }
 

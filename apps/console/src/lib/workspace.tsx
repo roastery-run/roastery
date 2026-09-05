@@ -10,14 +10,9 @@
 import { ensureCacheOwner, getActiveOrg, rpc, setActiveOrg } from "@roastery/ui";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import * as React from "react";
-import { ORIGINS } from "@/lib/origins";
+import { type Me, type Membership, sessionQueryOptions } from "@/lib/session";
 
-export type Membership = {
-  orgId: string;
-  orgName: string;
-  orgSlug: string;
-  roleSlug: string;
-};
+export type { Me, Membership };
 
 export type Location = { id: string; name: string; code: string; kind: string };
 
@@ -25,11 +20,6 @@ export type Entitlements = {
   planSlug: string;
   modules: Record<string, boolean>;
   limits: Record<string, number | null>;
-};
-
-export type Me = {
-  user: { id: string; name: string | null; email: string } | null;
-  memberships: Membership[];
 };
 
 export type Access = {
@@ -113,18 +103,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
    * `X-Roastery-Org` header. Once an org is chosen, everything else is
    * tenant-scoped, `console.getAccess` included.
    */
-  const meQuery = useQuery({
-    queryKey: ["session.me"],
-    queryFn: async (): Promise<Me> => {
-      const response = await fetch(`${ORIGINS.api}/session/v1/me`, {
-        credentials: "include",
-      });
-      if (!response.ok) throw new Error("Could not load your session");
-      return response.json() as Promise<Me>;
-    },
-    retry: false,
-    staleTime: 60_000,
-  });
+  const meQuery = useQuery(sessionQueryOptions);
 
   const memberships = meQuery.data?.memberships ?? [];
 

@@ -7,7 +7,7 @@ import { requireAuth } from "@/lib/require-auth";
  * the guard, so no individual screen has to remember either.
  */
 export const Route = createFileRoute("/_app")({
-  beforeLoad: ({ location }) => requireAuth(location.pathname),
+  beforeLoad: ({ context, location }) => requireAuth(context, location.pathname),
   component: () => (
     <AppShell>
       <Outlet />

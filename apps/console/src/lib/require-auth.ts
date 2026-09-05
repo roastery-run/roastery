@@ -3,36 +3,38 @@
  *
  * The distinction that matters: a network failure is NOT a rejected session.
  * Redirecting to /login because the API was briefly unreachable throws away
- * whatever the user was doing and, on a shop floor with patchy Wi-Fi, does it
+ * whatever the user is doing and, on a shop floor with patchy Wi-Fi, does it
  * several times a day. Only an explicit 401 signs someone out.
+ *
+ * This uses the same react-query key as WorkspaceProvider so the router guard
+ * and the root component do not each fire their own /session/v1/me request.
  */
 import { redirect } from "@tanstack/react-router";
+import { fetchSession, SessionFetchError } from "@/lib/session";
+import type { RouterContext } from "@/routes/__root";
 
 /**
  * Probes the non-org-scoped bootstrap, because at this point no organization
  * is known yet — that is precisely what it answers.
  */
-export async function requireAuth(pathname: string): Promise<void> {
-  let response: Response;
+export async function requireAuth(context: RouterContext, pathname: string): Promise<void> {
+  let me: Awaited<ReturnType<typeof fetchSession>> | undefined;
   try {
-    response = await fetch(`${import.meta.env.VITE_API_URL ?? ""}/session/v1/me`, {
-      credentials: "include",
+    me = await context.queryClient.fetchQuery({
+      queryKey: ["session.me"],
+      queryFn: fetchSession,
+      retry: false,
+      staleTime: 60_000,
     });
-  } catch {
-    // A network failure is NOT a rejected session. Redirecting to /login
-    // because the API was briefly unreachable throws away whatever the user
-    // was doing — and on a shop floor with patchy Wi-Fi, several times a day.
-    return;
+  } catch (error) {
+    // A 401 means "no session" and therefore redirects. Any other failure
+    // (network error, 5xx) is not the user's session being rejected, so the
+    // route is allowed to render and surface it as a retryable error.
+    if (!(error instanceof SessionFetchError && error.status === 401)) {
+      return;
+    }
   }
 
-  if (response.ok) {
-    const body = (await response.json().catch(() => null)) as { user?: unknown } | null;
-    if (body?.user) return;
-  } else if (response.status !== 401) {
-    // A 500 is the API's problem, not the user's. Let the route render and
-    // surface it as an error the user can retry.
-    return;
-  }
-
+  if (me?.user) return;
   throw redirect({ to: "/login", search: { next: pathname } });
 }

@@ -21,7 +21,7 @@ import { requireAuth } from "@/lib/require-auth";
  * which is not how cupping works.
  */
 export const Route = createFileRoute("/cup/$sessionId")({
-  beforeLoad: ({ location }) => requireAuth(location.pathname),
+  beforeLoad: ({ context, location }) => requireAuth(context, location.pathname),
   component: Scoresheet,
 });
 

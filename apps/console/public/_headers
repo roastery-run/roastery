@@ -1,0 +1,4 @@
+# Static assets are fingerprinted by Vite, so the filename changes whenever the
+# content does. Browsers can keep them forever and never revalidate.
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable

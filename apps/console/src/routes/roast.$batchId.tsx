@@ -25,7 +25,7 @@ import { useWorkspace } from "@/lib/workspace";
  * render one shell inside the other.
  */
 export const Route = createFileRoute("/roast/$batchId")({
-  beforeLoad: ({ location }) => requireAuth(location.pathname),
+  beforeLoad: ({ context, location }) => requireAuth(context, location.pathname),
   component: LiveRoast,
 });
 

@@ -39,6 +39,7 @@ export default defineConfig({
           if (pkg === "react" || pkg === "react-dom" || pkg === "scheduler") return "react";
           if (pkg.startsWith("@tanstack/")) return "tanstack";
           if (pkg === "radix-ui" || pkg.startsWith("@radix-ui/")) return "radix";
+          if (pkg === "lucide-react") return "icons";
           if (pkg === "uplot") return "charts";
         },
       },
