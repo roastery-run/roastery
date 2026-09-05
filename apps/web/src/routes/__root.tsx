@@ -1,3 +1,4 @@
+import { Button } from "@roastery/ui";
 import type { QueryClient } from "@tanstack/react-query";
 import { createRootRouteWithContext, HeadContent, Outlet, Scripts } from "@tanstack/react-router";
 import { SiteFooter, SiteHeader } from "@/components/site-chrome";
@@ -38,8 +39,34 @@ export const Route = createRootRouteWithContext<RouterContext>()({
     ],
   }),
   component: RootDocument,
+  errorComponent: SiteError,
   notFoundComponent: NotFound,
 });
+
+/**
+ * The last resort for a route with no boundary of its own.
+ *
+ * Every page here is public and most are the first thing a stranger sees, so
+ * the default — a framework error screen — is a worse outcome than almost any
+ * content. Rendered inside the document shell, so the header, the footer and a
+ * way out survive whatever failed.
+ */
+function SiteError() {
+  return (
+    <div className="mx-auto max-w-2xl px-6 py-24 text-center">
+      <h1 className="font-semibold text-2xl tracking-tight">Something went wrong</h1>
+      <p className="mt-3 text-muted-foreground">
+        This is our fault, not yours. Try again in a moment.
+      </p>
+      <div className="mt-6 flex justify-center gap-3">
+        <Button onClick={() => window.location.reload()}>Try again</Button>
+        <Button variant="outline" asChild>
+          <a href="/">Go to the homepage</a>
+        </Button>
+      </div>
+    </div>
+  );
+}
 
 function RootDocument() {
   return (

@@ -39,8 +39,29 @@ const API_EXACT = /^\/reports\/v1\//;
  * downgrade a policy that was deliberately written.
  */
 const SECURITY_HEADERS: Record<string, string> = {
-  "content-security-policy":
-    "object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'",
+  // `default-src 'self'` is the clause that matters and was missing: without
+  // it the policy blocked framing and base-tag injection but let a script come
+  // from anywhere, which is the part an XSS actually needs.
+  //
+  // Everything is same-origin by construction — this Worker proxies the API
+  // onto this origin, which is what removes the CORS preflight — so 'self'
+  // covers scripts, fetches and the WebSocket alike. 'unsafe-inline' for
+  // styles is Tailwind's runtime-injected style element; scripts do not get it.
+  "content-security-policy": [
+    "default-src 'self'",
+    "script-src 'self'",
+    "style-src 'self' 'unsafe-inline'",
+    "img-src 'self' data: blob:",
+    "font-src 'self' data:",
+    "connect-src 'self'",
+    "object-src 'none'",
+    "base-uri 'self'",
+    "frame-ancestors 'none'",
+    "form-action 'self'",
+  ].join("; "),
+  // Two years, preloadable. The session cookie is Secure, so the only request
+  // that could ever go out in the clear is the first one of a session.
+  "strict-transport-security": "max-age=63072000; includeSubDomains; preload",
   "x-frame-options": "DENY",
   "x-content-type-options": "nosniff",
   "referrer-policy": "strict-origin-when-cross-origin",

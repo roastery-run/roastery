@@ -11,6 +11,12 @@ import { ensureCacheOwner, getActiveOrg, rpc, setActiveOrg } from "@roastery/ui"
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import * as React from "react";
 import { type Me, type Membership, sessionQueryOptions } from "@/lib/session";
+import {
+  LOCATION_KEY,
+  ORG_KEY,
+  readWorkspaceKey as read,
+  writeWorkspaceKey as write,
+} from "@/lib/workspace-storage";
 
 export type { Me, Membership };
 
@@ -46,28 +52,6 @@ type WorkspaceValue = {
 };
 
 const WorkspaceContext = React.createContext<WorkspaceValue | null>(null);
-
-const ORG_KEY = "roastery.org";
-const LOCATION_KEY = "roastery.location";
-
-const read = (key: string): string | null => {
-  try {
-    return localStorage.getItem(key);
-  } catch {
-    // A private window, or storage disabled. Not knowing the last org is a
-    // minor inconvenience; throwing here would white-screen the whole app.
-    return null;
-  }
-};
-
-const write = (key: string, value: string | null) => {
-  try {
-    if (value === null) localStorage.removeItem(key);
-    else localStorage.setItem(key, value);
-  } catch {
-    /* as above */
-  }
-};
 
 /**
  * Wildcard-aware permission check, matching the server's `can()` exactly.

@@ -2,7 +2,7 @@ import { EmptyState } from "@roastery/ui";
 import { formatCountry, formatDate, formatPercent, humanize } from "@roastery/units";
 import { createFileRoute, notFound } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
-import { Coffee, Mountain } from "lucide-react";
+import { Coffee, Mountain, RefreshCw } from "lucide-react";
 
 /**
  * The page printed on a retail bag.
@@ -43,6 +43,10 @@ type Trace = {
 const fetchTrace = createServerFn({ method: "GET" })
   .inputValidator((code: string) => code)
   .handler(async ({ data: code }): Promise<Trace | null> => {
+    // Imported inside the handler: this module also ships to the client, and
+    // the bundler denies a static import of the server entry from a route.
+    const { setResponseHeader } = await import("@tanstack/react-start/server");
+
     // The token is 24 hex characters. Rejecting anything else here keeps a
     // malformed scan from becoming an upstream request at all.
     if (!/^[0-9a-f]{24}$/.test(code)) return null;
@@ -61,8 +65,28 @@ const fetchTrace = createServerFn({ method: "GET" })
       // kills it, with nothing rendered.
       signal: AbortSignal.timeout(5000),
     });
-    if (response.status === 404) return null;
+    if (response.status === 404) {
+      // Briefly cacheable. A mistyped code is worth absorbing at the edge, but
+      // not for long: a roaster who publishes the batch minutes later should
+      // not be told it does not exist for a day.
+      setResponseHeader("cache-control", "public, max-age=60");
+      return null;
+    }
     if (!response.ok) throw new Error("Could not load this coffee");
+
+    // A certificate is a FROZEN snapshot, which is what makes this cacheable
+    // at all. The API says the same thing about its own JSON — without it here
+    // the HTML wrapper is uncacheable, so every scan is still a Worker
+    // invocation plus a subrequest for a document that cannot change.
+    //
+    // s-maxage is a day at the edge, max-age five minutes in the browser, and
+    // stale-while-revalidate means a scan during revalidation is served from
+    // cache rather than waiting — which on a phone, in a café, on bad Wi-Fi,
+    // is the whole difference.
+    setResponseHeader(
+      "cache-control",
+      "public, max-age=300, s-maxage=86400, stale-while-revalidate=86400",
+    );
     return (await response.json()) as Trace;
   });
 
@@ -87,6 +111,25 @@ export const Route = createFileRoute("/trace/$code")({
         }
       : {},
   component: TracePage,
+  /**
+   * The API blipped, or timed out, or is misconfigured.
+   *
+   * Without this the QR target on a retail bag renders the framework's default
+   * error screen — a stack trace where the coffee's name should be, on the
+   * most-loaded page in the product, in front of somebody who has just bought
+   * a bag. `notFoundComponent` covered the code being wrong and nothing
+   * covered the system being wrong.
+   */
+  errorComponent: () => (
+    <div className="mx-auto max-w-2xl px-6 py-16">
+      <EmptyState
+        icon={RefreshCw}
+        title="We could not load this coffee right now"
+        description="Something went wrong at our end, not with your bag. Try again in a moment."
+        action={{ label: "Try again", onClick: () => window.location.reload() }}
+      />
+    </div>
+  ),
   notFoundComponent: () => (
     <div className="mx-auto max-w-2xl px-6 py-16">
       <EmptyState

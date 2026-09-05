@@ -47,11 +47,13 @@ import {
   TooltipTrigger,
   useEntitlements,
 } from "@roastery/ui";
+import { useQueryClient } from "@tanstack/react-query";
 import { Link, useLocation } from "@tanstack/react-router";
-import { Building2, ChevronsUpDown, Lock, MapPin, Monitor, Moon, Sun } from "lucide-react";
+import { Building2, ChevronsUpDown, Lock, LogOut, MapPin, Monitor, Moon, Sun } from "lucide-react";
 import * as React from "react";
 import { BrandMark } from "@/components/brand-mark";
 import { NAV, sectionForPath } from "@/lib/nav";
+import { signOut } from "@/lib/sign-out";
 import { useWorkspace } from "@/lib/workspace";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
@@ -226,11 +228,61 @@ function TopBar() {
       ) : null}
 
       <div className="ml-auto flex items-center gap-2">
-        <span className="hidden text-muted-foreground text-xs sm:inline">
-          {session?.user?.email}
-        </span>
+        <AccountMenu email={session?.user?.email ?? null} />
       </div>
     </header>
+  );
+}
+
+/**
+ * The account menu, whose reason for existing is the sign-out item.
+ *
+ * The email used to be plain text with nothing attached to it, so a shared
+ * terminal had no way to end a session — with a seven-day expiry and a day of
+ * cached lists behind it.
+ *
+ * A disclosure, not a menubar: no role="menu" is claimed here beyond what the
+ * primitive provides, and the item is a real button, so it works for a
+ * keyboard and a screen reader without promising roving focus nobody
+ * implemented.
+ */
+function AccountMenu({ email }: { email: string | null }) {
+  const queryClient = useQueryClient();
+  const [busy, setBusy] = React.useState(false);
+
+  if (!email) return null;
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="ghost" size="sm" className="gap-2">
+          <span className="hidden max-w-[16ch] truncate text-muted-foreground text-xs sm:inline">
+            {email}
+          </span>
+          <ChevronsUpDown className="size-3.5 text-muted-foreground" aria-hidden />
+          <span className="sr-only">Account menu</span>
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-56">
+        <DropdownMenuLabel className="truncate font-normal text-muted-foreground text-xs">
+          {email}
+        </DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem
+          disabled={busy}
+          onSelect={(event) => {
+            // The default would close the menu and unmount this component
+            // mid-await, so the disabled state would never be seen.
+            event.preventDefault();
+            setBusy(true);
+            void signOut(queryClient);
+          }}
+        >
+          <LogOut className="size-4" aria-hidden />
+          {busy ? "Signing out…" : "Sign out"}
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 

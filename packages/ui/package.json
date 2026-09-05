@@ -6,7 +6,8 @@
   "exports": {
     ".": "./src/index.ts",
     "./styles.css": "./src/styles.css",
-    "./charts": "./src/components/charts/index.ts"
+    "./charts": "./src/components/charts/index.ts",
+    "./query-cache": "./src/lib/query-cache.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

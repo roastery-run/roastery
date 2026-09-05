@@ -8,7 +8,17 @@ import { authClient } from "@/lib/auth";
 export const Route = createFileRoute("/login")({
   // `.catch()` rather than a strict parse: a truncated or hand-edited link must
   // land on a working sign-in page, not a validation error.
-  validateSearch: z.object({ next: z.string().catch("/").default("/") }),
+  validateSearch: z.object({
+    // A same-origin PATH, never a URL. `next` is handed straight to
+    // navigate(), so an unvalidated value makes an already-signed-in visitor's
+    // first click an open redirect — and "//evil.example" is a path-looking
+    // string the browser reads as another origin.
+    next: z
+      .string()
+      .refine((v) => v.startsWith("/") && !v.startsWith("//"))
+      .catch("/")
+      .default("/"),
+  }),
   component: LoginPage,
 });
 

@@ -11,6 +11,7 @@
  */
 import { redirect } from "@tanstack/react-router";
 import { fetchSession, SessionFetchError } from "@/lib/session";
+import { clearClientState } from "@/lib/sign-out";
 import type { RouterContext } from "@/routes/__root";
 
 /**
@@ -36,5 +37,9 @@ export async function requireAuth(context: RouterContext, pathname: string): Pro
   }
 
   if (me?.user) return;
+  // The session is gone server-side, so the local copies of what it could see
+  // go too. An expired session on a shared terminal is the same exposure as a
+  // missing sign-out button, arrived at by waiting.
+  clearClientState(context.queryClient);
   throw redirect({ to: "/login", search: { next: pathname } });
 }

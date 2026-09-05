@@ -65,6 +65,28 @@ export function clearPersistedQueryCache(): void {
 }
 
 /**
+ * Drops a cache belonging to somebody who is not signing in now.
+ *
+ * Called before the persister rehydrates, using only what this device already
+ * knows: the owner recorded at last sign-in, and the session cookie's presence.
+ * `ensureCacheOwner` cannot cover this window — it needs the user id, which
+ * arrives a round trip later, by which time the previous person's orders and
+ * customers have already been painted.
+ *
+ * With no session cookie there is no signed-in user, so any cache present
+ * belongs to a session that has ended.
+ */
+export function discardForeignCache(): void {
+  const store = storage();
+  if (!store) return;
+  const hasSession = document.cookie.split("; ").some((c) => /session_token=/.test(c));
+  if (!hasSession) {
+    store.removeItem(CACHE_KEY);
+    store.removeItem(OWNER_KEY);
+  }
+}
+
+/**
  * Scopes the persisted cache to one user.
  *
  * Two people sharing a shop-floor terminal is normal, and without this the
