@@ -266,6 +266,11 @@ export class RoastBatchDO extends DurableObject<Env> {
 
   /** Drops the buffered curve. Only ever called after a CONFIRMED write. */
   async discard(): Promise<void> {
+    // The alarm goes too. `deleteAll()` clears storage but leaves a scheduled
+    // alarm pending, and the handler reschedules itself unconditionally — so a
+    // completed roast kept waking every two minutes, forever, holding a
+    // Durable Object alive to observe a batch that no longer exists.
+    await this.ctx.storage.deleteAlarm();
     await this.ctx.storage.deleteAll();
   }
 
@@ -440,8 +445,18 @@ export class RoastBatchDO extends DurableObject<Env> {
       this.setMeta("state", this.state);
       this.setMeta("abandoned", "1");
       this.broadcast({ type: "state", state: "complete", abandoned: true });
+      // No reschedule. Nothing further can happen to an abandoned batch, and
+      // the buffered curve is kept rather than deleted: it is the evidence of
+      // what the roaster was doing when the bridge died, and completing the
+      // batch from the console still needs it.
       return;
     }
+
+    // A completed batch is normally discarded by the Worker, which cancels the
+    // alarm with it. If that call was lost — the request died between the
+    // database write and the discard — this is the other way out, and without
+    // it the object wakes every two minutes for the life of the account.
+    if (this.state === "complete") return;
 
     await this.ctx.storage.setAlarm(Date.now() + STALL_MS);
   }

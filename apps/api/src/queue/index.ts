@@ -154,7 +154,9 @@ export async function handleMaintenanceQueue(
  * debugging a broken integration is already looking.
  */
 export async function handleDeadLetterBatch(
-  batch: MessageBatch<EventQueueMessage | WebhookQueueMessage>,
+  batch: MessageBatch<
+    EventQueueMessage | WebhookQueueMessage | ShotQueueMessage | ReportQueueMessage
+  >,
   env: Env,
 ): Promise<void> {
   const db = createOwnedWorkerDb(env);
@@ -173,14 +175,54 @@ export async function handleDeadLetterBatch(
       // already suspects a problem, and the whole point of a dead letter is
       // that nobody suspects one.
       recordMetric(env, { kind: "dead_letter", queue: batch.queue });
+
       if (body.deliveryId) {
         const { markDead } = await import("../lib/events/webhook-dead-letter");
         await markDead(db, body.deliveryId, `Dead-lettered from ${batch.queue}`);
+      } else {
+        // A webhook delivery has a row to record its fate on, and the
+        // deliveries screen is where somebody debugging one already looks.
+        // Shots and reports have nowhere — so those messages were logged and
+        // acked, and the espresso shots in them were simply gone, after the
+        // bridge had already been told `{ok: true, accepted: N}`. That is the
+        // silent partial success CLAUDE.md warns about, at the end of a queue.
+        //
+        // The body is kept in R2 so it can be replayed. It is a few kilobytes
+        // of JSON, it only exists when something has already failed five
+        // times, and the alternative is telling a café their morning is
+        // missing and nothing can be done.
+        await archiveDeadLetter(env, batch.queue, message.body);
       }
       message.ack();
     }
   } finally {
     await closeWorkerDb(db);
+  }
+}
+
+/**
+ * Keeps a dead-lettered message so it can be replayed by hand.
+ *
+ * Best-effort by design: this runs when something has already failed
+ * repeatedly, and throwing here would retry the DLQ message itself, which is
+ * the one queue with nowhere left to send it.
+ */
+async function archiveDeadLetter(env: Env, queue: string, body: unknown): Promise<void> {
+  if (!env.ROASTERY_R2) return;
+  const key = `dead-letters/${queue}/${new Date().toISOString()}-${crypto.randomUUID()}.json`;
+  try {
+    await env.ROASTERY_R2.put(key, JSON.stringify(body, null, 2), {
+      httpMetadata: { contentType: "application/json" },
+    });
+    console.error(JSON.stringify({ msg: "dead_letter_archived", queue, key }));
+  } catch (err) {
+    console.error(
+      JSON.stringify({
+        msg: "dead_letter_archive_failed",
+        queue,
+        error: err instanceof Error ? err.message : String(err),
+      }),
+    );
   }
 }
 

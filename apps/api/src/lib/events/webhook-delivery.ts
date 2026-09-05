@@ -495,17 +495,43 @@ async function disableEndpoint(
 }
 
 /** Deliveries whose retry is due. The safety net if a queue message is lost. */
+/**
+ * Claims deliveries whose retry is due, and hands them to the sweeper.
+ *
+ * The claim is the point. Selecting due rows and re-enqueuing them raced with
+ * the queue's own retry: when a scheduled retry came due at the same minute
+ * the sweeper ran, both fired, and the receiver got the same event twice. They
+ * are told to dedupe on the event id so that is survivable — but `attempt` and
+ * `consecutive_failures` both double-count, which brings an endpoint to the
+ * auto-disable threshold in half the failures it should take. Disabling a
+ * customer's integration early is not a duplicate-delivery nuisance.
+ *
+ * Pushing `next_attempt_at` forward is the lease: another sweep within the
+ * window no longer sees the row, and if this run dies the row simply comes due
+ * again.
+ */
+const SWEEP_LEASE_SECONDS = 120;
+
 export async function findDueDeliveries(db: WorkerDb, limit = 200): Promise<string[]> {
-  const rows = await db
-    .select({ id: webhookDeliveries.id })
-    .from(webhookDeliveries)
+  const claimed = await db
+    .update(webhookDeliveries)
+    .set({ nextAttemptAt: new Date(Date.now() + SWEEP_LEASE_SECONDS * 1000) })
     .where(
-      and(
-        inArray(webhookDeliveries.status, ["pending", "failed"]),
-        lt(webhookDeliveries.nextAttemptAt, new Date()),
+      inArray(
+        webhookDeliveries.id,
+        db
+          .select({ id: webhookDeliveries.id })
+          .from(webhookDeliveries)
+          .where(
+            and(
+              inArray(webhookDeliveries.status, ["pending", "failed"]),
+              lt(webhookDeliveries.nextAttemptAt, new Date()),
+            ),
+          )
+          .orderBy(webhookDeliveries.nextAttemptAt)
+          .limit(limit),
       ),
     )
-    .orderBy(webhookDeliveries.nextAttemptAt)
-    .limit(limit);
-  return rows.map((r) => r.id);
+    .returning({ id: webhookDeliveries.id });
+  return claimed.map((r) => r.id);
 }
