@@ -1,4 +1,4 @@
-import { orgMembers } from "@roastery/db/schema";
+import { organizations, orgMembers } from "@roastery/db/schema";
 import { and, eq } from "drizzle-orm";
 import { createMiddleware } from "hono/factory";
 import type { Env } from "../../env";
@@ -94,6 +94,29 @@ export const orgScope = createMiddleware<{ Bindings: Env; Variables: RpcVariable
       }
       orgId = requested;
       roleSlug = member.roleSlug;
+    }
+
+    // An organization marked for deletion stops serving immediately.
+    //
+    // The grace period before the purge exists so a mistaken deletion can be
+    // reversed, not so the account keeps working while it counts down —
+    // deleting an organization and having its integrations continue to write
+    // to it for a week is the opposite of what was asked for. Checked here
+    // because this is the one place every tenant-scoped request passes
+    // through, whatever credential it carries.
+    const [org] = await db
+      .select({ deletedAt: organizations.deletedAt })
+      .from(organizations)
+      .where(eq(organizations.id, orgId))
+      .limit(1);
+    if (!org || org.deletedAt) {
+      return c.json(
+        {
+          error: "This organization has been deleted",
+          code: "org_deleted",
+        },
+        403,
+      );
     }
 
     // A session is never down-scoped; a machine credential may be.

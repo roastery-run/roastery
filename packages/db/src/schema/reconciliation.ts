@@ -1,15 +1,18 @@
 /**
- * Integrity checking: where the system records that it disagreed with itself.
+ * Integrity checking and account lifecycle.
  *
- * Its own module because it is the only thing that has to reference BOTH lot
- * kinds, and the schema's import chain runs inventory -> roasted. Sitting at
- * the end of that chain is what lets one table cover all three cached weights
- * instead of splitting the same concern in two.
+ * Its own module because the reconciliation table is the only thing that has
+ * to reference BOTH lot kinds, and the schema's import chain runs
+ * inventory -> roasted. Sitting at the end of that chain is what lets one
+ * table cover all three cached weights instead of splitting the same concern
+ * in two. `data_exports` lives here for the adjacent reason: it is about the
+ * organization as a whole rather than any one domain.
  */
 import { sql } from "drizzle-orm";
 import {
   check,
   index,
+  jsonb,
   numeric,
   pgTable,
   text,
@@ -71,4 +74,37 @@ export const inventoryReconciliations = pgTable(
       sql`(${t.greenLotId} is null) <> (${t.roastedLotId} is null)`,
     ),
   ],
+);
+
+/**
+ * A request to take everything an organization holds out of the system.
+ *
+ * A row rather than a synchronous response because the answer is every tenant
+ * table at once: too slow for a request, and large enough that it belongs in
+ * object storage with a signed link rather than in a JSON body.
+ *
+ * The file is deliberately short-lived. It is a complete copy of a business's
+ * operational history sitting behind a URL, so it expires, and the purge job
+ * removes the object when it does.
+ */
+export const dataExports = pgTable(
+  "data_exports",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    orgId: uuid("org_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    status: text("status").notNull().default("queued"),
+    /** R2 key. Never a public URL — served through a signed, expiring link. */
+    objectKey: text("object_key"),
+    sizeBytes: numeric("size_bytes", { precision: 18, scale: 0 }),
+    /** Per-table row counts, so a recipient can tell the export is complete. */
+    manifest: jsonb("manifest"),
+    error: text("error"),
+    requestedBy: text("requested_by").references(() => users.id, { onDelete: "set null" }),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+    expiresAt: timestamp("expires_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("data_exports_org_idx").on(t.orgId, t.createdAt)],
 );

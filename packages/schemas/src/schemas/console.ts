@@ -134,3 +134,45 @@ export const getAccessOutput = z.object({
     limits: z.record(z.string(), z.number().nullable()),
   }),
 });
+
+/* -------------------------------------------------------- data lifecycle */
+
+export const dataExportSchema = z.object({
+  id: uuidSchema,
+  status: z.enum(["queued", "ready", "failed"]),
+  /** Per-table row counts, so a recipient can tell the export is complete. */
+  manifest: z
+    .object({
+      orgId: z.string(),
+      exportedAt: z.string(),
+      tables: z.array(z.object({ table: z.string(), rows: z.number(), file: z.string() })),
+    })
+    .nullable(),
+  error: z.string().nullable(),
+  /** A complete copy of a business's history, so the link does not live long. */
+  expiresAt: z.string().nullable(),
+  completedAt: z.string().nullable(),
+  createdAt: z.string(),
+});
+
+export const requestDataExportInput = z.object({});
+export const getDataExportInput = z.object({ id: uuidSchema });
+
+/**
+ * Deleting the organization.
+ *
+ * The slug has to be typed back. It is the one operation in the product that
+ * destroys everything, and a confirmation dialog alone is something people
+ * click through — typing the name is the standard because it makes the action
+ * deliberate rather than merely confirmed.
+ */
+export const deleteOrganizationInput = z.object({
+  confirmSlug: z.string().min(1),
+});
+
+export const deleteOrganizationOutput = z.object({
+  orgId: uuidSchema,
+  deletedAt: z.string(),
+  /** Until this moment the deletion can still be undone by support. */
+  purgeAfter: z.string(),
+});

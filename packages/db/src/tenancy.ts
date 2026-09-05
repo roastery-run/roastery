@@ -202,6 +202,11 @@ export const TENANT_DIRECT = {
     column: s.webhookDeliveries.orgId,
     field: "orgId",
   },
+  data_exports: {
+    table: s.dataExports,
+    column: s.dataExports.orgId,
+    field: "orgId",
+  },
 } satisfies Record<string, DirectTenancy>;
 
 /**

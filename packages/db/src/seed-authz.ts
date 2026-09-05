@@ -154,6 +154,16 @@ export const PERMISSIONS: PermissionSeed[] = [
   ]),
   ...perm("console.audit", "core", [["read", "View the audit log"]]),
   /**
+   * Owner-only, and separate from `console.settings.write`, because these two
+   * are the operations that take the organization's data out of the system or
+   * remove it entirely. Bundling them with ordinary settings would grant them
+   * to anyone who can rename the company.
+   */
+  ...perm("console.data", "core", [
+    ["export", "Export everything the organization holds"],
+    ["delete", "Delete the organization and all of its data"],
+  ]),
+  /**
    * What the signed-in user may do HERE. Granted to every built-in role,
    * including viewer: a console that cannot ask which modules are locked
    * cannot render its own navigation, and gating that behind a billing
@@ -200,7 +210,6 @@ export const ROLES: RoleSeed[] = [
     description: "Runs day-to-day operations across every module.",
     rank: 40,
     grants: [
-      "console.self.read",
       "console.self.read",
       "catalog.*",
       "inventory.*",

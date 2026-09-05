@@ -28,7 +28,10 @@ export type ReportQueueMessage = { reportId: string; orgId: string };
  * over every tenant inline eventually times out on the one tenant large
  * enough to matter — and nobody finds out.
  */
-export type MaintenanceQueueMessage = { job: "reconcile"; orgId: string };
+export type MaintenanceQueueMessage =
+  | { job: "reconcile"; orgId: string }
+  | { job: "export"; orgId: string; exportId: string }
+  | { job: "purge"; orgId: string };
 
 /** Fan-out: one message per committed outbox event. */
 export type EventQueueMessage = { eventId: string };

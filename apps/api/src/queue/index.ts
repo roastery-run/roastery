@@ -28,6 +28,7 @@ import {
   touchedHours,
   writeShots,
 } from "../lib/domain/shot-ingest";
+import { purgeOrg, runExport } from "../lib/domain/tenant-lifecycle";
 import { attemptDelivery, fanOutEvent } from "../lib/events/webhook-delivery";
 import { runReport } from "../lib/reporting/run";
 
@@ -126,6 +127,13 @@ export async function handleMaintenanceQueue(
           // did not run" have to be distinguishable, or a silently broken
           // reconciliation looks exactly like a healthy ledger.
           console.log(JSON.stringify({ msg: "reconciled", orgId, found, recorded }));
+        } else if (message.body.job === "export") {
+          await runExport(db, env, message.body.exportId);
+        } else if (job === "purge") {
+          // Re-checks the grace period itself rather than trusting the message
+          // that scheduled it: a purge is the one job where acting on a stale
+          // instruction cannot be undone.
+          await purgeOrg(db, env, orgId);
         }
         message.ack();
       } catch (err) {

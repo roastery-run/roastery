@@ -31,7 +31,11 @@ export const Route = createRootRouteWithContext<RouterContext>()({
       },
       { property: "og:site_name", content: "ROASTERY" },
       { property: "og:type", content: "website" },
-      { name: "twitter:card", content: "summary_large_image" },
+      // `summary`, not `summary_large_image`: the large variant reserves space
+      // for an image and there is no og:image to fill it, so every shared link
+      // rendered as a blank rectangle with the title underneath. Worth
+      // upgrading once there is a card image to point at.
+      { name: "twitter:card", content: "summary" },
     ],
     links: [
       { rel: "stylesheet", href: appCss },

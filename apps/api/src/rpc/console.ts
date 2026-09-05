@@ -1,13 +1,25 @@
 import { OpenAPIHono } from "@hono/zod-openapi";
-import { orgMembers, rolePermissions, users } from "@roastery/db/schema";
+import {
+  apiKeys,
+  dataExports,
+  oauthClients,
+  organizations,
+  orgMembers,
+  rolePermissions,
+  users,
+} from "@roastery/db/schema";
 import {
   createApiKeyInput,
   createApiKeyOutput,
   createOAuthClientInput,
   createOAuthClientOutput,
+  dataExportSchema,
+  deleteOrganizationInput,
+  deleteOrganizationOutput,
   entitlementsOutput,
   getAccessInput,
   getAccessOutput,
+  getDataExportInput,
   getEntitlementsInput,
   listApiKeysInput,
   listApiKeysOutput,
@@ -17,12 +29,14 @@ import {
   listOAuthClientsOutput,
   okOutput,
   removeMemberInput,
+  requestDataExportInput,
   revokeApiKeyInput,
   revokeOAuthClientInput,
   updateMemberRoleInput,
 } from "@roastery/schemas";
-import { and, desc, eq } from "drizzle-orm";
-import { BadRequest, Forbidden, NotFound } from "../lib/api/errors";
+import { and, desc, eq, sql } from "drizzle-orm";
+import { z } from "zod";
+import { BadRequest, Conflict, Forbidden, NotFound } from "../lib/api/errors";
 import { type RpcAppEnv, type RpcContext, registerRpc } from "../lib/api/rpc";
 import { issueApiKey, listApiKeys, revokeApiKey } from "../lib/auth/api-keys";
 import { issueOAuthClient, listOAuthClients, revokeOAuthClient } from "../lib/auth/oauth-clients";
@@ -528,3 +542,160 @@ registerRpc(
     };
   },
 );
+
+/* --------------------------------------------------------- data lifecycle */
+
+registerRpc(
+  consoleRoutes,
+  {
+    namespace: "console",
+    operation: "requestDataExport",
+    summary: "Export everything this organization holds",
+    description:
+      "Runs in the background and produces one NDJSON file per table plus a manifest. " +
+      "The download link expires: the file is a complete copy of the organization's " +
+      "operational history.",
+    input: requestDataExportInput,
+    output: dataExportSchema,
+    permission: "console.data.export",
+    module: "core",
+    internal: true,
+  },
+  async (_input, ctx) => {
+    const row = await ctx.db.transaction(async (tx) => {
+      const [created] = await tx.insert(dataExports, {
+        status: "queued",
+        requestedBy: ctx.actor.userId,
+      });
+      if (!created) throw new Error("Insert returned no row");
+      await tx.emit({
+        type: null,
+        resourceType: "data_export",
+        resourceId: created.id,
+        action: "requested",
+      });
+      return created;
+    });
+
+    // Enqueued after the row commits, so the consumer cannot look for an
+    // export that is not there yet. The maintenance cron re-drives anything
+    // still queued, which is what makes a lost enqueue a delay rather than a
+    // request that never happens.
+    await ctx.env.MAINTENANCE_QUEUE?.send({
+      job: "export",
+      orgId: ctx.orgId,
+      exportId: row.id,
+    });
+
+    return toExportDto(row);
+  },
+);
+
+registerRpc(
+  consoleRoutes,
+  {
+    namespace: "console",
+    operation: "getDataExport",
+    summary: "Check an export, and get its download link",
+    input: getDataExportInput,
+    output: dataExportSchema.extend({ downloadUrl: z.string().nullable() }),
+    permission: "console.data.export",
+    module: "core",
+    internal: true,
+  },
+  async (input, ctx) => {
+    const row = await ctx.db.findOne(dataExports, eq(dataExports.id, input.id));
+    if (!row) throw new NotFound("Export not found");
+    return { ...toExportDto(row), downloadUrl: null };
+  },
+);
+
+registerRpc(
+  consoleRoutes,
+  {
+    namespace: "console",
+    operation: "deleteOrganization",
+    summary: "Delete this organization and everything in it",
+    description:
+      "Marks the organization for deletion. Requests stop working immediately; the data " +
+      "is removed after a grace period, during which support can reverse it.",
+    input: deleteOrganizationInput,
+    output: deleteOrganizationOutput,
+    permission: "console.data.delete",
+    module: "core",
+    internal: true,
+  },
+  async (input, ctx) => {
+    // unscoped-ok: `organizations` IS the tenant, so it is classified global
+    // and OrgDb refuses it by design. The predicate is this request's own
+    // resolved org id, which the middleware has already verified membership of.
+    const [org] = await ctx.db.query(async (t) =>
+      t
+        .select({ slug: organizations.slug, deletedAt: organizations.deletedAt })
+        .from(organizations)
+        .where(eq(organizations.id, ctx.orgId))
+        .limit(1),
+    );
+    if (!org) throw new NotFound("Organization not found");
+    if (input.confirmSlug !== org.slug) {
+      throw new BadRequest(`To delete this organization, type its slug exactly: "${org.slug}".`);
+    }
+    if (org.deletedAt) {
+      throw new Conflict("This organization is already scheduled for deletion");
+    }
+
+    const deletedAt = new Date();
+    const purgeAfter = new Date(deletedAt.getTime() + GRACE_PERIOD_DAYS * 86_400_000);
+
+    await ctx.db.transaction(async (tx) => {
+      // unscoped-ok: as above — the tenant table itself, keyed by this
+      // request's verified org id.
+      await tx.query(async (t) =>
+        t
+          .update(organizations)
+          .set({ deletedAt, purgeAfter, updatedAt: new Date() })
+          .where(eq(organizations.id, ctx.orgId)),
+      );
+      // Every credential stops now rather than at the purge: the grace period
+      // is time to change your mind, not a week of continued API access on an
+      // account somebody asked to be deleted.
+      await tx.update(apiKeys, { enabled: false }, sql`true`);
+      // unscoped-ok: TENANT_GLOBAL, scoped by referenceId — the same predicate
+      // `revokeOAuthClient` uses, and for the same reason.
+      await tx.query(async (t) =>
+        t
+          .update(oauthClients)
+          .set({ disabled: true, updatedAt: new Date() })
+          .where(eq(oauthClients.referenceId, ctx.orgId)),
+      );
+      await tx.emit({
+        type: null,
+        resourceType: "organization",
+        resourceId: ctx.orgId,
+        action: "deletion_scheduled",
+        audit: { purgeAfter: purgeAfter.toISOString(), slug: org.slug },
+      });
+    });
+
+    return {
+      orgId: ctx.orgId,
+      deletedAt: deletedAt.toISOString(),
+      purgeAfter: purgeAfter.toISOString(),
+    };
+  },
+);
+
+/** Long enough to notice a mistake, short enough to honour the request. */
+const GRACE_PERIOD_DAYS = 7;
+
+function toExportDto(row: typeof dataExports.$inferSelect) {
+  return {
+    id: row.id,
+    status: row.status as "queued" | "ready" | "failed",
+    manifest: (row.manifest as never) ?? null,
+    error: row.error ?? null,
+    expiresAt: row.expiresAt?.toISOString() ?? null,
+    completedAt: row.completedAt?.toISOString() ?? null,
+    createdAt: row.createdAt.toISOString(),
+  };
+}
