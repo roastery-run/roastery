@@ -1,5 +1,16 @@
 # Deploying
 
+## Before either environment works
+
+The deploy job SKIPS, and reports success, until the environment has both
+`CLOUDFLARE_API_TOKEN` and `DATABASE_URL` configured. Everything before the
+deploy still runs — lint, typecheck, the full test suite against a real
+Postgres, and the config placeholder check — so a merge is still verified; only
+the shipping is skipped. It starts deploying by itself once the secrets exist.
+
+That is deliberate. A workflow that is red for a reason nobody intends to fix
+today is one people stop reading, and a real failure then goes unread with it.
+
 ## Staging
 
 Automatic on every push to `main` (`.github/workflows/deploy.yml`). To deploy by

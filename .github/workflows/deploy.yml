@@ -30,6 +30,28 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     environment: ${{ github.event.inputs.environment || 'staging' }}
+    services:
+      # The same database CI uses, for the same reason: the deploy scripts run
+      # the full gate before shipping, and without a database the ledger tests
+      # SKIP. A skipped suite reports green, so a deploy would proceed having
+      # verified nothing about the invariant the product is built on —
+      # `integration test wiring` exists to catch exactly that and did, on the
+      # first merge, which is how this was found.
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: roastery
+          POSTGRES_PASSWORD: roastery
+          POSTGRES_DB: roastery_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      TEST_DATABASE_URL: postgresql://roastery:roastery@localhost:5432/roastery_test
     steps:
       - uses: actions/checkout@v4
         with:
@@ -41,7 +63,34 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
 
+      # The gate needs a migrated database of its own. This is NOT the
+      # deployment target: it is the throwaway Postgres above, and the real
+      # migration happens inside the deploy script against DATABASE_URL.
+      - name: Prepare the test database
+        run: pnpm db:migrate
+        env:
+          DATABASE_URL: postgresql://roastery:roastery@localhost:5432/roastery_test
+
+      - name: Is there anywhere to deploy to?
+        id: preflight
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          # Skips rather than fails when the environment has not been
+          # provisioned yet. A workflow that is red for a reason nobody intends
+          # to fix today is one people stop reading, and then a real failure
+          # goes unread with it. It turns green by itself the moment the
+          # secrets exist.
+          if [[ -z "$CLOUDFLARE_API_TOKEN" || -z "$DATABASE_URL" ]]; then
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Not provisioned yet: no CLOUDFLARE_API_TOKEN or DATABASE_URL for this environment. The gate ran; the deploy is skipped. See ops/runbooks/deploy.md."
+          else
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Deploy
+        if: steps.preflight.outputs.configured == 'true'
         env:
           # Needs Workers Scripts, Workers KV, Queues, R2, D1-none, and
           # HYPERDRIVE — a token missing the Hyperdrive scope fails only the
@@ -63,6 +112,7 @@ jobs:
           fi
 
       - name: Smoke
+        if: steps.preflight.outputs.configured == 'true'
         env:
           BASE: ${{ (github.event.inputs.environment || 'staging') == 'production' && 'https://api.roastery.run' || 'https://api-staging.roastery.run' }}
           SITE: ${{ (github.event.inputs.environment || 'staging') == 'production' && 'https://roastery.run' || 'https://staging.roastery.run' }}
