@@ -200,13 +200,25 @@ function cursorPredicate(
  * Almost every table calls it `createdAt`. The outbox calls it `occurredAt`,
  * because the business time of a change and the time its row was written are
  * different ideas and the feed has to be ordered by the former. Falling back
- * rather than special-casing keeps the one paginator working for both — a
- * table with neither would silently paginate by id alone, which is why the
- * absence is treated as a bug below.
+ * rather than special-casing keeps the one paginator working for both.
+ *
+ * A table with NEITHER throws. That was already described as a bug and nothing
+ * enforced it, so the actual behaviour was silent: the listing ordered by id
+ * alone, `encodeCursor` returned null, and the response said `hasMore: true`
+ * with no cursor to follow — page two simply unreachable, with no error
+ * anywhere. Eleven classified tables have no timestamp; none is listed today,
+ * and the first one to be would have shipped that.
  */
 function sortColumn(table: ScopedTable): unknown {
   const cols = columns(table);
-  return cols.createdAt ?? cols.occurredAt;
+  const column = cols.createdAt ?? cols.occurredAt;
+  if (!column) {
+    throw new Error(
+      `${tableName(table)} has neither createdAt nor occurredAt, so it cannot be paginated ` +
+        "by keyset. Add a timestamp column, or list it with an explicit query.",
+    );
+  }
+  return column;
 }
 
 function orderClause(table: ScopedTable, direction: "asc" | "desc"): SQL[] {
@@ -214,8 +226,7 @@ function orderClause(table: ScopedTable, direction: "asc" | "desc"): SQL[] {
   const createdAt = sortColumn(table);
   const id = cols.id;
   const dir = direction === "desc" ? desc : asc;
-  const out: SQL[] = [];
-  if (createdAt) out.push(dir(createdAt as never));
+  const out: SQL[] = [dir(createdAt as never)];
   if (id) out.push(dir(id as never));
   return out;
 }

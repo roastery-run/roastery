@@ -43,6 +43,13 @@
       "when": 1788602179658,
       "tag": "0005_faithful_bruce_banner",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1788618340376,
+      "tag": "0006_mature_lady_vermin",
+      "breakpoints": true
     }
   ]
 }

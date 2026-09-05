@@ -1,0 +1,3 @@
+ALTER TABLE "blends" ADD CONSTRAINT "blends_roast_level" CHECK ("blends"."roast_level" is null or "blends"."roast_level" in ('light', 'medium', 'dark'));--> statement-breakpoint
+ALTER TABLE "roasted_lots" ADD CONSTRAINT "roasted_lots_roast_level" CHECK ("roasted_lots"."roast_level" is null or "roasted_lots"."roast_level" in ('light', 'medium', 'dark'));--> statement-breakpoint
+ALTER TABLE "alert_notifications" ADD CONSTRAINT "alert_severity" CHECK ("alert_notifications"."severity" in ('info', 'warning', 'critical'));
