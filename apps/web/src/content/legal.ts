@@ -76,7 +76,8 @@ export const LEGAL: LegalPage[] = [
         bullets: [
           "Sign-in links expire five minutes after they are sent.",
           "Sessions expire after seven days, and signing out ends one immediately.",
-          "Webhook payloads and event records are kept for 90 days.",
+          "Webhook payloads and event records are kept for 90 days, and alert history for 180 days.",
+          "Roast telemetry is kept for a year in the database; the full-fidelity curve is retained with the batch.",
           "Audit records of who changed what are kept for the life of the account.",
         ],
       },

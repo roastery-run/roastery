@@ -22,6 +22,11 @@ import { closeWorkerDb, createOwnedWorkerDb } from "../lib/db/db";
 import { withOrgDb } from "../lib/db/org-db";
 import { reconcileOrg } from "../lib/domain/reconciliation";
 import {
+  applyGlobalRetention,
+  applyRetention,
+  dropExpiredShotPartitions,
+} from "../lib/domain/retention";
+import {
   type IncomingShot,
   prepareShots,
   refreshRollups,
@@ -129,6 +134,15 @@ export async function handleMaintenanceQueue(
           console.log(JSON.stringify({ msg: "reconciled", orgId, found, recorded }));
         } else if (message.body.job === "export") {
           await runExport(db, env, message.body.exportId);
+        } else if (job === "retention") {
+          const removed = await withOrgDb(db, orgId, (odb) => applyRetention(odb));
+          console.log(JSON.stringify({ msg: "retention_applied", orgId, ...removed }));
+        } else if (job === "retention-global") {
+          const removed = await applyGlobalRetention(db);
+          const dropped = await dropExpiredShotPartitions(db);
+          console.log(
+            JSON.stringify({ msg: "retention_global", ...removed, partitions: dropped.length }),
+          );
         } else if (job === "purge") {
           // Re-checks the grace period itself rather than trusting the message
           // that scheduled it: a purge is the one job where acting on a stale

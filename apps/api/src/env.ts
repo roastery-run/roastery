@@ -31,7 +31,10 @@ export type ReportQueueMessage = { reportId: string; orgId: string };
 export type MaintenanceQueueMessage =
   | { job: "reconcile"; orgId: string }
   | { job: "export"; orgId: string; exportId: string }
-  | { job: "purge"; orgId: string };
+  | { job: "purge"; orgId: string }
+  | { job: "retention"; orgId: string }
+  /** Not scoped to a tenant: expired sessions, and old shot partitions. */
+  | { job: "retention-global"; orgId: null };
 
 /** Fan-out: one message per committed outbox event. */
 export type EventQueueMessage = { eventId: string };

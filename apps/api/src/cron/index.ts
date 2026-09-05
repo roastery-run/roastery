@@ -119,12 +119,18 @@ async function enqueueMaintenance(env: Env): Promise<void> {
       // the moment somebody is winding the account down.
       .where(isNull(organizations.deletedAt));
     for (let i = 0; i < orgs.length; i += BATCH) {
+      const slice = orgs.slice(i, i + BATCH);
       await queue.sendBatch(
-        orgs
-          .slice(i, i + BATCH)
-          .map((org) => ({ body: { job: "reconcile" as const, orgId: org.id } })),
+        slice.map((org) => ({ body: { job: "reconcile" as const, orgId: org.id } })),
+      );
+      await queue.sendBatch(
+        slice.map((org) => ({ body: { job: "retention" as const, orgId: org.id } })),
       );
     }
+
+    // Sessions, verification tokens and shot partitions belong to the
+    // deployment rather than to any tenant, so they are swept once.
+    await queue.send({ job: "retention-global", orgId: null });
 
     // Organizations whose grace period has run out. Enqueued rather than
     // purged here: removing one is eighty cascading tables plus its object
