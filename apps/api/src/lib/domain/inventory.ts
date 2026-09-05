@@ -320,6 +320,70 @@ export async function recordTransformation(
 }
 
 /**
+ * Moves a lot's reservation counter under a row lock.
+ *
+ * A reservation is a claim, not a movement: reserving coffee commits it
+ * without it leaving the warehouse, so it moves `reserved_weight_kg` and never
+ * the balance or the ledger. That is right, and it is why this needs its own
+ * guard — there is no ledger row to reconcile a reservation against, so a lost
+ * update here is undetectable after the fact rather than merely wrong.
+ *
+ * It was a read-modify-write with no lock and no transaction. Two reserves
+ * arriving together both read `reserved = 0`, both wrote `reserved = want`,
+ * and the same kilogram was promised to two orders. The check and the write
+ * have to see the same row, so the SELECT takes `FOR UPDATE` and the caller
+ * supplies the transaction.
+ *
+ * `available` deliberately subtracts the reservation from the CURRENT balance
+ * rather than the initial one: coffee already roasted is gone, and reserving
+ * against it would promise weight that no longer exists.
+ */
+export async function adjustReservation(
+  tx: OrgDb,
+  greenLotId: string,
+  deltaKg: string,
+): Promise<{ reservedWeightKg: string }> {
+  const delta = kg.normalize(deltaKg);
+
+  const [lot] = await tx.query(async (t, scope) =>
+    t
+      .select({
+        currentWeightKg: greenLots.currentWeightKg,
+        reservedWeightKg: greenLots.reservedWeightKg,
+      })
+      .from(greenLots)
+      .for("update")
+      .where(and(scope(greenLots), eq(greenLots.id, greenLotId)))
+      .limit(1),
+  );
+  if (!lot) throw new NotFound("Lot not found");
+
+  const reserved = kg.normalize(lot.reservedWeightKg);
+  const next = kg.add(reserved, delta);
+
+  if (kg.isNegative(next)) {
+    throw new BadRequest(
+      `Only ${reserved} kg is reserved; cannot release ${kg.sub("0", delta)} kg.`,
+    );
+  }
+
+  const available = kg.sub(lot.currentWeightKg, reserved);
+  if (kg.cmp(delta, "0") > 0 && kg.cmp(available, delta) < 0) {
+    throw new BadRequest(
+      `Only ${available} kg is unreserved on this lot; cannot reserve ${delta} kg.`,
+    );
+  }
+
+  await tx.update(
+    greenLots,
+    { reservedWeightKg: next, updatedAt: new Date() },
+    eq(greenLots.id, greenLotId),
+  );
+
+  return { reservedWeightKg: next };
+}
+
+/**
  * The invariant, checked.
  *
  * Returns drift between the ledger and the cached balance. A non-zero result
