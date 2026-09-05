@@ -22,6 +22,16 @@ import { dirname, join } from "node:path";
 
 const API_URL = process.env.API_URL ?? "http://localhost:8787";
 
+/**
+ * Whether this build was pointed at a real deployment.
+ *
+ * The distinction that decides whether an unreachable API is a fallback or a
+ * failure. Absent or localhost means "build from the snapshot", which is what
+ * an ordinary CI run and a local build both want.
+ */
+const isDeployedApi =
+  Boolean(process.env.API_URL) && !/^https?:\/\/(localhost|127\.0\.0\.1)/.test(API_URL);
+
 // The base shown in copyable curl examples. Not API_URL: the docs are built
 // against whichever API is reachable, but a reader copying a command wants the
 // public endpoint for the environment being documented.
@@ -48,17 +58,23 @@ async function loadSpec() {
           "Start the API worker once so a snapshot can be written.",
       );
     }
-    // The fallback is what keeps a docs build independent of a running server,
-    // and it is also how a stale reference ships without anyone noticing. In
-    // CI that trade is the wrong way round: a deploy pipeline quietly
-    // republishing last month's reference is worse than a failed build.
-    // `apps/api/test/openapi-snapshot.test.ts` is what keeps the snapshot
-    // honest between regenerations.
-    if (process.env.CI) {
+    // The fallback keeps a docs build independent of a running server, and it
+    // is also how a stale reference ships without anyone noticing. Which of
+    // those matters depends on why the build is running.
+    //
+    // Keyed on whether the caller pointed at a DEPLOYED api, not on `CI`.
+    // Gating on CI was wrong and broke every ordinary build: the lint and test
+    // pipeline has no API running and is not expected to, so it correctly
+    // wants the snapshot. A deploy is different — `deploy-staging.sh` and
+    // `deploy-production.sh` both set API_URL to the API they just deployed,
+    // so an unreachable one there means the pipeline is about to republish a
+    // reference nobody verified.
+    if (isDeployedApi) {
       throw new Error(
         `Could not reach ${API_URL}: ${error instanceof Error ? error.message : error}.\n` +
-          "Refusing to publish the checked-in snapshot from CI, which would ship a " +
-          "reference nobody verified against a running API.",
+          "API_URL names a deployed API, so refusing to fall back to the checked-in " +
+          "snapshot — that would publish a reference nobody verified against a running " +
+          "server. Unset API_URL to build the docs from the snapshot deliberately.",
       );
     }
     console.log("API unreachable; using the checked-in snapshot");
