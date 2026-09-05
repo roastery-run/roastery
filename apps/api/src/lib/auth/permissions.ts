@@ -107,6 +107,39 @@ export async function loadPermissions(
   return new Set(credentialScopes.filter((s) => can(rolePerms, s)));
 }
 
+/**
+ * Whether `granter` can confer everything `role` would confer.
+ *
+ * The guard on issuing credentials and assigning roles. Without it, any role
+ * holding `console.credentials.write` can mint an owner-scoped API key and use
+ * it — an escalation that leaves no trace, because issuing a key is a
+ * perfectly ordinary thing for that permission to allow.
+ *
+ * Deliberately a SUBSET check over permission sets rather than a comparison of
+ * `roles.rank`. Rank orders roles for display and is documented in two places
+ * as never being an authorization input, for good reason: a hierarchy
+ * expressed as a number silently confers whatever happens to sit below it,
+ * including permissions added to that role later by a migration nobody
+ * reviewed against this call site. A subset check asks the only question that
+ * matters — can the caller already do all of this? — and stays correct as
+ * roles change.
+ *
+ * Wildcards work in both directions through `can`: an owner holding `*`
+ * satisfies everything, and a caller holding `inventory.*` can confer
+ * `inventory.green.write`.
+ */
+export function canGrantRole(
+  granter: ReadonlySet<string>,
+  rolePermissions: ReadonlySet<string>,
+): boolean {
+  for (const permission of rolePermissions) {
+    // A wildcard the granter does not itself hold as a wildcard is not
+    // coverable by enumeration: `*` is only satisfied by `*`.
+    if (!can(granter, permission)) return false;
+  }
+  return true;
+}
+
 /** Clears the isolate-level built-in cache. Tests only. */
 export function __resetPermissionCache(): void {
   builtinCache.clear();

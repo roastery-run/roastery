@@ -1,5 +1,5 @@
 import { OpenAPIHono } from "@hono/zod-openapi";
-import { orgMembers, users } from "@roastery/db/schema";
+import { orgMembers, rolePermissions, users } from "@roastery/db/schema";
 import {
   createApiKeyInput,
   createApiKeyOutput,
@@ -21,11 +21,12 @@ import {
   revokeOAuthClientInput,
   updateMemberRoleInput,
 } from "@roastery/schemas";
-import { desc, eq } from "drizzle-orm";
-import { BadRequest, NotFound } from "../lib/api/errors";
-import { type RpcAppEnv, registerRpc } from "../lib/api/rpc";
+import { and, desc, eq } from "drizzle-orm";
+import { BadRequest, Forbidden, NotFound } from "../lib/api/errors";
+import { type RpcAppEnv, type RpcContext, registerRpc } from "../lib/api/rpc";
 import { issueApiKey, listApiKeys, revokeApiKey } from "../lib/auth/api-keys";
 import { issueOAuthClient, listOAuthClients, revokeOAuthClient } from "../lib/auth/oauth-clients";
+import { canGrantRole } from "../lib/auth/permissions";
 import type { OrgDb } from "../lib/db/org-db";
 
 /**
@@ -124,12 +125,34 @@ registerRpc(
     if (input.roleSlug !== "owner") {
       await assertNotLastOwner(ctx.db, input.userId);
     }
-    const rows = await ctx.db.update(
-      orgMembers,
-      { roleSlug: input.roleSlug },
-      eq(orgMembers.userId, input.userId),
-    );
-    if (!rows.length) throw new NotFound("Member not found");
+    await assertCanGrant(ctx, input.roleSlug);
+
+    await ctx.db.transaction(async (tx) => {
+      const [existing] = await tx.query(async (t, scope) =>
+        t
+          .select({ roleSlug: orgMembers.roleSlug })
+          .from(orgMembers)
+          .where(and(scope(orgMembers), eq(orgMembers.userId, input.userId)))
+          .limit(1),
+      );
+      if (!existing) throw new NotFound("Member not found");
+
+      await tx.update(
+        orgMembers,
+        { roleSlug: input.roleSlug },
+        eq(orgMembers.userId, input.userId),
+      );
+      await tx.emit({
+        // No published type: who can do what inside one tenant is nobody
+        // else's notification, and adding it to the webhook contract would
+        // mean shipping membership changes to every integrator.
+        type: null,
+        resourceType: "org_member",
+        resourceId: input.userId,
+        action: "role_changed",
+        audit: { from: existing.roleSlug, to: input.roleSlug },
+      });
+    });
     return { ok: true };
   },
 );
@@ -148,11 +171,64 @@ registerRpc(
   },
   async (input, ctx) => {
     await assertNotLastOwner(ctx.db, input.userId);
-    const removed = await ctx.db.delete(orgMembers, eq(orgMembers.userId, input.userId));
-    if (!removed) throw new NotFound("Member not found");
+
+    await ctx.db.transaction(async (tx) => {
+      const [existing] = await tx.query(async (t, scope) =>
+        t
+          .select({ roleSlug: orgMembers.roleSlug })
+          .from(orgMembers)
+          .where(and(scope(orgMembers), eq(orgMembers.userId, input.userId)))
+          .limit(1),
+      );
+      if (!existing) throw new NotFound("Member not found");
+
+      await tx.delete(orgMembers, eq(orgMembers.userId, input.userId));
+      await tx.emit({
+        type: null,
+        resourceType: "org_member",
+        resourceId: input.userId,
+        action: "removed",
+        audit: { roleSlug: existing.roleSlug },
+      });
+    });
     return { ok: true };
   },
 );
+
+/**
+ * Refuses to hand out more than the caller holds.
+ *
+ * `console.credentials.write` allows issuing credentials; it does not say
+ * which ones. Without this, any role holding it could mint an owner-scoped
+ * API key and act through it, and nothing about that would look unusual —
+ * issuing keys is exactly what the permission is for. Today only `owner` holds
+ * it, so there is no live escalation; this is what keeps that true the first
+ * time a custom role is granted it.
+ *
+ * Compares permission SETS, not `roles.rank`. Rank is documented in the schema
+ * and the seed as never being an authorization input, because a hierarchy
+ * expressed as a number confers whatever sits below it — including anything a
+ * later migration adds to a lower role.
+ */
+async function assertCanGrant(ctx: RpcContext, roleSlug: string): Promise<void> {
+  // unscoped-ok: roles and role_permissions are TENANT_GLOBAL reference data —
+  // `roles.slug` is a global primary key, and a built-in role carries no orgId
+  // at all. There is no tenant column here to scope by.
+  const rows = await ctx.db.query(async (t) =>
+    t
+      .select({ permissionSlug: rolePermissions.permissionSlug })
+      .from(rolePermissions)
+      .where(eq(rolePermissions.roleSlug, roleSlug)),
+  );
+  const target = new Set(rows.map((r) => r.permissionSlug));
+  if (target.size === 0) throw new NotFound("Role not found");
+
+  if (!canGrantRole(ctx.permissions, target)) {
+    throw new Forbidden(
+      `You cannot grant the "${roleSlug}" role: it carries permissions you do not hold.`,
+    );
+  }
+}
 
 /**
  * Refuses a change that would leave an organization with no owner.
@@ -224,6 +300,7 @@ registerRpc(
     internal: true,
   },
   async (input, ctx) => {
+    await assertCanGrant(ctx, input.roleSlug);
     const issued = await issueApiKey(ctx.db, {
       name: input.name,
       roleSlug: input.roleSlug,
@@ -231,6 +308,14 @@ registerRpc(
       expiresAt: input.expiresInDays
         ? new Date(Date.now() + input.expiresInDays * 86_400_000)
         : null,
+    });
+    await ctx.db.emit({
+      type: null,
+      resourceType: "api_key",
+      resourceId: issued.id,
+      action: "created",
+      // The key itself is never recorded — only which one, and what it can do.
+      audit: { name: issued.name, start: issued.start, roleSlug: issued.roleSlug },
     });
     return {
       id: issued.id,
@@ -261,6 +346,12 @@ registerRpc(
   async (input, ctx) => {
     const ok = await revokeApiKey(ctx.db, input.id);
     if (!ok) throw new NotFound("API key not found");
+    await ctx.db.emit({
+      type: null,
+      resourceType: "api_key",
+      resourceId: input.id,
+      action: "revoked",
+    });
     return { ok: true };
   },
 );
@@ -309,10 +400,18 @@ registerRpc(
     internal: true,
   },
   async (input, ctx) => {
+    await assertCanGrant(ctx, input.roleSlug);
     const issued = await issueOAuthClient(ctx.db, {
       name: input.name,
       roleSlug: input.roleSlug,
       scopes: input.scopes,
+    });
+    await ctx.db.emit({
+      type: null,
+      resourceType: "oauth_client",
+      resourceId: issued.id,
+      action: "created",
+      audit: { name: issued.name, clientId: issued.clientId, roleSlug: issued.roleSlug },
     });
     return {
       id: issued.id,
