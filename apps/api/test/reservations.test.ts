@@ -1,5 +1,11 @@
 import * as schema from "@roastery/db/schema";
-import { allocations, greenLots, roastedLots, salesOrderLines } from "@roastery/db/schema";
+import {
+  allocations,
+  greenLotReservations,
+  greenLots,
+  roastedLots,
+  salesOrderLines,
+} from "@roastery/db/schema";
 import { and, eq, isNull, sql } from "drizzle-orm";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import type { WorkerDb } from "../src/lib/db/db";
@@ -78,6 +84,66 @@ describe.skipIf(!hasTestDb)("reservations under concurrency", () => {
     const granted = attempts.filter((a) => a.status === "fulfilled").length;
     expect(granted).toBe(5);
     expect(await reservedOn(lotId)).toBe("50.0000");
+  });
+
+  it("writes a ledger row for every change, so the counter can be checked", async () => {
+    // The reservation counter is the only cached weight that had nothing
+    // behind it. With a ledger, SUM(delta_kg) must equal it — which is what
+    // the reconciliation job compares, and what makes a lost update findable
+    // rather than merely wrong.
+    const lotId = await seedLot(scoped, {
+      lotCode: `RES-${crypto.randomUUID().slice(0, 6)}`,
+      weightKg: "40.0000",
+      locationId: warehouse,
+    });
+
+    await scoped.transaction((tx) => adjustReservation(tx, lotId, "12.0000"));
+    await scoped.transaction((tx) => adjustReservation(tx, lotId, "8.0000"));
+    await scoped.transaction((tx) => adjustReservation(tx, lotId, "-5.0000"));
+
+    const rows = await scoped.query(async (t, scope) =>
+      t
+        .select()
+        .from(greenLotReservations)
+        .where(and(scope(greenLotReservations), eq(greenLotReservations.greenLotId, lotId)))
+        .orderBy(greenLotReservations.seq),
+    );
+
+    expect(rows.map((r) => kg.normalize(r.deltaKg))).toEqual(["12.0000", "8.0000", "-5.0000"]);
+    // Monotonic, and unique per lot: the same guard the inventory ledger uses
+    // to stop two writers claiming one position.
+    expect(rows.map((r) => r.seq)).toEqual([1, 2, 3]);
+    // Every row is independently auditable.
+    expect(kg.normalize(rows[2]?.reservedBeforeKg ?? "0")).toBe("20.0000");
+    expect(kg.normalize(rows[2]?.reservedAfterKg ?? "0")).toBe("15.0000");
+
+    const total = rows.reduce((sum, r) => kg.add(sum, r.deltaKg), "0");
+    expect(total).toBe(await reservedOn(lotId));
+  });
+
+  it("keeps the ledger consistent when reserves race", async () => {
+    const lotId = await seedLot(scoped, {
+      lotCode: `RES-${crypto.randomUUID().slice(0, 6)}`,
+      weightKg: "50.0000",
+      locationId: warehouse,
+    });
+
+    await Promise.allSettled(
+      Array.from({ length: 10 }, () =>
+        scoped.transaction((tx) => adjustReservation(tx, lotId, "10.0000")),
+      ),
+    );
+
+    const rows = await scoped.query(async (t, scope) =>
+      t
+        .select()
+        .from(greenLotReservations)
+        .where(and(scope(greenLotReservations), eq(greenLotReservations.greenLotId, lotId))),
+    );
+    // Five grants, five rows, and the sum still equals the counter — a row
+    // written for a reservation that lost the race would be worse than none.
+    expect(rows).toHaveLength(5);
+    expect(rows.reduce((sum, r) => kg.add(sum, r.deltaKg), "0")).toBe(await reservedOn(lotId));
   });
 
   it("refuses to reserve past the CURRENT balance, not the initial one", async () => {

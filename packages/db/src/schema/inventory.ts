@@ -193,6 +193,47 @@ export const inventoryTransactions = pgTable(
  * answering it by scanning the ledger per location is the same O(n) problem
  * the balance cache exists to avoid.
  */
+/**
+ * Every change to a green lot's reservation, append-only.
+ *
+ * The balance has a ledger and can always be recomputed from it; the
+ * reservation counter had nothing, so a lost update to it was undetectable
+ * rather than merely wrong — the one weight in the system with no way to check
+ * itself. Roasted reservations were already derivable from open `allocations`
+ * rows, which is what the reconciliation job compares them against. This gives
+ * green lots the same property.
+ *
+ * Same shape as `inventory_transactions` and for the same reasons: a monotonic
+ * per-lot `seq` with a unique index, so two concurrent writers cannot both
+ * claim the same position, and before/delta/after on every row, so any single
+ * row is independently auditable.
+ */
+export const greenLotReservations = pgTable(
+  "green_lot_reservations",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    orgId: uuid("org_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    greenLotId: uuid("green_lot_id")
+      .notNull()
+      .references(() => greenLots.id, { onDelete: "cascade" }),
+    seq: bigint("seq", { mode: "number" }).notNull(),
+    /** Positive commits weight to work; negative releases it. */
+    deltaKg: numeric("delta_kg", { precision: 14, scale: 4 }).notNull(),
+    reservedBeforeKg: numeric("reserved_before_kg", { precision: 14, scale: 4 }).notNull(),
+    reservedAfterKg: numeric("reserved_after_kg", { precision: 14, scale: 4 }).notNull(),
+    reason: text("reason"),
+    createdBy: text("created_by").references(() => users.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    // The concurrency guard, exactly as on the inventory ledger.
+    uniqueIndex("green_lot_reservations_lot_seq_idx").on(t.greenLotId, t.seq),
+    index("green_lot_reservations_org_lot_idx").on(t.orgId, t.greenLotId, t.createdAt),
+  ],
+);
+
 export const lotLocationBalances = pgTable(
   "lot_location_balances",
   {

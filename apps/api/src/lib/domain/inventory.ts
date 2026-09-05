@@ -1,4 +1,5 @@
 import {
+  greenLotReservations,
   greenLots,
   inventoryTransactions,
   lotConsumption,
@@ -397,6 +398,7 @@ export async function adjustReservation(
   tx: OrgDb,
   greenLotId: string,
   deltaKg: string,
+  reason?: string,
 ): Promise<{ reservedWeightKg: string }> {
   const delta = kg.normalize(deltaKg);
 
@@ -428,6 +430,27 @@ export async function adjustReservation(
       `Only ${available} kg is unreserved on this lot; cannot reserve ${delta} kg.`,
     );
   }
+
+  // The ledger row, written under the same lock as the counter it explains.
+  // Without it the counter was the only record of a reservation, so a lost
+  // update left nothing to reconcile against — the one cached weight in the
+  // system that could not check itself.
+  const [seqRow] = await tx.query(async (t, scope) =>
+    t
+      .select({ seq: sql<number>`coalesce(max(${greenLotReservations.seq}), 0) + 1` })
+      .from(greenLotReservations)
+      .where(and(scope(greenLotReservations), eq(greenLotReservations.greenLotId, greenLotId))),
+  );
+
+  await tx.insert(greenLotReservations, {
+    greenLotId,
+    seq: seqRow?.seq ?? 1,
+    deltaKg: delta,
+    reservedBeforeKg: reserved,
+    reservedAfterKg: next,
+    reason: reason ?? null,
+    createdBy: tx.actor.userId,
+  });
 
   await tx.update(
     greenLots,

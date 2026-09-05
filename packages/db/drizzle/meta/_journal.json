@@ -50,6 +50,20 @@
       "when": 1788618340376,
       "tag": "0006_mature_lady_vermin",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1788618548197,
+      "tag": "0007_great_purifiers",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1788618587079,
+      "tag": "0008_backfill_green_reservations",
+      "breakpoints": true
     }
   ]
 }

@@ -180,6 +180,35 @@ describe.skipIf(!hasTestDb)("reconciliation", () => {
     expect(kg.normalize(found[0]?.driftKg ?? "0")).toBe("12.0000");
   });
 
+  it("catches a green reservation its ledger does not account for", async () => {
+    // Before the reservation ledger existed this was the one cached weight
+    // with nothing to check it against. A counter moved outside
+    // `adjustReservation` is exactly the bug it now catches.
+    const lotId = await seedLot(scoped, {
+      lotCode: "RES-DRIFT",
+      weightKg: "20.0000",
+      locationId: warehouse,
+    });
+    await scoped.update(greenLots, { reservedWeightKg: "6.0000" }, eq(greenLots.id, lotId));
+
+    const found = await findDrift(scoped);
+    expect(found).toHaveLength(1);
+    expect(found[0]).toMatchObject({ kind: "green_reservation", greenLotId: lotId });
+    expect(kg.normalize(found[0]?.driftKg ?? "0")).toBe("6.0000");
+  });
+
+  it("finds no drift for a reservation made the normal way", async () => {
+    const lotId = await seedLot(scoped, {
+      lotCode: "RES-OK",
+      weightKg: "20.0000",
+      locationId: warehouse,
+    });
+    const { adjustReservation } = await import("../src/lib/domain/inventory");
+    await scoped.transaction((tx) => adjustReservation(tx, lotId, "6.0000"));
+
+    expect(await findDrift(scoped)).toEqual([]);
+  });
+
   it("surfaces recorded drift in the daily digest as critical", async () => {
     const lotId = await seedLot(scoped, {
       lotCode: "DRIFT-4",

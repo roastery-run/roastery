@@ -12,10 +12,12 @@
  *   green_ledger         green_lots.current_weight_kg    vs SUM(delta_kg)
  *   roasted_ledger       roasted_lots.current_weight_kg  vs SUM(delta_kg)
  *   roasted_reservation  roasted_lots.reserved_weight_kg vs open allocations
+ *   green_reservation    green_lots.reserved_weight_kg   vs SUM(delta_kg)
  *
- * The third is the one that cannot be recomputed any other way. A reservation
- * has no ledger, so comparing the counter against the allocation rows that
- * justify it is the only way a lost update ever becomes visible.
+ * The last two are the reservation counters, and they are checked differently
+ * because they are justified differently: a roasted reservation is the sum of
+ * the allocation rows that claim it, and a green one is the sum of its own
+ * ledger. Until that ledger existed there was no way to check it at all.
  *
  * Nothing here corrects anything. Drift is recorded and alerted on, because
  * quietly fixing the number destroys the evidence of whatever produced it and
@@ -30,7 +32,11 @@ import { inventoryReconciliations } from "@roastery/db/schema";
 import { sql } from "drizzle-orm";
 import type { OrgDb } from "../db/org-db";
 
-export type DriftKind = "green_ledger" | "roasted_ledger" | "roasted_reservation";
+export type DriftKind =
+  | "green_ledger"
+  | "roasted_ledger"
+  | "roasted_reservation"
+  | "green_reservation";
 
 export type Drift = {
   kind: DriftKind;
@@ -116,6 +122,22 @@ export async function findDrift(db: OrgDb): Promise<Drift[]> {
        group by r.id, r.lot_code, r.reserved_weight_kg
       having r.reserved_weight_kg
              <> coalesce(sum(a.weight_kg) filter (where a.released_at is null), 0)
+
+      union all
+
+      select 'green_reservation',
+             l.id,
+             null::uuid,
+             l.lot_code,
+             coalesce(sum(v.delta_kg), 0)::text,
+             l.reserved_weight_kg::text,
+             (l.reserved_weight_kg - coalesce(sum(v.delta_kg), 0))::text
+        from green_lots l
+        left join green_lot_reservations v
+          on v.green_lot_id = l.id and v.org_id = l.org_id
+       where l.org_id = ${db.orgId}
+       group by l.id, l.lot_code, l.reserved_weight_kg
+      having l.reserved_weight_kg <> coalesce(sum(v.delta_kg), 0)
     `),
   );
 

@@ -207,6 +207,11 @@ export const TENANT_DIRECT = {
     column: s.dataExports.orgId,
     field: "orgId",
   },
+  green_lot_reservations: {
+    table: s.greenLotReservations,
+    column: s.greenLotReservations.orgId,
+    field: "orgId",
+  },
 } satisfies Record<string, DirectTenancy>;
 
 /**
