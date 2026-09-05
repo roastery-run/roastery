@@ -43,7 +43,7 @@ export function CompareTable() {
                   <th
                     scope="colgroup"
                     colSpan={PLANS.length + 1}
-                    className="px-4 py-2 text-left font-medium text-xs uppercase tracking-wide"
+                    className="px-4 py-2 text-left font-medium text-sm"
                   >
                     {row.feature}
                   </th>
@@ -79,7 +79,7 @@ export function CompareTable() {
               <th
                 scope="colgroup"
                 colSpan={PLANS.length + 1}
-                className="px-4 py-2 text-left font-medium text-xs uppercase tracking-wide"
+                className="px-4 py-2 text-left font-medium text-sm"
               >
                 Modules
               </th>

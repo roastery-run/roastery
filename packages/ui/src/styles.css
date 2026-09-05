@@ -9,9 +9,10 @@
  * the cold blue-gray of a stock neutral palette reads as generic software, and
  * this is software people use while standing next to a roaster.
  *
- * Squared corners (0.25rem, not the preset's 0.625rem), hairline rules, flat by
- * default. One ember accent, reserved for live state and the primary action —
- * an accent that appears everywhere accents nothing.
+ * Pill-shaped controls (the maia style's `rounded-4xl` on buttons, badges and
+ * inputs), hairline rules, flat by default. One ember accent, reserved for live
+ * state and the primary action — an accent that appears everywhere accents
+ * nothing.
  *
  * Every foreground/background pair here is verified against WCAG 2.2 AA by
  * lib/tokens.test.ts, which parses THIS FILE. A comment claiming "AA verified"
@@ -87,8 +88,10 @@
   --sidebar-border: oklch(0.906 0.005 75);
   --sidebar-ring: oklch(0.545 0.163 45);
 
-  /* Squared. Rounded corners read as consumer software; this is a tool. */
-  --radius: 0.25rem;
+  /* The maia base. Every radius below is a multiple of this one, and
+     `rounded-4xl` on a 36px control only reads as a pill from here up; at the
+     old squared 0.25rem the same components come out as blunt rectangles. */
+  --radius: 0.625rem;
 }
 
 .dark {

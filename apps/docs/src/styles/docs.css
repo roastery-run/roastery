@@ -36,8 +36,8 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* Squared, like the product. */
+/* The product's radius base, so code blocks match the console's cards. */
 .sl-markdown-content pre,
 .sl-markdown-content code {
-  border-radius: 0.25rem;
+  border-radius: 0.625rem;
 }

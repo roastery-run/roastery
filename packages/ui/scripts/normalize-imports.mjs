@@ -25,11 +25,20 @@ function* walk(dir) {
 let changed = 0;
 for (const file of walk(SRC)) {
   const original = readFileSync(file, "utf8");
-  const updated = original.replace(/(["'])@\/([^"']+)\1/g, (_match, quote, target) => {
-    let specifier = relative(dirname(file), join(SRC, target)).replaceAll("\\", "/");
-    if (!specifier.startsWith(".")) specifier = `./${specifier}`;
-    return `${quote}${specifier}${quote}`;
-  });
+  const updated = original
+    .replace(/(["'])@\/([^"']+)\1/g, (_match, quote, target) => {
+      let specifier = relative(dirname(file), join(SRC, target)).replaceAll("\\", "/");
+      if (!specifier.startsWith(".")) specifier = `./${specifier}`;
+      return `${quote}${specifier}${quote}`;
+    })
+    // shadcn ≥4.21 imports `cn` from an npm package of the same name (and
+    // rewrites lib/utils.ts to re-export it). We keep our own clsx +
+    // tailwind-merge helper, so point those at it too.
+    .replace(/(["'])cn\1/g, (_match, quote) => {
+      let specifier = relative(dirname(file), join(SRC, "lib/utils")).replaceAll("\\", "/");
+      if (!specifier.startsWith(".")) specifier = `./${specifier}`;
+      return `${quote}${specifier}${quote}`;
+    });
   if (updated !== original) {
     writeFileSync(file, updated);
     changed += 1;
