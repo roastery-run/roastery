@@ -44,6 +44,7 @@ import { Route as AppRoastingScheduleRouteImport } from './routes/_app/roasting/
 import { Route as AppSamplesIndexRouteImport } from './routes/_app/samples/index'
 import { Route as AppSettingsIndexRouteImport } from './routes/_app/settings/index'
 import { Route as AppSettingsApiKeysRouteImport } from './routes/_app/settings/api-keys'
+import { Route as AppSettingsDataRouteImport } from './routes/_app/settings/data'
 import { Route as AppSettingsLocationsRouteImport } from './routes/_app/settings/locations'
 import { Route as AppSettingsMembersRouteImport } from './routes/_app/settings/members'
 import { Route as AppSettingsPartnersRouteImport } from './routes/_app/settings/partners'
@@ -225,6 +226,11 @@ const AppSettingsApiKeysRoute = AppSettingsApiKeysRouteImport.update({
   path: '/settings/api-keys',
   getParentRoute: () => AppRoute,
 } as any)
+const AppSettingsDataRoute = AppSettingsDataRouteImport.update({
+  id: '/settings/data',
+  path: '/settings/data',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppSettingsLocationsRoute = AppSettingsLocationsRouteImport.update({
   id: '/settings/locations',
   path: '/settings/locations',
@@ -282,6 +288,7 @@ export interface FileRoutesByFullPath {
   '/roasting/profiles': typeof AppRoastingProfilesRoute
   '/roasting/schedule': typeof AppRoastingScheduleRoute
   '/settings/api-keys': typeof AppSettingsApiKeysRoute
+  '/settings/data': typeof AppSettingsDataRoute
   '/settings/locations': typeof AppSettingsLocationsRoute
   '/settings/members': typeof AppSettingsMembersRoute
   '/settings/partners': typeof AppSettingsPartnersRoute
@@ -324,6 +331,7 @@ export interface FileRoutesByTo {
   '/roasting/profiles': typeof AppRoastingProfilesRoute
   '/roasting/schedule': typeof AppRoastingScheduleRoute
   '/settings/api-keys': typeof AppSettingsApiKeysRoute
+  '/settings/data': typeof AppSettingsDataRoute
   '/settings/locations': typeof AppSettingsLocationsRoute
   '/settings/members': typeof AppSettingsMembersRoute
   '/settings/partners': typeof AppSettingsPartnersRoute
@@ -368,6 +376,7 @@ export interface FileRoutesById {
   '/_app/roasting/profiles': typeof AppRoastingProfilesRoute
   '/_app/roasting/schedule': typeof AppRoastingScheduleRoute
   '/_app/settings/api-keys': typeof AppSettingsApiKeysRoute
+  '/_app/settings/data': typeof AppSettingsDataRoute
   '/_app/settings/locations': typeof AppSettingsLocationsRoute
   '/_app/settings/members': typeof AppSettingsMembersRoute
   '/_app/settings/partners': typeof AppSettingsPartnersRoute
@@ -412,6 +421,7 @@ export interface FileRouteTypes {
     | '/roasting/profiles'
     | '/roasting/schedule'
     | '/settings/api-keys'
+    | '/settings/data'
     | '/settings/locations'
     | '/settings/members'
     | '/settings/partners'
@@ -454,6 +464,7 @@ export interface FileRouteTypes {
     | '/roasting/profiles'
     | '/roasting/schedule'
     | '/settings/api-keys'
+    | '/settings/data'
     | '/settings/locations'
     | '/settings/members'
     | '/settings/partners'
@@ -497,6 +508,7 @@ export interface FileRouteTypes {
     | '/_app/roasting/profiles'
     | '/_app/roasting/schedule'
     | '/_app/settings/api-keys'
+    | '/_app/settings/data'
     | '/_app/settings/locations'
     | '/_app/settings/members'
     | '/_app/settings/partners'
@@ -768,6 +780,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppSettingsApiKeysRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/settings/data': {
+      id: '/_app/settings/data'
+      path: '/settings/data'
+      fullPath: '/settings/data'
+      preLoaderRoute: typeof AppSettingsDataRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/settings/locations': {
       id: '/_app/settings/locations'
       path: '/settings/locations'
@@ -836,6 +855,7 @@ interface AppRouteChildren {
   AppRoastingProfilesRoute: typeof AppRoastingProfilesRoute
   AppRoastingScheduleRoute: typeof AppRoastingScheduleRoute
   AppSettingsApiKeysRoute: typeof AppSettingsApiKeysRoute
+  AppSettingsDataRoute: typeof AppSettingsDataRoute
   AppSettingsLocationsRoute: typeof AppSettingsLocationsRoute
   AppSettingsMembersRoute: typeof AppSettingsMembersRoute
   AppSettingsPartnersRoute: typeof AppSettingsPartnersRoute
@@ -876,6 +896,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppRoastingProfilesRoute: AppRoastingProfilesRoute,
   AppRoastingScheduleRoute: AppRoastingScheduleRoute,
   AppSettingsApiKeysRoute: AppSettingsApiKeysRoute,
+  AppSettingsDataRoute: AppSettingsDataRoute,
   AppSettingsLocationsRoute: AppSettingsLocationsRoute,
   AppSettingsMembersRoute: AppSettingsMembersRoute,
   AppSettingsPartnersRoute: AppSettingsPartnersRoute,

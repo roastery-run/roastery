@@ -159,6 +159,24 @@ export const requestDataExportInput = z.object({});
 export const getDataExportInput = z.object({ id: uuidSchema });
 
 /**
+ * An export is one file per table, so there is no single URL to hand back.
+ *
+ * Each link is signed and expires with the export itself. Listing them with
+ * their row counts is also what lets a recipient tell a complete export from a
+ * truncated one — a directory of files with no manifest is indistinguishable
+ * from a job that stopped halfway.
+ */
+export const dataExportFileSchema = z.object({
+  table: z.string(),
+  rows: z.number(),
+  url: z.string(),
+});
+
+export const getDataExportOutput = dataExportSchema.extend({
+  files: z.array(dataExportFileSchema),
+});
+
+/**
  * Deleting the organization.
  *
  * The slug has to be typed back. It is the one operation in the product that

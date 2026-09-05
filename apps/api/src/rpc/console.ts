@@ -20,6 +20,7 @@ import {
   getAccessInput,
   getAccessOutput,
   getDataExportInput,
+  getDataExportOutput,
   getEntitlementsInput,
   listApiKeysInput,
   listApiKeysOutput,
@@ -35,13 +36,14 @@ import {
   updateMemberRoleInput,
 } from "@roastery/schemas";
 import { and, desc, eq, sql } from "drizzle-orm";
-import { z } from "zod";
 import { BadRequest, Conflict, Forbidden, NotFound } from "../lib/api/errors";
 import { type RpcAppEnv, type RpcContext, registerRpc } from "../lib/api/rpc";
 import { issueApiKey, listApiKeys, revokeApiKey } from "../lib/auth/api-keys";
 import { issueOAuthClient, listOAuthClients, revokeOAuthClient } from "../lib/auth/oauth-clients";
 import { canGrantRole } from "../lib/auth/permissions";
 import type { OrgDb } from "../lib/db/org-db";
+import type { ExportManifest } from "../lib/domain/tenant-lifecycle";
+import { downloadSigningKey, signDownload } from "../lib/reporting/signed-url";
 
 /**
  * Operations the console needs that are not part of the coffee domain.
@@ -598,7 +600,7 @@ registerRpc(
     operation: "getDataExport",
     summary: "Check an export, and get its download link",
     input: getDataExportInput,
-    output: dataExportSchema.extend({ downloadUrl: z.string().nullable() }),
+    output: getDataExportOutput,
     permission: "console.data.export",
     module: "core",
     internal: true,
@@ -606,7 +608,42 @@ registerRpc(
   async (input, ctx) => {
     const row = await ctx.db.findOne(dataExports, eq(dataExports.id, input.id));
     if (!row) throw new NotFound("Export not found");
-    return { ...toExportDto(row), downloadUrl: null };
+
+    const dto = toExportDto(row);
+    if (row.status !== "ready" || !row.objectKey || !dto.manifest) {
+      return { ...dto, files: [] };
+    }
+
+    // One signature for the whole export rather than one per file: every file
+    // belongs to the same organization and the same request, so a token that
+    // opened one and not another would be a distinction without a difference.
+    // It expires with the export.
+    const expiresAt = Math.floor((row.expiresAt?.getTime() ?? Date.now()) / 1000);
+    const { token } = await signDownload(downloadSigningKey(ctx.env), {
+      reportId: row.id,
+      orgId: ctx.orgId,
+      expiresAt,
+    });
+    const base = ctx.env.BETTER_AUTH_URL.replace(/\/$/, "");
+    const query = `org=${ctx.orgId}&expires=${expiresAt}&token=${token}`;
+
+    return {
+      ...dto,
+      files: [
+        // The manifest first: it is what tells a recipient the export is
+        // complete, and it names everything below.
+        {
+          table: "manifest",
+          rows: dto.manifest.tables.length,
+          url: `${base}/exports/v1/${row.id}/manifest.json?${query}`,
+        },
+        ...dto.manifest.tables.map((t) => ({
+          table: t.table,
+          rows: t.rows,
+          url: `${base}/exports/v1/${row.id}/${t.file}?${query}`,
+        })),
+      ],
+    };
   },
 );
 
@@ -692,7 +729,10 @@ function toExportDto(row: typeof dataExports.$inferSelect) {
   return {
     id: row.id,
     status: row.status as "queued" | "ready" | "failed",
-    manifest: (row.manifest as never) ?? null,
+    // jsonb, so the driver types it `unknown`. `runExport` is the only writer
+    // and builds it from `ExportManifest`; the response schema validates it on
+    // the way out.
+    manifest: (row.manifest as ExportManifest | null) ?? null,
     error: row.error ?? null,
     expiresAt: row.expiresAt?.toISOString() ?? null,
     completedAt: row.completedAt?.toISOString() ?? null,

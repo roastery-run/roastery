@@ -111,7 +111,21 @@ const EXPIRES_AFTER_HOURS = 48;
  * A multipart upload is only started for a table big enough to need one; the
  * great majority are a few kilobytes and go in a single write.
  */
-export async function runExport(db: WorkerDb, env: Env, exportId: string): Promise<void> {
+export async function runExport(
+  db: WorkerDb,
+  env: Env,
+  exportId: string,
+  /**
+   * A seam for the tests, and only that.
+   *
+   * The multipart path only engages once a table exceeds R2's minimum part
+   * size, so at real thresholds it is unreachable from a test without
+   * generating five megabytes of rows. It is also the part most worth testing:
+   * parts are numbered from one, the last may be short, and getting the order
+   * wrong produces a corrupted file rather than an error.
+   */
+  options: { minPartBytes?: number } = {},
+): Promise<void> {
   const [row] = await db.select().from(dataExports).where(eq(dataExports.id, exportId)).limit(1);
   if (row?.status !== "queued") return;
 
@@ -124,7 +138,7 @@ export async function runExport(db: WorkerDb, env: Env, exportId: string): Promi
 
     for (const table of exportableTables()) {
       const file = `${table.name}.ndjson`;
-      const rows = await writeTable(db, env, `${prefix}/${file}`, table, orgId);
+      const rows = await writeTable(db, env, `${prefix}/${file}`, table, orgId, options);
       tables.push({ table: table.name, rows, file });
     }
 
@@ -179,9 +193,11 @@ async function writeTable(
   key: string,
   table: { name: string; sql: (orgId: string, limit: number, offset: number) => string },
   orgId: string,
+  options: { minPartBytes?: number } = {},
 ): Promise<number> {
   const bucket = env.ROASTERY_R2;
   if (!bucket) throw new Error("Object storage is not configured");
+  const minPartBytes = options.minPartBytes ?? MIN_PART_BYTES;
 
   type Upload = Awaited<ReturnType<R2Bucket["createMultipartUpload"]>>;
   let upload: Upload | undefined;
@@ -211,7 +227,7 @@ async function writeTable(
     rows += records.length;
     offset += records.length;
 
-    if (buffer.length >= MIN_PART_BYTES) await flush();
+    if (buffer.length >= minPartBytes) await flush();
     if (records.length < PAGE_SIZE) break;
   }
 
