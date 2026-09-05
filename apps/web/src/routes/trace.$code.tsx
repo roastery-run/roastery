@@ -1,3 +1,4 @@
+import type { TraceSnapshot } from "@roastery/schemas";
 import { EmptyState } from "@roastery/ui";
 import { formatCountry, formatDate, formatPercent, humanize } from "@roastery/units";
 import { createFileRoute, notFound } from "@tanstack/react-router";
@@ -16,25 +17,15 @@ import { Coffee, Mountain, RefreshCw } from "lucide-react";
  * It reads a FROZEN snapshot. Lots get merged and consumed after coffee ships,
  * so a live query would describe something other than what is in the bag.
  */
-type Trace = {
-  qrToken: string;
-  issuedAt: string;
-  coffee: {
-    name: string;
-    lotCode: string;
-    roastLevel: string | null;
-    roastedAt: string | null;
-  };
-  origins: {
-    producer: string | null;
-    country: string | null;
-    region: string | null;
-    altitude: string | null;
-    process: string | null;
-    varieties: string[];
-  }[];
-  roast: { batchNumber: string; roastedAt: string | null; weightLossPct: string | null } | null;
-};
+/**
+ * The certificate's shape, imported rather than restated.
+ *
+ * This was a hand-written copy of what the API returns, kept in sync by
+ * nobody. `traceSnapshotSchema` is now the single declaration, and the one
+ * place a drift would show up is a page printed on a bag somebody has already
+ * bought — which is the worst possible place to find out.
+ */
+type Trace = TraceSnapshot & { qrToken: string; issuedAt: string };
 
 /**
  * Runs on the server, so the API base is a server-side environment variable and

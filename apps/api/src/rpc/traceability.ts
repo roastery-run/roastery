@@ -7,6 +7,7 @@ import {
   issueCertificateInput,
   listCertificatesInput,
   listCertificatesOutput,
+  type TraceSnapshot,
   traceabilityRecordSchema,
   traceInput,
   traceOutput,
@@ -155,7 +156,11 @@ registerRpc(
       qrToken: row.qrToken,
       roastedLotId: row.roastedLotId ?? null,
       orderLineId: row.orderLineId ?? null,
-      snapshot: row.snapshot,
+      // The column is jsonb, so the driver hands back `unknown`. What was
+      // written is `traceSnapshotSchema` — built above in this same module —
+      // and the response schema validates it on the way out, which is where a
+      // mismatch would actually be caught.
+      snapshot: row.snapshot as TraceSnapshot,
       issuedAt: row.issuedAt.toISOString(),
     };
   },
@@ -187,7 +192,7 @@ registerRpc(
         qrToken: r.qrToken,
         roastedLotId: r.roastedLotId ?? null,
         orderLineId: r.orderLineId ?? null,
-        snapshot: r.snapshot,
+        snapshot: r.snapshot as TraceSnapshot,
         issuedAt: r.issuedAt.toISOString(),
       })),
       page,

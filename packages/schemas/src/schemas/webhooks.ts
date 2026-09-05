@@ -229,7 +229,21 @@ export const eventSchema = z.object({
   sequence: z.number(),
   resourceType: z.string(),
   resourceId: z.string(),
-  payload: z.unknown(),
+  /**
+   * The union of every event type's payload, and deliberately still open.
+   *
+   * Narrowing this to a discriminated union keyed on `type` is the right end
+   * state — it would let a consumer switch on the type and get a checked shape,
+   * and it would catch a handler that emits a payload missing its identifying
+   * fields. It is not a change to make by reverse-engineering the thirty-odd
+   * shapes currently emitted: each one becomes a published contract the moment
+   * it is written down, and a shape declared wrong is worse than one declared
+   * open.
+   *
+   * What is guaranteed today, and enforced by `event-contract.test.ts`: `type`
+   * is one of `EVENT_TYPES`, and every one of those is emitted by something.
+   */
+  payload: z.record(z.string(), z.unknown()),
   occurredAt: z.string(),
 });
 
