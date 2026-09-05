@@ -103,6 +103,12 @@ export type Env = {
   INGEST_LIMITER?: RateLimit;
   AUTH_RATE_LIMITER?: RateLimit;
   SESSION_RATE_LIMITER?: RateLimit;
+  /**
+   * Sending sign-in links. Much tighter than the general auth budget, because
+   * this is the endpoint that puts mail in a stranger's inbox on our
+   * reputation.
+   */
+  MAGIC_LINK_LIMITER?: RateLimit;
   /** Signed report downloads. Its own namespace: sharing the auth limiter let
    * a burst of downloads lock an office out of sign-in. */
   REPORTS_LIMITER?: RateLimit;
@@ -127,6 +133,19 @@ export type Env = {
   EMAIL_FROM?: string;
 
   BETTER_AUTH_SECRET: string;
+  /**
+   * Signs report download links.
+   *
+   * Separate from BETTER_AUTH_SECRET, which signs sessions, because the two
+   * have different rotation stories. Rotating the session secret to respond to
+   * an incident would otherwise invalidate every outstanding download link as
+   * a side effect — and a compromise of one would be a compromise of both.
+   *
+   * Optional, and falls back to the session secret: an existing deployment
+   * that has not set it keeps working, and its links keep verifying, rather
+   * than every one of them breaking on the deploy that introduces this.
+   */
+  DOWNLOAD_SIGNING_KEY?: string;
   /**
    * Key-encryption key for webhook signing secrets: 32 base64-encoded bytes.
    *

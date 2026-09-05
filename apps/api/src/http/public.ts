@@ -10,7 +10,7 @@ import { eq } from "drizzle-orm";
 import { Hono } from "hono";
 import type { Env } from "../env";
 import { closeWorkerDb, createWorkerDb, safeExecutionCtx } from "../lib/db/db";
-import { verifyDownload } from "../lib/reporting/signed-url";
+import { downloadSigningKey, verifyDownload } from "../lib/reporting/signed-url";
 
 export const publicRoutes = new Hono<{ Bindings: Env }>();
 
@@ -77,7 +77,7 @@ publicRoutes.get("/reports/v1/:id", async (c) => {
   }
 
   const verdict = await verifyDownload(
-    c.env.BETTER_AUTH_SECRET,
+    downloadSigningKey(c.env),
     { reportId: id, orgId, expiresAt: expires },
     token,
   );

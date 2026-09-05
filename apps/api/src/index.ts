@@ -127,9 +127,20 @@ app.use(
 // protects the unauthenticated, email-sending endpoints.
 app.use("/api/auth/*", async (c, next) => {
   const isSessionRead = c.req.path.includes("get-session");
+  // Sending a sign-in link is the one auth endpoint that puts mail in a
+  // stranger's inbox at our expense and under our sending reputation. At the
+  // general auth budget that is twenty emails a minute to addresses of the
+  // caller's choosing, so it gets its own, much tighter namespace.
+  //
+  // Better Auth had a rule for exactly this — three per five minutes — backed
+  // by in-memory storage, which on Workers is per-isolate and therefore
+  // enforced nothing. This is that rule, somewhere it can hold.
+  const isMagicLink = c.req.path.includes("sign-in/magic-link");
   const limiter = isSessionRead
     ? rateLimit("SESSION_RATE_LIMITER", { limit: 300, windowMs: 60_000 })
-    : rateLimit("AUTH_RATE_LIMITER", { limit: 20, windowMs: 60_000 });
+    : isMagicLink
+      ? rateLimit("MAGIC_LINK_LIMITER", { limit: 5, windowMs: 60_000 })
+      : rateLimit("AUTH_RATE_LIMITER", { limit: 20, windowMs: 60_000 });
   return limiter(c as never, next);
 });
 

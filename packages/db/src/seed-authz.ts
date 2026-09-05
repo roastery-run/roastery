@@ -380,3 +380,33 @@ export const PLANS: PlanSeed[] = [
     },
   },
 ];
+
+/**
+ * A version stamp for the authorization vocabulary, derived from its content.
+ *
+ * Permission sets are cached — in KV for an hour, and in an isolate-level Map
+ * — which is what keeps an authorization check off the database on every
+ * request. The cost was that a permission granted by a migration took up to an
+ * hour to become effective, with no way to hurry it: the cache key was the
+ * constant string "builtin", so a deploy could not invalidate it.
+ *
+ * Keying on the content instead means a release that changes a grant reads
+ * through immediately, and the old entries expire on their own. A change to
+ * this data is exactly when the cache must not be trusted.
+ *
+ * Computed synchronously with a small non-cryptographic hash: this is a cache
+ * key, not a signature, and it runs at module load in a Worker.
+ */
+export const AUTHZ_VERSION: string = (() => {
+  const material = JSON.stringify([
+    PERMISSIONS.map((p) => p.slug),
+    ROLES.map((r) => [r.slug, r.grants]),
+  ]);
+  // FNV-1a, 32-bit.
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < material.length; i++) {
+    hash ^= material.charCodeAt(i);
+    hash = Math.imul(hash, 0x01000193) >>> 0;
+  }
+  return hash.toString(36);
+})();

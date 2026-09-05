@@ -1,4 +1,5 @@
 import { rolePermissions } from "@roastery/db/schema";
+import { AUTHZ_VERSION } from "@roastery/db/seed-authz";
 import { eq } from "drizzle-orm";
 import type { Env } from "../../env";
 import type { WorkerDb } from "../db/db";
@@ -23,9 +24,16 @@ export function can(perms: ReadonlySet<string>, permission: string): boolean {
 }
 
 /**
- * Built-in roles are shared across tenants and immutable, so they are safe to
- * cache for the life of an isolate. Custom roles are not, and are keyed by a
- * per-org epoch instead (below).
+ * Built-in roles are shared across tenants and immutable WITHIN A RELEASE, so
+ * they are safe to cache for the life of an isolate. Custom roles are not, and
+ * are keyed by a per-org epoch instead (below).
+ *
+ * "Within a release" is the part that used to be missing. The cache key was
+ * the constant "builtin", so a migration that granted a built-in role a new
+ * permission took up to an hour to take effect and nothing could hurry it —
+ * the operation it guarded simply denied, for everyone, including owners.
+ * `AUTHZ_VERSION` is derived from the grants themselves, so a release that
+ * changes them reads through at once.
  */
 const builtinCache = new Map<string, { perms: Set<string>; at: number }>();
 const BUILTIN_TTL_MS = 60_000;
@@ -48,20 +56,24 @@ async function loadRolePermissions(
 ): Promise<Set<string>> {
   const isBuiltin = BUILTIN_ROLES.has(roleSlug);
 
+  // The isolate cache is keyed by version too: an isolate can outlive a
+  // deploy, and a warm one serving last release's grants is the same bug in a
+  // shorter window.
+  const builtinKey = `${roleSlug}:${AUTHZ_VERSION}`;
   if (isBuiltin) {
-    const hit = builtinCache.get(roleSlug);
+    const hit = builtinCache.get(builtinKey);
     if (hit && Date.now() - hit.at < BUILTIN_TTL_MS) return hit.perms;
   }
 
   const epoch = isBuiltin
-    ? "builtin"
+    ? AUTHZ_VERSION
     : ((await env.ROASTERY_KV.get(permissionEpochKey(orgId))) ?? "0");
   const kvKey = `perms:${roleSlug}:${epoch}`;
 
   const cached = await env.ROASTERY_KV.get<string[]>(kvKey, "json");
   if (cached) {
     const set = new Set(cached);
-    if (isBuiltin) builtinCache.set(roleSlug, { perms: set, at: Date.now() });
+    if (isBuiltin) builtinCache.set(builtinKey, { perms: set, at: Date.now() });
     return set;
   }
 
@@ -72,7 +84,7 @@ async function loadRolePermissions(
   const set = new Set(rows.map((r) => r.p));
 
   await env.ROASTERY_KV.put(kvKey, JSON.stringify([...set]), { expirationTtl: 3600 });
-  if (isBuiltin) builtinCache.set(roleSlug, { perms: set, at: Date.now() });
+  if (isBuiltin) builtinCache.set(builtinKey, { perms: set, at: Date.now() });
   return set;
 }
 

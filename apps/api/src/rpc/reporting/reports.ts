@@ -21,7 +21,11 @@ import {
 import { and, eq, type SQL } from "drizzle-orm";
 import { BadRequest, Conflict, NotFound } from "../../lib/api/errors";
 import { type RpcAppEnv, registerRpc } from "../../lib/api/rpc";
-import { DEFAULT_TTL_SECONDS, signDownload } from "../../lib/reporting/signed-url";
+import {
+  DEFAULT_TTL_SECONDS,
+  downloadSigningKey,
+  signDownload,
+} from "../../lib/reporting/signed-url";
 
 export const reporting = new OpenAPIHono<RpcAppEnv>();
 
@@ -155,7 +159,7 @@ registerRpc(
 
     const ttl = input.expiresInSeconds ?? DEFAULT_TTL_SECONDS;
     const expiresAt = Math.floor(Date.now() / 1000) + ttl;
-    const { token } = await signDownload(ctx.env.BETTER_AUTH_SECRET, {
+    const { token } = await signDownload(downloadSigningKey(ctx.env), {
       reportId: row.id,
       orgId: ctx.orgId,
       expiresAt,

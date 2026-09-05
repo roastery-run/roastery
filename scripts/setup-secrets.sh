@@ -71,6 +71,9 @@ put_secret CF_ACCOUNT_ID
 put_secret CF_ANALYTICS_TOKEN
 # Gates /health?deep=1. The uptime monitor sends it as X-Health-Token.
 put_secret HEALTH_TOKEN
+# Signs report download links. Separate from BETTER_AUTH_SECRET so rotating a
+# session secret does not invalidate every outstanding link.
+put_secret DOWNLOAD_SIGNING_KEY
 
 put_secret GITHUB_CLIENT_ID
 put_secret GITHUB_CLIENT_SECRET

@@ -228,13 +228,22 @@ export function createAuth(db: WorkerDb, env: AuthEnv, sendEmail?: EmailSender) 
       // that off the database.
       cookieCache: { enabled: true, maxAge: 60 },
     },
-    rateLimit: {
-      enabled: true,
-      storage: "memory",
-      window: 60,
-      max: 60,
-      customRules: { "/sign-in/magic-link": { window: 300, max: 3 } },
-    },
+    /**
+     * Deliberately DISABLED, and the enforcement lives in the Worker instead.
+     *
+     * This was configured with `storage: "memory"` and a strict custom rule for
+     * magic links — three per five minutes. On Workers that rule cannot hold:
+     * memory is per-isolate, isolates are numerous and short-lived, so a caller
+     * spread across them is never limited while a legitimate user can be
+     * limited by whichever warm isolate they happen to land on. It read like a
+     * control and was neither.
+     *
+     * `AUTH_RATE_LIMITER` in `apps/api` is the real one — a Cloudflare rate
+     * limiting binding, shared across the whole deployment, keyed on
+     * `cf-connecting-ip`. Leaving a second, weaker mechanism configured here
+     * would mean two places to look and one of them lying.
+     */
+    rateLimit: { enabled: false },
     // Without this Better Auth cannot determine a client IP on Workers and
     // falls back to ONE shared bucket per path — meaning a single abusive
     // caller rate-limits every other tenant. cf-connecting-ip is set by

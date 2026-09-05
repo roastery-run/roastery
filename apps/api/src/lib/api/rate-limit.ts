@@ -53,6 +53,7 @@ export function rateLimit(
     | "INGEST_LIMITER"
     | "AUTH_RATE_LIMITER"
     | "SESSION_RATE_LIMITER"
+    | "MAGIC_LINK_LIMITER"
     | "REPORTS_LIMITER"
     | "STREAM_LIMITER"
   >,
