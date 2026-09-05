@@ -77,6 +77,12 @@ describe.skipIf(!hasTestDb)("shot partitions", () => {
     const month = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + far, 15));
     const name = monthName(far);
 
+    // The database outlives the test run, so a partition left by a previous
+    // run would send the row straight into it and there would be no wedge to
+    // reproduce. Start from the state the bug needs: no partition, row in the
+    // default.
+    await db.execute(sql.raw(`DROP TABLE IF EXISTS ${name}`));
+
     await db.execute(sql`
       insert into espresso_shots
         (org_id, site_id, machine_id, external_id, pulled_at, dose_g, yield_g, duration_s)
