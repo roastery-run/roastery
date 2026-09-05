@@ -10,8 +10,10 @@ import {
   CardTitle,
   cn,
   EmptyState,
+  Field,
+  FieldDescription,
+  FieldLabel,
   Input,
-  Label,
   PageHeader,
   rpc,
   rpcMutate,
@@ -232,30 +234,31 @@ function BomEditor() {
               </CardHeader>
               <CardContent className="space-y-3">
                 <div className="grid gap-3 sm:grid-cols-2">
-                  <div className="space-y-1.5">
-                    <Label htmlFor="bom-name">Name</Label>
+                  <Field>
+                    <FieldLabel htmlFor="bom-name">Name</FieldLabel>
                     <Input
                       id="bom-name"
                       value={name}
                       onChange={(event) => setName(event.target.value)}
                       placeholder="250 g retail bag"
                     />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="yield">Yield per run</Label>
+                  </Field>
+                  <Field>
+                    <FieldLabel htmlFor="yield">Yield per run</FieldLabel>
                     <Input
                       id="yield"
+                      aria-describedby="yield-description"
                       value={yieldQty}
                       onChange={(event) => setYieldQty(event.target.value)}
                       inputMode="numeric"
                       className="font-mono"
                     />
-                    <p className="text-muted-foreground text-xs">
+                    <FieldDescription id="yield-description" className="text-xs">
                       {/* A run that makes 12 bags consumes one carton, not
                           twelve — which is the whole reason yield exists. */}
                       How many finished units one run of this recipe makes.
-                    </p>
-                  </div>
+                    </FieldDescription>
+                  </Field>
                 </div>
               </CardContent>
             </Card>
@@ -392,8 +395,8 @@ function BomEditor() {
                 <CardTitle className="text-sm">What a run would need</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
-                <div className="space-y-1.5">
-                  <Label htmlFor="planned">Finished units planned</Label>
+                <Field>
+                  <FieldLabel htmlFor="planned">Finished units planned</FieldLabel>
                   <Input
                     id="planned"
                     value={planned}
@@ -401,7 +404,7 @@ function BomEditor() {
                     inputMode="numeric"
                     className="font-mono"
                   />
-                </div>
+                </Field>
 
                 {requirements.isLoading ? (
                   <Skeleton className="h-24 w-full" />

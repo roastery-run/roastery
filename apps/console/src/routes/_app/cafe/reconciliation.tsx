@@ -5,8 +5,9 @@ import {
   CardHeader,
   CardTitle,
   DataTable,
+  Field,
+  FieldLabel,
   Input,
-  Label,
   PageHeader,
   rpc,
   rpcMutate,
@@ -153,8 +154,8 @@ function Reconciliation() {
               reconcile.mutate();
             }}
           >
-            <div className="space-y-1.5">
-              <Label htmlFor="site">Site</Label>
+            <Field>
+              <FieldLabel htmlFor="site">Site</FieldLabel>
               <Select value={selected} onValueChange={setSiteId}>
                 <SelectTrigger id="site" className="w-56">
                   <SelectValue placeholder="Choose a site" />
@@ -167,17 +168,17 @@ function Reconciliation() {
                   ))}
                 </SelectContent>
               </Select>
-            </div>
+            </Field>
 
-            <div className="space-y-1.5">
-              <Label htmlFor="date">Business date</Label>
+            <Field>
+              <FieldLabel htmlFor="date">Business date</FieldLabel>
               <Input
                 id="date"
                 type="date"
                 value={businessDate}
                 onChange={(event) => setBusinessDate(event.target.value)}
               />
-            </div>
+            </Field>
 
             <Button type="submit" disabled={reconcile.isPending || !selected}>
               <Scale className="size-3.5" aria-hidden="true" />

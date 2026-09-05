@@ -1,5 +1,5 @@
-import { Button, Input, Label } from "@roastery/ui";
-import { Loader2, Mail } from "lucide-react";
+import { Button, Field, FieldLabel, Input, Spinner } from "@roastery/ui";
+import { Mail } from "lucide-react";
 import type * as React from "react";
 
 function GitHubMark() {
@@ -101,7 +101,7 @@ export function LoginForm({
       {error ? (
         <p
           role="alert"
-          className="mb-5 border border-destructive/30 bg-destructive/10 px-3 py-2 text-destructive text-sm"
+          className="mb-5 rounded-xl border border-destructive/30 bg-destructive/10 px-3 py-2 text-destructive text-sm"
         >
           {error}
         </p>
@@ -109,26 +109,16 @@ export function LoginForm({
 
       <div className="flex flex-col gap-2">
         <Button type="button" variant="outline" disabled={busy} onClick={onGitHub}>
-          {loading === "github" ? (
-            <Loader2 className="size-4 animate-spin" aria-hidden="true" />
-          ) : (
-            <GitHubMark />
-          )}
+          {loading === "github" ? <Spinner /> : <GitHubMark />}
           Continue with GitHub
         </Button>
         <Button type="button" variant="outline" disabled={busy} onClick={onGoogle}>
-          {loading === "google" ? (
-            <Loader2 className="size-4 animate-spin" aria-hidden="true" />
-          ) : (
-            <GoogleMark />
-          )}
+          {loading === "google" ? <Spinner /> : <GoogleMark />}
           Continue with Google
         </Button>
         {onSso ? (
           <Button type="button" variant="outline" disabled={busy} onClick={onSso}>
-            {loading === "sso" ? (
-              <Loader2 className="size-4 animate-spin" aria-hidden="true" />
-            ) : null}
+            {loading === "sso" ? <Spinner /> : null}
             Continue with SSO
           </Button>
         ) : null}
@@ -141,21 +131,21 @@ export function LoginForm({
       </div>
 
       <div className="flex flex-col gap-2">
-        <Label htmlFor="email">Work email</Label>
-        <Input
-          id="email"
-          type="email"
-          autoComplete="email"
-          required
-          placeholder="you@roastery.example"
-          value={email}
-          onChange={(event) => onEmailChange(event.target.value)}
-          disabled={busy}
-        />
+        <Field>
+          <FieldLabel htmlFor="email">Work email</FieldLabel>
+          <Input
+            id="email"
+            type="email"
+            autoComplete="email"
+            required
+            placeholder="you@roastery.example"
+            value={email}
+            onChange={(event) => onEmailChange(event.target.value)}
+            disabled={busy}
+          />
+        </Field>
         <Button type="submit" disabled={busy || email.trim() === ""}>
-          {loading === "email" ? (
-            <Loader2 className="size-4 animate-spin" aria-hidden="true" />
-          ) : null}
+          {loading === "email" ? <Spinner /> : null}
           Email me a link
         </Button>
       </div>

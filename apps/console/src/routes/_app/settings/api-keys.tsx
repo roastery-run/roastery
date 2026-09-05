@@ -1,6 +1,15 @@
 import {
   Alert,
   AlertDescription,
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
   AlertTitle,
   Button,
   Card,
@@ -8,8 +17,14 @@ import {
   CardHeader,
   CardTitle,
   EmptyState,
+  Field,
+  FieldLabel,
   Input,
-  Label,
+  Item,
+  ItemActions,
+  ItemContent,
+  ItemDescription,
+  ItemTitle,
   PageHeader,
   rpc,
   rpcMutate,
@@ -18,6 +33,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+  Spinner,
   StatusBadge,
 } from "@roastery/ui";
 import { formatDate, formatRelative } from "@roastery/units";
@@ -94,7 +110,7 @@ function ApiKeys() {
               It is stored hashed and cannot be shown again. A lost key is replaced, not retrieved.
             </p>
             <div className="flex items-center gap-2">
-              <code className="flex-1 overflow-x-auto rounded-sm bg-muted px-2 py-1 font-mono text-xs">
+              <code className="flex-1 overflow-x-auto rounded-lg bg-muted px-2 py-1 font-mono text-xs">
                 {issued}
               </code>
               <Button
@@ -129,8 +145,8 @@ function ApiKeys() {
                 create.mutate();
               }}
             >
-              <div className="min-w-56 flex-1 space-y-1.5">
-                <Label htmlFor="name">Name</Label>
+              <Field className="min-w-56 flex-1">
+                <FieldLabel htmlFor="name">Name</FieldLabel>
                 <Input
                   id="name"
                   value={name}
@@ -138,9 +154,9 @@ function ApiKeys() {
                   placeholder="What this key is for"
                   required
                 />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="role">Role</Label>
+              </Field>
+              <Field className="w-auto">
+                <FieldLabel htmlFor="role">Role</FieldLabel>
                 <Select value={roleSlug} onValueChange={setRoleSlug}>
                   <SelectTrigger id="role" className="w-44">
                     <SelectValue />
@@ -153,9 +169,9 @@ function ApiKeys() {
                     ))}
                   </SelectContent>
                 </Select>
-              </div>
+              </Field>
               <Button type="submit" disabled={create.isPending || !name.trim()}>
-                <Plus className="size-3.5" aria-hidden="true" />
+                {create.isPending ? <Spinner /> : <Plus className="size-3.5" aria-hidden="true" />}
                 Issue
               </Button>
             </form>
@@ -174,36 +190,83 @@ function ApiKeys() {
           {items.length === 0 ? (
             <EmptyState icon={KeyRound} title="No API keys yet" className="border-0" />
           ) : (
+            // A real <ul>/<li> rather than ItemGroup: that component marks
+            // itself role="list" but Item never claims listitem, so the pair
+            // announces as a list with nothing in it.
             <ul className="divide-y divide-border">
               {items.map((key) => (
-                <li key={key.id} className="flex flex-wrap items-center gap-3 py-3">
-                  <div className="min-w-0 flex-1">
-                    <div className="truncate font-medium text-sm">{key.name}</div>
-                    <div className="text-muted-foreground text-xs">
-                      <span className="font-mono">{key.start ?? "sk_"}…</span> · {key.roleSlug} ·
-                      created {formatDate(key.createdAt)}
-                      {key.lastRequest
-                        ? ` · last used ${formatRelative(key.lastRequest)}`
-                        : " · never used"}
-                    </div>
-                  </div>
-                  <StatusBadge status={key.enabled ? "active" : "disabled"} />
-                  {can("console.credentials.write") && key.enabled ? (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => revoke.mutate(key.id)}
-                      disabled={revoke.isPending}
-                    >
-                      Revoke
-                    </Button>
-                  ) : null}
-                </li>
+                <Item key={key.id} asChild size="sm" className="px-0">
+                  <li>
+                    <ItemContent>
+                      <ItemTitle className="truncate">{key.name}</ItemTitle>
+                      <ItemDescription className="text-xs">
+                        <span className="font-mono">{key.start ?? "sk_"}…</span> · {key.roleSlug} ·
+                        created {formatDate(key.createdAt)}
+                        {key.lastRequest
+                          ? ` · last used ${formatRelative(key.lastRequest)}`
+                          : " · never used"}
+                      </ItemDescription>
+                    </ItemContent>
+                    <ItemActions>
+                      <StatusBadge status={key.enabled ? "active" : "disabled"} />
+                      {can("console.credentials.write") && key.enabled ? (
+                        <RevokeKeyButton
+                          name={key.name}
+                          pending={revoke.isPending}
+                          onConfirm={() => revoke.mutate(key.id)}
+                        />
+                      ) : null}
+                    </ItemActions>
+                  </li>
+                </Item>
               ))}
             </ul>
           )}
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+/**
+ * Revocation asks first.
+ *
+ * The only irreversible action in the console: a revoked key cannot be
+ * restored, and whatever was calling with it stops working at once. Disabling
+ * a webhook, by contrast, has "Re-enable" sitting next to it and needs no
+ * ceremony — a confirmation on everything trains people to dismiss them.
+ */
+function RevokeKeyButton({
+  name,
+  pending,
+  onConfirm,
+}: {
+  name: string;
+  pending: boolean;
+  onConfirm: () => void;
+}) {
+  return (
+    <AlertDialog>
+      <AlertDialogTrigger asChild>
+        <Button size="sm" variant="outline" disabled={pending}>
+          Revoke
+        </Button>
+      </AlertDialogTrigger>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Revoke “{name}”?</AlertDialogTitle>
+          <AlertDialogDescription>
+            Anything still calling the API with this key starts failing immediately. A revoked key
+            cannot be restored — issue a new one and update the integration.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Keep it</AlertDialogCancel>
+          <AlertDialogAction variant="destructive" onClick={onConfirm}>
+            Revoke key
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   );
 }

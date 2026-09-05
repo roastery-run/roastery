@@ -2,6 +2,14 @@ import type { LucideIcon } from "lucide-react";
 import type * as React from "react";
 import { cn } from "../lib/utils";
 import { Button } from "../ui/button";
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "../ui/empty";
 
 /**
  * What a screen shows when there is genuinely nothing.
@@ -9,6 +17,10 @@ import { Button } from "../ui/button";
  * Distinct from loading and from error, because they need different words and
  * different actions — a spinner that resolves into "no results" reads as a
  * failure, and an error that looks like an empty list is one nobody reports.
+ *
+ * A narrow wrapper over the Empty primitive rather than a re-implementation of
+ * it: the arguments are the decision (what is missing, and what to do about
+ * it), and the arrangement stays whatever the style says it is.
  */
 export function EmptyState({
   icon: Icon,
@@ -24,29 +36,24 @@ export function EmptyState({
   className?: string;
 }) {
   return (
-    <div
-      className={cn(
-        "flex flex-col items-center justify-center gap-4 rounded-2xl border border-dashed border-border px-6 py-12 text-center",
-        className,
-      )}
-    >
-      {Icon ? (
-        <div className="flex size-10 items-center justify-center rounded-lg bg-muted">
-          <Icon className="size-6" aria-hidden="true" />
-        </div>
-      ) : null}
-      <div className="space-y-2">
-        <p className="text-lg font-medium tracking-tight">{title}</p>
-        {description ? (
-          <p className="max-w-sm text-sm/relaxed text-muted-foreground">{description}</p>
+    <Empty className={cn("rounded-2xl border border-dashed border-border", className)}>
+      <EmptyHeader>
+        {Icon ? (
+          <EmptyMedia variant="icon">
+            <Icon aria-hidden="true" />
+          </EmptyMedia>
         ) : null}
-      </div>
+        <EmptyTitle>{title}</EmptyTitle>
+        {description ? <EmptyDescription>{description}</EmptyDescription> : null}
+      </EmptyHeader>
       {action ? (
-        <Button size="sm" variant="outline" onClick={action.onClick}>
-          {action.label}
-        </Button>
+        <EmptyContent>
+          <Button size="sm" variant="outline" onClick={action.onClick}>
+            {action.label}
+          </Button>
+        </EmptyContent>
       ) : null}
-    </div>
+    </Empty>
   );
 }
 

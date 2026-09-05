@@ -4,6 +4,11 @@ import {
   CardHeader,
   CardTitle,
   EmptyState,
+  Item,
+  ItemActions,
+  ItemContent,
+  ItemDescription,
+  ItemTitle,
   Metric,
   PageHeader,
   rpc,
@@ -290,13 +295,17 @@ function Row({
   badge?: React.ReactNode;
 }) {
   return (
-    <div className="flex items-center gap-3 py-2 text-sm">
-      <div className="min-w-0 flex-1">
-        <div className="truncate font-medium">{primary}</div>
-        <div className="truncate text-muted-foreground text-xs">{secondary}</div>
-      </div>
-      {badge}
-      <div className="w-24 shrink-0 text-right font-mono tabular-nums">{value}</div>
-    </div>
+    <Item size="xs" className="px-0">
+      <ItemContent>
+        <ItemTitle className="truncate">{primary}</ItemTitle>
+        <ItemDescription className="truncate text-xs">{secondary}</ItemDescription>
+      </ItemContent>
+      <ItemActions>
+        {badge}
+        {/* Fixed width and tabular so a column of weights lines up on the
+            decimal point, which is what makes it scannable at a glance. */}
+        <div className="w-24 shrink-0 text-right font-mono tabular-nums">{value}</div>
+      </ItemActions>
+    </Item>
   );
 }
