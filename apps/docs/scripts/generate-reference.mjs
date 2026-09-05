@@ -41,11 +41,24 @@ async function loadSpec() {
     writeFileSync(SNAPSHOT, JSON.stringify(spec, null, 2));
     console.log(`fetched the public spec from ${API_URL}`);
     return spec;
-  } catch {
+  } catch (error) {
     if (!existsSync(SNAPSHOT)) {
       throw new Error(
         `Could not reach ${API_URL} and no snapshot exists at ${SNAPSHOT}. ` +
           "Start the API worker once so a snapshot can be written.",
+      );
+    }
+    // The fallback is what keeps a docs build independent of a running server,
+    // and it is also how a stale reference ships without anyone noticing. In
+    // CI that trade is the wrong way round: a deploy pipeline quietly
+    // republishing last month's reference is worse than a failed build.
+    // `apps/api/test/openapi-snapshot.test.ts` is what keeps the snapshot
+    // honest between regenerations.
+    if (process.env.CI) {
+      throw new Error(
+        `Could not reach ${API_URL}: ${error instanceof Error ? error.message : error}.\n` +
+          "Refusing to publish the checked-in snapshot from CI, which would ship a " +
+          "reference nobody verified against a running API.",
       );
     }
     console.log("API unreachable; using the checked-in snapshot");

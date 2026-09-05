@@ -54,8 +54,13 @@ pnpm --filter @roastery/web exec wrangler deploy --config wrangler.staging.jsonc
 pnpm --filter @roastery/console exec vite build --mode staging
 node scripts/verify-build-env.mjs apps/console/dist staging
 pnpm --filter @roastery/console exec wrangler deploy --config wrangler.staging.jsonc
+# API_URL is what the reference is GENERATED from, and it was unset — so a
+# staging docs build regenerated against localhost, failed, and silently
+# published the checked-in snapshot instead. Pointed at the API that was just
+# deployed above, the reference describes what is actually running.
 DOCS_URL=https://docs-staging.roastery.run \
   API_PUBLIC_URL=https://api-staging.roastery.run \
+  API_URL=https://api-staging.roastery.run \
   pnpm --filter @roastery/docs build
 pnpm --filter @roastery/docs exec wrangler deploy --config wrangler.staging.jsonc
 
