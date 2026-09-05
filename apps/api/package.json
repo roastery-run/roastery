@@ -9,7 +9,6 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "verify:orders": "node scripts/verify-orders-scheduling.mjs",
-    "verify:webhooks": "node scripts/verify-webhooks.mjs",
     "verify:cafe": "node scripts/verify-cafe-traceability.mjs"
   },
   "dependencies": {

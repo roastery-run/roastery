@@ -7,6 +7,8 @@
  * only its own deliveries, and a fan-out retry cannot re-POST to endpoints
  * that already succeeded.
  */
+
+import { isLocalEnvironment } from "@roastery/auth";
 import { events, organizations, webhookDeliveries, webhookEndpoints } from "@roastery/db/schema";
 import { and, eq, inArray, isNull, lt, sql } from "drizzle-orm";
 import { notifiedAddresses } from "../../cron/alerts";
@@ -312,7 +314,13 @@ export async function attemptDelivery(
   // was registered; DNS belongs to whoever owns the name, and they can point
   // it at 169.254.169.254 an hour later. This is the last moment before we
   // make the request.
-  const blocked = await resolvesToBlockedAddress(new URL(endpoint.url).hostname);
+  //
+  // Not in development or test, where a receiver on 127.0.0.1 is the ordinary
+  // way to work on an integration — and where "our own network" is a laptop.
+  // Keyed on ENVIRONMENT, which treats anything unrecognised as production, so
+  // a misconfigured deployment enforces the guard rather than skipping it.
+  const blocked =
+    !isLocalEnvironment(env) && (await resolvesToBlockedAddress(new URL(endpoint.url).hostname));
   if (blocked) {
     await applyOutcome(db, env, delivery.id, endpoint, attempt, {
       kind: "dead",
