@@ -4,9 +4,126 @@
     "title": "ROASTERY API",
     "version": "1.0.0"
   },
+  "tags": [
+    {
+      "name": "sourcing.contract",
+      "description": "Forward contracts with producers and importers: their milestones, the shipments received against them, and what is still outstanding.",
+      "x-displayName": "Green contracts"
+    },
+    {
+      "name": "sourcing.sample",
+      "description": "Pre-purchase samples, from arrival through approval to the green lot an approved one becomes.",
+      "x-displayName": "Samples"
+    },
+    {
+      "name": "inventory.green",
+      "description": "Green lots and every movement of one — receipts, adjustments, transfers, splits, merges and reservations — plus the landed cost built up from its components. Quantities move through an append-only ledger, so a balance is auditable rather than merely plausible.",
+      "x-displayName": "Green coffee"
+    },
+    {
+      "name": "inventory.roast",
+      "description": "Roasted lots, their quantities, and the trace from a roasted lot back to the green it came from.",
+      "x-displayName": "Roasted coffee"
+    },
+    {
+      "name": "inventory.blend",
+      "description": "Blend recipes, the roasted lots each component draws from, and whether a blend can be produced from what is on hand right now.",
+      "x-displayName": "Blends"
+    },
+    {
+      "name": "inventory.material",
+      "description": "Packaging and other non-coffee stock, their bills of materials, and what a production run would consume.",
+      "x-displayName": "Materials"
+    },
+    {
+      "name": "production.profile",
+      "description": "Named roast curves that a batch is roasted against.",
+      "x-displayName": "Roast profiles"
+    },
+    {
+      "name": "production.roast",
+      "description": "Roasting a batch: starting it, completing it, reading its curve, and importing a roast recorded in Artisan.",
+      "x-displayName": "Roast batches"
+    },
+    {
+      "name": "production.schedule",
+      "description": "Aggregate demand, the machine-feasible schedule that satisfies it, and releasing that schedule to the floor.",
+      "x-displayName": "Production planning"
+    },
+    {
+      "name": "quality.cupping",
+      "description": "Cupping sessions, each cupper's own scores, and the aggregate a finalized session produces.",
+      "x-displayName": "Cupping"
+    },
+    {
+      "name": "quality.grading",
+      "description": "Defect counts and screen sizes recorded against a lot, and releasing a lot from quarantine.",
+      "x-displayName": "Physical grading"
+    },
+    {
+      "name": "quality.form",
+      "description": "The questions a roastery adds to a scoresheet on top of the standard ones. Editing publishes a new version and retires the old, so a sheet filled in last year still reads as it was filled.",
+      "x-displayName": "Form templates"
+    },
+    {
+      "name": "orders",
+      "description": "Customers, sales orders, and allocating roasted stock against them. A partial allocation is reported as partial, never as success.",
+      "x-displayName": "Orders"
+    },
+    {
+      "name": "cafe",
+      "description": "Café sites, the bar equipment in them, espresso shot telemetry, and reconciling that telemetry against point-of-sale takings.",
+      "x-displayName": "Cafés"
+    },
+    {
+      "name": "traceability",
+      "description": "Trace forward from a green lot to what was sold, or backward from a bag to the contract, and issue the certificate a retail QR code resolves to.",
+      "x-displayName": "Traceability"
+    },
+    {
+      "name": "catalog.product",
+      "description": "The sellable goods a roastery lists, and how they map to what it roasts.",
+      "x-displayName": "Products"
+    },
+    {
+      "name": "catalog.party",
+      "description": "The organizations on the other side of a transaction — importers, exporters and customers — and the producers a coffee is attributed to.",
+      "x-displayName": "Partners and producers"
+    },
+    {
+      "name": "catalog.location",
+      "description": "Warehouses, roasteries and café sites that stock can be held at or moved between.",
+      "x-displayName": "Locations"
+    },
+    {
+      "name": "catalog.machine",
+      "description": "The roasters themselves, their capacity, and the batch sizes a schedule may assign to them.",
+      "x-displayName": "Roasting machines"
+    },
+    {
+      "name": "reporting",
+      "description": "Requesting a document, watching it render, and the signed, expiring link that downloads it.",
+      "x-displayName": "Reports"
+    },
+    {
+      "name": "reporting.label",
+      "description": "Retail bag label layouts, including where the traceability QR code sits.",
+      "x-displayName": "Label templates"
+    },
+    {
+      "name": "alerts",
+      "description": "What needs a decision today: overdue contract milestones, stock below its reorder point, quarantined lots. Deduplicated per rule, subject and day, so the same alert does not arrive every morning until somebody mutes it.",
+      "x-displayName": "Alerts"
+    },
+    {
+      "name": "webhooks",
+      "description": "Endpoints, their signing secrets, and the delivery record for every attempt. Events are emitted in the same transaction as the change they describe, so a change that committed always has an event.",
+      "x-displayName": "Webhooks"
+    }
+  ],
   "servers": [
     {
-      "url": "http://localhost:8787"
+      "url": "http://localhost:8788"
     }
   ],
   "components": {
@@ -3611,6 +3728,288 @@
                     "watchers",
                     "shots",
                     "anomalies"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "402": {
+            "description": "The organization's plan does not include this module, or a limit is exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string",
+                      "enum": [
+                        "entitlement_required",
+                        "quota_exceeded"
+                      ]
+                    },
+                    "module": {
+                      "type": "string"
+                    },
+                    "plan": {
+                      "type": "string"
+                    },
+                    "requiredPlans": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "key": {
+                      "type": "string"
+                    },
+                    "limit": {
+                      "type": "number"
+                    },
+                    "current": {
+                      "type": "number"
+                    }
+                  },
+                  "required": [
+                    "error",
+                    "code"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller's role does not grant this permission",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited — see Retry-After",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "correlationId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/rpc/v1/cafe.issueBridgeToken": {
+      "post": {
+        "tags": [
+          "cafe"
+        ],
+        "operationId": "cafe_issueBridgeToken",
+        "summary": "Issue a streaming credential for bar equipment",
+        "description": "Scoped to one machine and able to do nothing but post shots. Without this the shot ingest endpoint was unreachable: it requires a token bound to a CAFE machine, and only roasting machines could be credentialed.\n\nRequires permission `cafe.write` and the `cafe` module on the organization's plan.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "description": "Target organization. Required for session callers. Ignored for machine credentials, which are permanently bound to one organization."
+            },
+            "required": false,
+            "description": "Target organization. Required for session callers. Ignored for machine credentials, which are permanently bound to one organization.",
+            "name": "x-roastery-org",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 8,
+              "maxLength": 255,
+              "description": "Retry-safe key. The first request to use it wins; later requests with the same key replay its response. Reusing a key with a different body is a 409."
+            },
+            "required": false,
+            "description": "Retry-safe key. The first request to use it wins; later requests with the same key replay its response. Reusing a key with a different body is a 409.",
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "cafeMachineId": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "expiresInHours": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 720,
+                    "default": 24
+                  }
+                },
+                "required": [
+                  "cafeMachineId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Issue a streaming credential for bar equipment",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "token": {
+                      "type": "string"
+                    },
+                    "cafeMachineId": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "expiresAt": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "token",
+                    "cafeMachineId",
+                    "expiresAt"
                   ]
                 }
               }
