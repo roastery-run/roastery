@@ -75,6 +75,11 @@ async function collectDemand(ctx: RpcContext, dueBefore?: string): Promise<Deman
     label: r.blendName ?? r.description,
     // Only the UNALLOCATED remainder is demand; the rest is already covered
     // by stock on the shelf.
+    //
+    // A float from here on, deliberately: buildSchedule is a planning
+    // heuristic whose output is a suggestion about which batches to roast, not
+    // a quantity anything is booked against. The exact figure is the ledger's,
+    // and it is what the roast records when it actually happens.
     roastedKg: Number.parseFloat(kg.sub(r.weightKg, r.allocatedWeightKg)),
     dueAt: r.requestedShipAt ?? null,
     roastLevel: (r.roastLevel as "light" | "medium" | "dark" | null) ?? null,
@@ -165,13 +170,19 @@ registerRpc(
 
     const plan = buildSchedule(
       demand,
-      available.map((m) => ({
-        machineId: m.machineId,
-        capacityKg: Number.parseFloat(m.capacityKg ?? "12"),
-        minBatchKg: m.minBatchKg ? Number.parseFloat(m.minBatchKg) : null,
-        maxBatchKg: m.maxBatchKg ? Number.parseFloat(m.maxBatchKg) : null,
-        maxBatches: input.maxBatchesPerMachine,
-      })),
+      available
+        // A machine with no stated capacity used to default to 12 kg, which is
+        // a plausible drum size and therefore an invisible wrong answer: the
+        // schedule would look reasonable and quietly plan batches the machine
+        // cannot hold. Left out of the plan instead, so the gap is visible.
+        .filter((m) => m.capacityKg !== null)
+        .map((m) => ({
+          machineId: m.machineId,
+          capacityKg: Number.parseFloat(m.capacityKg ?? "0"),
+          minBatchKg: m.minBatchKg ? Number.parseFloat(m.minBatchKg) : null,
+          maxBatchKg: m.maxBatchKg ? Number.parseFloat(m.maxBatchKg) : null,
+          maxBatches: input.maxBatchesPerMachine,
+        })),
     );
 
     const scheduleId = await ctx.db.transaction(async (tx) => {

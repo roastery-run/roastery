@@ -285,30 +285,67 @@ export async function ensureShotPartitions(db: WorkerDb, monthsAhead = 3): Promi
      * for that range into it, and attach. All in one transaction, because a
      * half-done move is rows in two places.
      */
-    await db.transaction(async (tx) => {
-      await tx.execute(
-        sql.raw(`CREATE TABLE IF NOT EXISTS ${name} (LIKE espresso_shots INCLUDING ALL)`),
-      );
-      await tx.execute(
-        sql.raw(
-          `WITH moved AS (
+    await withLockRetry(async () =>
+      db.transaction(async (tx) => {
+        // Never block the shop floor waiting for a lock. ATTACH needs a lock on
+        // the parent, and shots are being inserted into it continuously, so the
+        // right failure is a fast one that retries rather than a maintenance job
+        // that holds up ingest.
+        await tx.execute(sql.raw("SET LOCAL lock_timeout = '5s'"));
+        await tx.execute(
+          sql.raw(`CREATE TABLE IF NOT EXISTS ${name} (LIKE espresso_shots INCLUDING ALL)`),
+        );
+        await tx.execute(
+          sql.raw(
+            `WITH moved AS (
              DELETE FROM espresso_shots_overflow
               WHERE pulled_at >= '${from}' AND pulled_at < '${to}'
               RETURNING *
            )
            INSERT INTO ${name} SELECT * FROM moved`,
-        ),
-      );
-      await tx.execute(
-        sql.raw(
-          `ALTER TABLE espresso_shots ATTACH PARTITION ${name} ` +
-            `FOR VALUES FROM ('${from}') TO ('${to}')`,
-        ),
-      );
-    });
+          ),
+        );
+        await tx.execute(
+          sql.raw(
+            `ALTER TABLE espresso_shots ATTACH PARTITION ${name} ` +
+              `FOR VALUES FROM ('${from}') TO ('${to}')`,
+          ),
+        );
+      }),
+    );
     created.push(name);
   }
   return created;
+}
+
+/** Postgres: deadlock detected, and lock timeout. Both mean "try again". */
+const RETRYABLE_LOCK_CODES = new Set(["40P01", "55P03"]);
+const LOCK_RETRIES = 3;
+
+/**
+ * Retries work that lost a lock race.
+ *
+ * Attaching a partition contends with ordinary traffic on the same table —
+ * inserts from every bar, and the cascading deletes that follow an
+ * organization being removed. Postgres resolves a deadlock by killing one
+ * side, and there is no reason that side should be the roll-forward: it is
+ * idempotent, nothing is waiting on it, and the alternative is a month with no
+ * partition until somebody notices.
+ */
+async function withLockRetry<T>(work: () => Promise<T>): Promise<T> {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return await work();
+    } catch (err) {
+      const code =
+        (err as { cause?: { code?: string }; code?: string }).cause?.code ??
+        (err as { code?: string }).code;
+      if (!code || !RETRYABLE_LOCK_CODES.has(code) || attempt >= LOCK_RETRIES) throw err;
+      // Short, increasing, and jittered so two Workers retrying do not collide
+      // again on the same schedule.
+      await new Promise((resolve) => setTimeout(resolve, attempt * 250 + Math.random() * 250));
+    }
+  }
 }
 
 async function partitionExists(db: WorkerDb, name: string): Promise<boolean> {

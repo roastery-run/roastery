@@ -27,6 +27,7 @@ import type { CafeSiteDO } from "../../durable-objects/cafe-site";
 import { NotFound } from "../../lib/api/errors";
 import { type RpcAppEnv, registerRpc } from "../../lib/api/rpc";
 import { sha256 } from "../../lib/crypto";
+import { kg } from "../../lib/domain/inventory";
 
 export const cafeShots = new OpenAPIHono<RpcAppEnv>();
 
@@ -120,7 +121,7 @@ registerRpc(
     const shotCount = rows.reduce((sum, r) => sum + r.shotCount, 0);
     const inSpec = rows.reduce((sum, r) => sum + r.inSpecCount, 0);
     const channeling = rows.reduce((sum, r) => sum + r.channelingCount, 0);
-    const coffeeUsed = rows.reduce((sum, r) => sum + Number.parseFloat(r.coffeeUsedKg ?? "0"), 0);
+    const coffeeUsed = rows.reduce((total, r) => kg.add(total, r.coffeeUsedKg ?? "0"), "0");
 
     return {
       siteId: input.siteId,
@@ -132,7 +133,7 @@ registerRpc(
       // green number at the top of a dashboard.
       inSpecPct: shotCount ? Math.round((inSpec / shotCount) * 1000) / 10 : null,
       channelingPct: shotCount ? Math.round((channeling / shotCount) * 1000) / 10 : null,
-      coffeeUsedKg: coffeeUsed.toFixed(4),
+      coffeeUsedKg: coffeeUsed,
       hours: rows.map((r) => ({
         siteId: r.siteId,
         machineId: r.machineId,

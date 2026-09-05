@@ -62,7 +62,62 @@ export const kg = {
   },
   isNegative: (a: string) => toUnits(a) < 0n,
   normalize: (a: string | number) => fromUnits(toUnits(a)),
+  /**
+   * Multiplication and division, half-up at the shared scale.
+   *
+   * Kept here with the rest of the exact arithmetic because the alternative
+   * kept reappearing: `Number.parseFloat(a) * Number.parseFloat(b)` followed
+   * by `.toFixed(4)`, which looks exact and is not. It is not only rounding
+   * error — splitting a blend that way makes the components fail to sum to the
+   * whole, and the difference goes into the ledger as green that was consumed
+   * by nothing.
+   *
+   * Intermediate products are computed at double scale and rounded once, so
+   * `mul` and `div` each round exactly once rather than accumulating.
+   */
+  mul: (a: string, b: string) => {
+    const scale = 10n ** BigInt(SCALE);
+    return fromUnits(roundHalfUp(toUnits(a) * toUnits(b), scale));
+  },
+  div: (a: string, b: string) => {
+    const divisor = toUnits(b);
+    if (divisor === 0n) throw new Error("Division by zero");
+    const scale = 10n ** BigInt(SCALE);
+    return fromUnits(roundHalfUp(toUnits(a) * scale, divisor));
+  },
+  /**
+   * a x b / c, rounded ONCE.
+   *
+   * The reason this exists rather than composing `mul` and `div`: each of
+   * those rounds to the shared scale, so `div` first throws away the digits
+   * `mul` needed. Splitting 300 kg three ways at 33.3333% via
+   * `mul(300, div(33.3333, 100))` gives 299.97 — the intermediate 0.333333
+   * became 0.3333 — while one rounding gives 299.9999. The 0.03 kg difference
+   * is green that the ledger would record as consumed by nothing.
+   */
+  mulDiv: (a: string, b: string, c: string) => {
+    const divisor = toUnits(c);
+    if (divisor === 0n) throw new Error("Division by zero");
+    return fromUnits(roundHalfUp(toUnits(a) * toUnits(b), divisor));
+  },
 };
+
+/**
+ * Half-up, and symmetric about zero.
+ *
+ * Banker's rounding would be defensible for money, but every quantity here is
+ * a weight a person reads off a scale, and half-up is what they expect. The
+ * sign handling matters because a negative delta is an ordinary ledger entry.
+ */
+function roundHalfUp(numerator: bigint, denominator: bigint): bigint {
+  const negative = numerator < 0n !== denominator < 0n;
+  const n = numerator < 0n ? -numerator : numerator;
+  const d = denominator < 0n ? -denominator : denominator;
+  const quotient = n / d;
+  const remainder = n % d;
+  const rounded = remainder * 2n >= d ? quotient + 1n : quotient;
+  return negative ? -rounded : rounded;
+}
 
 export type TransactionInput = {
   greenLotId: string;
