@@ -36,7 +36,27 @@ export type EmailSender = (params: {
   text: string;
 }) => Promise<void>;
 
-const isLocal = (env: AuthEnv) => env.BETTER_AUTH_URL.includes("localhost");
+/**
+ * Whether this deployment is a genuinely local one, where secure/domain-scoped
+ * cookie attributes are invalid and localhost URLs are the right fallback.
+ *
+ * Keyed on ENVIRONMENT, not on the URL containing "localhost". Sniffing the
+ * URL made the *absence* of configuration look local: a deployed Worker whose
+ * BETTER_AUTH_URL was wrong or unset took the local branch and dropped
+ * `secure`, `sameSite` and the cookie prefix from every session cookie. An
+ * unrecognised ENVIRONMENT is treated as deployed, so the failure is a cookie
+ * that is too strict rather than one that is not protected at all.
+ *
+ * `apps/api/src/env.ts` makes the same judgement for its binding checks; the
+ * two are deliberately independent so neither package has to import the other.
+ */
+const NON_PRODUCTION_ENVIRONMENTS = new Set(["development", "test"]);
+
+export function isLocalEnvironment(env: Pick<AuthEnv, "ENVIRONMENT">): boolean {
+  return NON_PRODUCTION_ENVIRONMENTS.has(env.ENVIRONMENT ?? "");
+}
+
+const isLocal = (env: AuthEnv) => isLocalEnvironment(env);
 
 export function resolveConsoleUrl(env: AuthEnv): string {
   if (env.CONSOLE_URL) return env.CONSOLE_URL.replace(/\/$/, "");
@@ -298,7 +318,17 @@ export function createAuth(db: WorkerDb, env: AuthEnv, sendEmail?: EmailSender) 
         expiresIn: 300,
         sendMagicLink: async ({ email, url }) => {
           if (!sendEmail) {
-            console.log(`[dev] magic link for ${email}: ${url}`);
+            // A magic link is a bearer credential and the address is personal
+            // data, so the link is only ever printed where the person reading
+            // the console is the person signing in. Anywhere else this is a
+            // silent outage that `assertProductionBindings` refuses to boot
+            // into, and writing the credential to a log aggregator on the way
+            // out would make the outage a breach as well.
+            if (isLocalEnvironment(env)) {
+              console.log(`[dev] magic link for ${email}: ${url}`);
+            } else {
+              console.error(JSON.stringify({ msg: "magic_link_undeliverable" }));
+            }
             return;
           }
           await sendEmail({

@@ -1,0 +1,166 @@
+{
+  "name": "roastery-api-production",
+  "main": "src/index.ts",
+  "compatibility_date": "2025-09-01",
+  "compatibility_flags": ["nodejs_compat"],
+
+  // Served ONLY on the route below. Left enabled, the default
+  // roastery-api-production.<subdomain>.workers.dev hostname exposes the whole
+  // API on a hostname that bypasses the roastery.run zone, and with it the WAF
+  // and zone rate-limiting rules.
+  "workers_dev": false,
+  "preview_urls": false,
+
+  // Near the database, so a multi-query request does not pay a round trip per
+  // query.
+  "placement": { "mode": "smart" },
+
+  // Without this the bundle is minified and a Workers Logs stack points at
+  // unreadable positions.
+  "upload_source_maps": true,
+
+  "vars": {
+    // Read by assertProductionBindings and by the auth package's environment
+    // detection. Anything that is not `development` or `test` is treated as
+    // production, so a missing value fails closed rather than silently
+    // disabling every production check.
+    "ENVIRONMENT": "production",
+    "BETTER_AUTH_URL": "https://api.roastery.run",
+    "WEB_URL": "https://roastery.run",
+    "CONSOLE_URL": "https://app.roastery.run"
+  },
+
+  "routes": [{ "pattern": "api.roastery.run", "custom_domain": true }],
+
+  "triggers": {
+    // Every minute: the outbox sweeper, which is what makes "committed but
+    // never enqueued" recoverable. 04:00 shot partition window, 07:00 alert
+    // digests.
+    "crons": ["* * * * *", "0 4 * * *", "0 7 * * *"]
+  },
+
+  "observability": { "enabled": true, "head_sampling_rate": 1 },
+
+  "hyperdrive": [
+    {
+      // Caching-ENABLED. Staleness-tolerant catalogue reads only.
+      "binding": "HYPERDRIVE",
+      "id": "TODO_ID_HYPERDRIVE_CACHED"
+    },
+    {
+      // Caching-DISABLED over the same database, and the default for
+      // everything: the query cache does not participate in transactions, and
+      // a revoked credential has to stop working now rather than in 60s.
+      "binding": "HYPERDRIVE_CACHE_DISABLED",
+      "id": "TODO_ID_HYPERDRIVE_UNCACHED"
+    }
+  ],
+
+  "kv_namespaces": [{ "binding": "ROASTERY_KV", "id": "TODO_ID_KV" }],
+
+  // Cloudflare Email Sending from mail.roastery.run. SPF, DKIM and DMARC are
+  // provisioned with the domain; staging sends from its own subdomain so a
+  // staging mishap cannot spend this domain's sending reputation.
+  "send_email": [{ "name": "EMAIL" }],
+
+  "r2_buckets": [{ "binding": "ROASTERY_R2", "bucket_name": "roastery-curves" }],
+
+  "durable_objects": {
+    "bindings": [
+      { "name": "ROAST_BATCH", "class_name": "RoastBatchDO" },
+      { "name": "CAFE_SITE", "class_name": "CafeSiteDO" }
+    ]
+  },
+
+  // Copied verbatim from the other environments: a fresh Worker replays the
+  // whole list from v1, so an omitted tag creates a class that never existed.
+  "migrations": [
+    { "tag": "v1", "new_sqlite_classes": ["RoastBatchDO"] },
+    { "tag": "v2", "new_sqlite_classes": ["CafeSiteDO"] }
+  ],
+
+  // The limit a Worker enforces comes from the binding config, never from the
+  // call site — so a surface with a different budget needs its own namespace
+  // rather than a smaller argument.
+  "ratelimits": [
+    {
+      "name": "RPC_SUSTAINED_LIMITER",
+      "namespace_id": "1001",
+      "simple": { "limit": 300, "period": 60 }
+    },
+    {
+      "name": "RPC_BURST_LIMITER",
+      "namespace_id": "1002",
+      "simple": { "limit": 60, "period": 10 }
+    },
+    {
+      "name": "AUTH_RATE_LIMITER",
+      "namespace_id": "1003",
+      "simple": { "limit": 20, "period": 60 }
+    },
+    {
+      "name": "SESSION_RATE_LIMITER",
+      "namespace_id": "1004",
+      "simple": { "limit": 300, "period": 60 }
+    },
+    {
+      // Machine telemetry. Sharing the API's namespace capped a bridge at
+      // 60 requests per 10s AND let a busy bar starve the console.
+      "name": "INGEST_LIMITER",
+      "namespace_id": "1005",
+      "simple": { "limit": 1000, "period": 10 }
+    }
+  ],
+
+  "queues": {
+    "producers": [
+      { "binding": "EVENT_QUEUE", "queue": "roastery-events-production" },
+      { "binding": "WEBHOOK_QUEUE", "queue": "roastery-webhooks-production" },
+      { "binding": "SHOT_QUEUE", "queue": "roastery-shots-production" },
+      { "binding": "REPORT_QUEUE", "queue": "roastery-reports-production" }
+    ],
+    "consumers": [
+      {
+        "queue": "roastery-events-production",
+        "max_batch_size": 50,
+        "max_batch_timeout": 5,
+        "max_retries": 5,
+        // Bounded: unset, a backlog fans out arbitrarily many consumers, each
+        // opening a Hyperdrive connection, and the pool goes before the queue
+        // drains.
+        "max_concurrency": 5,
+        "dead_letter_queue": "roastery-events-dlq-production"
+      },
+      {
+        "queue": "roastery-webhooks-production",
+        "max_batch_size": 10,
+        "max_retries": 5,
+        "max_concurrency": 10,
+        "retry_delay": 30,
+        "dead_letter_queue": "roastery-webhooks-dlq-production"
+      },
+      {
+        "queue": "roastery-shots-production",
+        "max_batch_size": 100,
+        "max_batch_timeout": 10,
+        "max_retries": 3,
+        "max_concurrency": 5,
+        "dead_letter_queue": "roastery-shots-dlq-production"
+      },
+      {
+        "queue": "roastery-reports-production",
+        "max_batch_size": 1,
+        "max_retries": 2,
+        "max_concurrency": 2,
+        "retry_delay": 60,
+        "dead_letter_queue": "roastery-reports-dlq-production"
+      },
+      // Drained by handleDeadLetterBatch. Declared but unconsumed, these
+      // silently accumulate poison messages nobody ever sees.
+      { "queue": "roastery-events-dlq-production", "max_batch_size": 10, "max_retries": 1 },
+      { "queue": "roastery-webhooks-dlq-production", "max_batch_size": 10, "max_retries": 1 },
+      { "queue": "roastery-shots-dlq-production", "max_batch_size": 10, "max_retries": 1 },
+      { "queue": "roastery-reports-dlq-production", "max_batch_size": 10, "max_retries": 1 }
+    ]
+  }
+}

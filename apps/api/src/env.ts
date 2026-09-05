@@ -120,12 +120,33 @@ export type Env = {
 };
 
 /**
+ * Environments where a missing production binding is expected rather than a
+ * fault: local development and the test runner.
+ *
+ * The check is a deny-list, not an allow-list, because the failure it guards
+ * against is a config that forgets to set ENVIRONMENT at all. Keyed on
+ * `=== "production"`, that omission silently disabled every check below — the
+ * Worker would boot onto the CACHING Hyperdrive, where a revoked API key keeps
+ * authenticating for the cache TTL, and log sign-in links instead of mailing
+ * them. Unset now means production, which fails loudly on a misconfigured
+ * deploy and cannot fail open.
+ *
+ * `packages/auth` makes the same judgement for cookie attributes; the two are
+ * deliberately independent so neither package has to import the other.
+ */
+const NON_PRODUCTION = new Set(["development", "test"]);
+
+export function isProduction(env: { ENVIRONMENT?: string }): boolean {
+  return !NON_PRODUCTION.has(env.ENVIRONMENT ?? "");
+}
+
+/**
  * Fails a production request loudly rather than silently serving it from the
  * caching Hyperdrive, where a revoked API key would keep authenticating for up
  * to the cache TTL.
  */
 export function assertProductionBindings(env: Env): void {
-  if (env.ENVIRONMENT !== "production") return;
+  if (!isProduction(env)) return;
   if (!env.HYPERDRIVE_CACHE_DISABLED) {
     throw new Error("HYPERDRIVE_CACHE_DISABLED is required in production");
   }

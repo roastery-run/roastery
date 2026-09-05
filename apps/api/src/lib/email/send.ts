@@ -16,7 +16,7 @@
  * in `assertProductionBindings` exists: silently logging sign-in links in
  * production would be a very quiet outage.
  */
-import type { EmailSender } from "@roastery/auth";
+import { type EmailSender, isLocalEnvironment } from "@roastery/auth";
 import type { Env } from "../../env";
 
 export type SendResult = { delivered: boolean; reason?: string };
@@ -81,8 +81,16 @@ export async function trySend(
 ): Promise<SendResult> {
   const sender = createEmailSender(env);
   if (!sender) {
+    // The recipient address is personal data and the subject can carry a lot
+    // name or a customer's name with it, so neither is logged from a deployed
+    // Worker. `subject` alone is enough to tell which mail did not go out, and
+    // the alert or delivery row it belongs to carries the recipient already.
     console.log(
-      JSON.stringify({ msg: "email_not_configured", to: message.to, subject: message.subject }),
+      JSON.stringify({
+        msg: "email_not_configured",
+        subject: message.subject,
+        ...(isLocalEnvironment(env) ? { to: message.to } : {}),
+      }),
     );
     // NOT "delivered". Reporting an unsent email as sent would let the dedupe
     // stamp it and guarantee nobody ever receives it.
@@ -96,8 +104,8 @@ export async function trySend(
     console.error(
       JSON.stringify({
         msg: "email_send_failed",
-        to: message.to,
         subject: message.subject,
+        ...(isLocalEnvironment(env) ? { to: message.to } : {}),
         error: error instanceof Error ? error.message : String(error),
       }),
     );

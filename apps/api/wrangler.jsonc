@@ -7,6 +7,10 @@
   // client<->origin round-trip per query. No-op in local dev.
   "placement": { "mode": "smart" },
   "vars": {
+    // Declared explicitly: assertProductionBindings treats an ABSENT
+    // ENVIRONMENT as production, so that a deployed config which forgets it
+    // fails loudly instead of silently skipping every production check.
+    "ENVIRONMENT": "development",
     "BETTER_AUTH_URL": "http://localhost:8787",
     "WEB_URL": "http://localhost:5173",
     "CONSOLE_URL": "http://localhost:5174"

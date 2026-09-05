@@ -18,7 +18,7 @@
     "setup:local": "bash scripts/setup-local.sh",
     "sim:roast": "node --experimental-strip-types --disable-warning=ExperimentalWarning apps/api/scripts/sim-bridge.mjs",
     "deploy:staging": "bash scripts/deploy-staging.sh",
-    "setup:staging-secrets": "bash scripts/setup-staging-secrets.sh"
+    "setup:secrets": "bash scripts/setup-secrets.sh"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.4",

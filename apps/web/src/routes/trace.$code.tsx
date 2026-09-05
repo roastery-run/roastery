@@ -47,8 +47,20 @@ const fetchTrace = createServerFn({ method: "GET" })
     // malformed scan from becoming an upstream request at all.
     if (!/^[0-9a-f]{24}$/.test(code)) return null;
 
-    const base = process.env.API_URL ?? "http://localhost:8787";
-    const response = await fetch(`${base}/trace/v1/${code}`);
+    // No localhost fallback. API_URL is a Worker var rather than a baked-in
+    // VITE_ value, so `verify-build-env.mjs` cannot see it and a production
+    // config that omits it would send every QR scan to a host that does not
+    // exist — served, cached and shared as a broken page. Failing here is
+    // caught by the error boundary and by the first smoke check after deploy.
+    // `import.meta.env.DEV` is only true under `vite dev`, so the convenience
+    // fallback cannot survive into a build.
+    const base = process.env.API_URL ?? (import.meta.env.DEV ? "http://localhost:8787" : undefined);
+    if (!base) throw new Error("API_URL is not configured for this deployment");
+    const response = await fetch(`${base}/trace/v1/${code}`, {
+      // A hung upstream otherwise holds this SSR request until the platform
+      // kills it, with nothing rendered.
+      signal: AbortSignal.timeout(5000),
+    });
     if (response.status === 404) return null;
     if (!response.ok) throw new Error("Could not load this coffee");
     return (await response.json()) as Trace;

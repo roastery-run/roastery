@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cookieDomain, cookiePrefix, sessionCookiePrefix } from "./index";
+import { cookieDomain, cookiePrefix, isLocalEnvironment, sessionCookiePrefix } from "./index";
 
 /**
  * A session cookie scoped to a domain that does not cover the console is not
@@ -87,12 +87,32 @@ describe("sessionCookiePrefix", () => {
     expect(sessionCookiePrefix(env({}))).toBe("roastery");
   });
 
-  it("is Better Auth's default on localhost, where createAuth sets no prefix", () => {
+  it("is Better Auth's default in development, where createAuth sets no prefix", () => {
     // The middleware skips session resolution when no cookie by this name is
     // present. Matching the deployed prefix here meant no local session was
     // ever read, and every sign-in bounced back to the login page.
-    expect(sessionCookiePrefix(env({ BETTER_AUTH_URL: "http://localhost:8787" }))).toBe(
-      "better-auth",
-    );
+    expect(
+      sessionCookiePrefix(
+        env({ ENVIRONMENT: "development", BETTER_AUTH_URL: "http://localhost:8787" }),
+      ),
+    ).toBe("better-auth");
+  });
+
+  it("treats an unset ENVIRONMENT as deployed even when the URL looks local", () => {
+    // The old check sniffed the URL for "localhost", which made a MISSING
+    // BETTER_AUTH_URL look like local development and quietly dropped the
+    // secure cookie attributes from a deployed Worker. Unset is deployed.
+    expect(sessionCookiePrefix(env({ BETTER_AUTH_URL: "http://localhost:8787" }))).toBe("roastery");
+  });
+});
+
+describe("isLocalEnvironment", () => {
+  it("is true only for the two environments that are genuinely not deployed", () => {
+    expect(isLocalEnvironment({ ENVIRONMENT: "development" })).toBe(true);
+    expect(isLocalEnvironment({ ENVIRONMENT: "test" })).toBe(true);
+    expect(isLocalEnvironment({ ENVIRONMENT: "staging" })).toBe(false);
+    expect(isLocalEnvironment({ ENVIRONMENT: "production" })).toBe(false);
+    // The one that matters: a config that forgot to set it.
+    expect(isLocalEnvironment({})).toBe(false);
   });
 });
