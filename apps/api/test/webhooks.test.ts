@@ -146,6 +146,33 @@ describe.skipIf(!hasTestDb)("webhook delivery", () => {
     return row.id;
   }
 
+  /**
+   * The delivery for ONE endpoint.
+   *
+   * Every endpoint an earlier test registered with an empty filter subscribes
+   * to everything, so a fan-out produces several deliveries and their order is
+   * whatever the database returns. Taking `deliveryIds[0]` therefore picks a
+   * different receiver from run to run — which is exactly how this file failed
+   * intermittently before the helper existed.
+   */
+  async function deliveryFor(eventId: string, endpointId: string): Promise<string> {
+    const [row] = await scoped.query(async (t, scope) =>
+      t
+        .select({ id: webhookDeliveries.id })
+        .from(webhookDeliveries)
+        .where(
+          and(
+            scope(webhookDeliveries),
+            eq(webhookDeliveries.eventId, eventId),
+            eq(webhookDeliveries.endpointId, endpointId),
+          ),
+        )
+        .limit(1),
+    );
+    if (!row) throw new Error("no delivery for that endpoint");
+    return row.id;
+  }
+
   async function deliveryRow(id: string) {
     const [row] = await scoped.query(async (t, scope) =>
       t
@@ -169,12 +196,13 @@ describe.skipIf(!hasTestDb)("webhook delivery", () => {
   }
 
   it("signs a payload an integrator can verify from the documentation", async () => {
-    const { receiver, secret } = await endpointFor("ok");
+    const { receiver, secret, id: endpointId } = await endpointFor("ok");
     const eventId = await emitEvent("catalog.location.created");
 
-    const { deliveryIds } = await fanOutEvent(db, eventId);
-    for (const id of deliveryIds) await attemptDelivery(db, env, id);
+    await fanOutEvent(db, eventId);
+    const outcome = await attemptDelivery(db, env, await deliveryFor(eventId, endpointId));
 
+    expect(outcome?.kind).toBe("delivered");
     expect(receiver.received).toHaveLength(1);
 
     const sent = receiver.received[0];
@@ -191,13 +219,10 @@ describe.skipIf(!hasTestDb)("webhook delivery", () => {
 
   it("refuses a signature checked against the wrong body", async () => {
     // Otherwise the check above would pass for any body at all.
-    const { receiver, secret } = await endpointFor("ok");
+    const { receiver, secret, id: endpointId } = await endpointFor("ok");
     const eventId = await emitEvent("catalog.location.created");
-    // Every endpoint registered by an earlier test also subscribes to
-    // everything, so this event fans out to several. Deliver them all rather
-    // than assuming the first belongs to this receiver.
-    const { deliveryIds } = await fanOutEvent(db, eventId);
-    for (const id of deliveryIds) await attemptDelivery(db, env, id);
+    await fanOutEvent(db, eventId);
+    await attemptDelivery(db, env, await deliveryFor(eventId, endpointId));
 
     const sent = receiver.received[0];
     if (!sent) throw new Error("nothing received");
@@ -217,7 +242,7 @@ describe.skipIf(!hasTestDb)("webhook delivery", () => {
 
     const eventId = await emitEvent("catalog.location.created");
     const { deliveryIds } = await fanOutEvent(db, eventId);
-    for (const id of deliveryIds) await attemptDelivery(db, env, id);
+    for (const deliveryId of deliveryIds) await attemptDelivery(db, env, deliveryId);
 
     expect(subscribed.receiver.received.length).toBeGreaterThan(0);
     expect(other.receiver.received).toHaveLength(0);
@@ -226,11 +251,12 @@ describe.skipIf(!hasTestDb)("webhook delivery", () => {
   it("retries a 500 rather than giving up on it", async () => {
     const { id } = await endpointFor("server-error", ["quality.grading.recorded"]);
     const eventId = await emitEvent("quality.grading.recorded");
-    const { deliveryIds } = await fanOutEvent(db, eventId);
+    await fanOutEvent(db, eventId);
+    const deliveryId = await deliveryFor(eventId, id);
 
-    const outcome = await attemptDelivery(db, env, deliveryIds[0] as string);
+    const outcome = await attemptDelivery(db, env, deliveryId);
     expect(outcome?.kind).toBe("retry");
-    expect((await deliveryRow(deliveryIds[0] as string))?.status).toBe("failed");
+    expect((await deliveryRow(deliveryId))?.status).toBe("failed");
     // One failure is not a broken integration.
     expect((await endpointRow(id))?.disabledAt).toBeNull();
   });
@@ -240,9 +266,9 @@ describe.skipIf(!hasTestDb)("webhook delivery", () => {
     // for six hours is pestering a server that has already answered.
     const { id } = await endpointFor("gone", ["orders.order.confirmed"]);
     const eventId = await emitEvent("orders.order.confirmed");
-    const { deliveryIds } = await fanOutEvent(db, eventId);
+    await fanOutEvent(db, eventId);
 
-    const outcome = await attemptDelivery(db, env, deliveryIds[0] as string);
+    const outcome = await attemptDelivery(db, env, await deliveryFor(eventId, id));
     // Its own outcome, not a plain death: the endpoint is switched off rather
     // than this one delivery being abandoned.
     expect(outcome?.kind).toBe("disable_endpoint");
@@ -255,14 +281,14 @@ describe.skipIf(!hasTestDb)("webhook delivery", () => {
     const { receiver, id } = await endpointFor("flaky", ["cafe.site.created"]);
 
     const first = await emitEvent("cafe.site.created");
-    const failed = await fanOutEvent(db, first);
-    await attemptDelivery(db, env, failed.deliveryIds[0] as string);
+    await fanOutEvent(db, first);
+    await attemptDelivery(db, env, await deliveryFor(first, id));
     expect((await endpointRow(id))?.consecutiveFailures).toBeGreaterThan(0);
 
     receiver.healthy = true;
     const second = await emitEvent("cafe.site.created");
-    const recovered = await fanOutEvent(db, second);
-    await attemptDelivery(db, env, recovered.deliveryIds[0] as string);
+    await fanOutEvent(db, second);
+    await attemptDelivery(db, env, await deliveryFor(second, id));
 
     expect((await endpointRow(id))?.consecutiveFailures).toBe(0);
     expect((await endpointRow(id))?.disabledAt).toBeNull();
@@ -286,24 +312,7 @@ describe.skipIf(!hasTestDb)("webhook delivery", () => {
     const eventId = await emitEvent("sourcing.contract.created");
     await fanOutEvent(db, eventId);
 
-    // The delivery for THIS endpoint. Endpoints from earlier tests subscribe
-    // to everything, so the fan-out produced several and the first of them
-    // belongs to a receiver that answered 200 — which is not due for anything.
-    const [mine] = await scoped.query(async (t, scope) =>
-      t
-        .select({ id: webhookDeliveries.id })
-        .from(webhookDeliveries)
-        .where(
-          and(
-            scope(webhookDeliveries),
-            eq(webhookDeliveries.eventId, eventId),
-            eq(webhookDeliveries.endpointId, id),
-          ),
-        )
-        .limit(1),
-    );
-    const deliveryId = mine?.id as string;
-    expect(deliveryId).toBeTruthy();
+    const deliveryId = await deliveryFor(eventId, id);
 
     // Fail it, then bring its retry forward so the sweeper considers it due.
     await attemptDelivery(db, env, deliveryId);
