@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { LEGAL } from "@/content/legal";
 import { canonical, INDEXABLE } from "@/content/site";
 import { SOLUTIONS } from "@/content/solutions";
 
@@ -12,7 +13,12 @@ import { SOLUTIONS } from "@/content/solutions";
  * `/trace/$code` is deliberately absent: those are per-bag certificates, not
  * pages anyone should discover by crawling.
  */
-const paths = () => ["/", "/pricing", ...SOLUTIONS.map((s) => `/solutions/${s.slug}`)];
+const paths = () => [
+  "/",
+  "/pricing",
+  ...SOLUTIONS.map((s) => `/solutions/${s.slug}`),
+  ...LEGAL.map((l) => `/legal/${l.slug}`),
+];
 
 export const Route = createFileRoute("/sitemap.xml")({
   server: {
