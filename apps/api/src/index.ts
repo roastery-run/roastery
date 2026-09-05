@@ -23,6 +23,7 @@ import { publicRoutes } from "./http/public";
 import { sessionRoutes } from "./http/session";
 import { streamRoutes } from "./http/stream";
 import { isHttpError } from "./lib/api/errors";
+import { openApiTags } from "./lib/api/openapi";
 import { rateLimit } from "./lib/api/rate-limit";
 import { RPC_REGISTRY, type RpcAppEnv, rpcPath } from "./lib/api/rpc";
 import { rpcAuthorize } from "./lib/api/rpc-authorize";
@@ -192,6 +193,9 @@ app.doc("/openapi.json", (c) => ({
       "`Authorization: Bearer`. Pass `resource` at the token endpoint to receive a JWT " +
       "access token; without it the token is opaque.",
   },
+  // Ordered by how the business runs rather than alphabetically, and carrying
+  // a readable name for each namespace — see NAMESPACE_TAGS.
+  tags: openApiTags(),
   // Derived from the request, so the docs point at the host you are reading
   // them on rather than at production from a preview deployment.
   servers: [{ url: new URL(c.req.url).origin, description: "This deployment" }],
@@ -209,15 +213,25 @@ app.get("/openapi.public.json", async (c) => {
   const doc = app.getOpenAPI31Document({
     openapi: "3.1.0",
     info: { title: "ROASTERY API", version: "1.0.0" },
+    tags: openApiTags(),
     servers: [{ url: new URL(c.req.url).origin }],
-  }) as { paths: Record<string, unknown> };
+  }) as { paths: Record<string, unknown>; tags: { name: string }[] };
 
   const internal = new Set(RPC_REGISTRY.filter((d) => d.internal).map((d) => rpcPath(d)));
   const paths: Record<string, unknown> = {};
   for (const [path, item] of Object.entries(doc.paths)) {
     if (!internal.has(path)) paths[path] = item;
   }
-  return c.json({ ...doc, paths });
+
+  // A tag whose every operation was just filtered out renders as an empty
+  // section with a heading and nothing under it, which reads as a missing page
+  // rather than a deliberate omission.
+  const published = new Set(
+    RPC_REGISTRY.filter((d) => !d.internal).map((d) => d.namespace as string),
+  );
+  const tags = doc.tags.filter((tag) => published.has(tag.name));
+
+  return c.json({ ...doc, paths, tags });
 });
 
 app.get("/docs", Scalar({ url: "/openapi.public.json", pageTitle: "ROASTERY API" }));
