@@ -1,6 +1,6 @@
 import { createMiddleware } from "hono/factory";
 import type { Env } from "../../env";
-import { hasModule, plansOfferingModule } from "../auth/entitlements";
+import { hasModule, plansOfferingModule, subscriptionActive } from "../auth/entitlements";
 import { can } from "../auth/permissions";
 import { RPC_BY_PATH, type RpcVariables } from "./rpc";
 
@@ -26,9 +26,15 @@ export const rpcAuthorize = createMiddleware<{ Bindings: Env; Variables: RpcVari
 
     if (!hasModule(c.var.entitlements, def.module)) {
       const requiredPlans = await plansOfferingModule(c.var.unsafeDb, def.module);
+      const inactive = !subscriptionActive(c.var.entitlements);
       return c.json(
         {
-          error: `Your plan does not include the ${def.module} module.`,
+          // A lapsed subscription and a plan that never included the module
+          // are different problems with different fixes, and telling somebody
+          // to upgrade when their card simply failed sends them the wrong way.
+          error: inactive
+            ? `Your subscription is ${c.var.entitlements.status}. Update billing to restore access.`
+            : `Your plan does not include the ${def.module} module.`,
           code: "entitlement_required" as const,
           module: def.module,
           plan: c.var.entitlements.planSlug,

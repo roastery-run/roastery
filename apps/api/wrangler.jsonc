@@ -164,6 +164,21 @@
       "name": "SESSION_RATE_LIMITER",
       "namespace_id": "1004",
       "simple": { "limit": 300, "period": 60 }
+    },
+    {
+      // Signed report downloads. Separate from AUTH_RATE_LIMITER because both
+      // are IP-keyed for an unauthenticated caller, so one office downloading
+      // reports was locking itself out of sign-in.
+      "name": "REPORTS_LIMITER",
+      "namespace_id": "1006",
+      "simple": { "limit": 120, "period": 60 }
+    },
+    {
+      // WebSocket upgrades: auth plus three queries each before the socket is
+      // granted, so they need a ceiling even though the socket itself is cheap.
+      "name": "STREAM_LIMITER",
+      "namespace_id": "1007",
+      "simple": { "limit": 60, "period": 60 }
     }
   ]
 }

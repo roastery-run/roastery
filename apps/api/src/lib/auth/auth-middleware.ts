@@ -32,6 +32,8 @@ export type AuthContext = {
 
 export type AuthVariables = {
   auth: AuthContext;
+  /** See RpcVariables: the verified credential a later limiter may key on. */
+  rateLimitActor?: string;
   /**
    * The UNSCOPED database handle.
    *
@@ -129,7 +131,11 @@ export const authMiddleware = createMiddleware<{ Bindings: Env; Variables: AuthV
       // An OAuth access token from the client_credentials grant. Validation is
       // stateless JWT verification, so this costs no database round-trip — the
       // property that makes the documented request budget affordable.
-      const claims = await verifyOAuthToken(db, header.slice("Bearer ".length));
+      const claims = await verifyOAuthToken(
+        db,
+        header.slice("Bearer ".length),
+        c.env.BETTER_AUTH_URL,
+      );
       if (claims) {
         credential = {
           type: "oauth_client",
@@ -147,6 +153,17 @@ export const authMiddleware = createMiddleware<{ Bindings: Env; Variables: AuthV
     }
 
     c.set("auth", { userId, credential });
+    // Now that the credential is verified, later limiters can key on it
+    // instead of on the caller's IP. Before this point the Authorization
+    // header is attacker-chosen, so keying on it hands out an unlimited supply
+    // of fresh buckets.
+    const verified =
+      credential?.type === "api_key"
+        ? credential.id
+        : credential?.type === "oauth_client"
+          ? credential.clientId
+          : userId;
+    if (verified) c.set("rateLimitActor", verified);
 
     try {
       await next();

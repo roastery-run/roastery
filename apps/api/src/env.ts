@@ -97,6 +97,11 @@ export type Env = {
   INGEST_LIMITER?: RateLimit;
   AUTH_RATE_LIMITER?: RateLimit;
   SESSION_RATE_LIMITER?: RateLimit;
+  /** Signed report downloads. Its own namespace: sharing the auth limiter let
+   * a burst of downloads lock an office out of sign-in. */
+  REPORTS_LIMITER?: RateLimit;
+  /** WebSocket upgrades, which cost auth plus three queries each. */
+  STREAM_LIMITER?: RateLimit;
 
   /**
    * Transactional mail: one HTTPS POST to a provider that accepts

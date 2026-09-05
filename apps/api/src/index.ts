@@ -174,6 +174,10 @@ mountRpcRoutes(app);
 // higher than the business API.
 app.use("/ingest/v1/*", rateLimit("INGEST_LIMITER", { limit: 1000, windowMs: 10_000 }));
 app.route("/", ingestRoutes);
+// A WebSocket upgrade runs authentication and three queries before the socket
+// is granted, so an authenticated viewer opening them in a loop is expensive
+// even though nothing is ever sent. It had no limit at all.
+app.use("/stream/v1/*", rateLimit("STREAM_LIMITER", { limit: 60, windowMs: 60_000 }));
 app.route("/", streamRoutes);
 
 /**
@@ -182,7 +186,12 @@ app.route("/", streamRoutes);
  * protection — an unguessable global token, and an expiring signature.
  */
 app.use("/trace/v1/*", rateLimit("RPC_SUSTAINED_LIMITER", { limit: 300, windowMs: 60_000 }));
-app.use("/reports/v1/*", rateLimit("AUTH_RATE_LIMITER", { limit: 20, windowMs: 60_000 }));
+// Its own namespace, not the auth limiter's. Both are keyed by IP for an
+// unauthenticated caller, so sharing meant a burst of report downloads from
+// one office NAT locked that office out of SIGNING IN — the starvation
+// CLAUDE.md warns about, between two surfaces with nothing in common but a
+// binding name.
+app.use("/reports/v1/*", rateLimit("REPORTS_LIMITER", { limit: 120, windowMs: 60_000 }));
 app.route("/", publicRoutes);
 
 /* --------------------------------------------------------------- metadata */

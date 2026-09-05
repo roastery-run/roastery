@@ -23,6 +23,15 @@ export type RpcVariables = {
   emittedEvents: EmittedEvent[];
   /** Per-layer durations, emitted as `Server-Timing`. */
   timings: Timings;
+  /**
+   * The VERIFIED credential a rate limiter may key on.
+   *
+   * Set by `authMiddleware` once a credential has actually been checked, and
+   * read by any limiter that runs after it. Limiters that run before
+   * authentication fall back to the caller's IP, because until then the only
+   * identity on offer is one the caller made up.
+   */
+  rateLimitActor?: string;
 };
 
 export type RpcAppEnv = { Bindings: Env; Variables: RpcVariables };
@@ -232,7 +241,24 @@ export function registerRpc<Req extends z.ZodTypeAny, Res extends z.ZodTypeAny>(
       const idemKey = honoursIdempotency ? c.req.header("Idempotency-Key") : undefined;
 
       if (idemKey) {
-        const outcome = await idempotency.begin(c.env, c.var.orgId, name, idemKey, input);
+        // Fails OPEN. Idempotency is a convenience layered over the durable
+        // guard, which is the unique constraints in Postgres — so when KV is
+        // unavailable the right answer is to run the request, not to refuse a
+        // write that would have succeeded. Treating a storage blip as a reason
+        // to 500 turns a degraded cache into an outage.
+        const outcome = await idempotency
+          .begin(c.env, c.var.orgId, name, idemKey, input)
+          .catch((err) => {
+            console.warn(
+              JSON.stringify({
+                msg: "idempotency_unavailable",
+                phase: "begin",
+                operation: name,
+                error: err instanceof Error ? err.message : String(err),
+              }),
+            );
+            return { status: "fresh" } as const;
+          });
         if (outcome.status === "replay") {
           return c.json(outcome.body as never, 200, { "Idempotent-Replay": "true" });
         }
@@ -270,7 +296,24 @@ export function registerRpc<Req extends z.ZodTypeAny, Res extends z.ZodTypeAny>(
       }
 
       if (idemKey) {
-        await idempotency.complete(c.env, c.var.orgId, name, idemKey, input, result);
+        // Worse than `begin`: the write has already COMMITTED. Throwing here
+        // returns a 500 for a request that succeeded, and leaves the key
+        // claimed, so the client's retry gets a 409 in-flight for the next 24
+        // hours and the mutation looks permanently stuck. The cost of failing
+        // open is that a retry may re-run a committed write, which is exactly
+        // what the database constraints are there for.
+        await idempotency
+          .complete(c.env, c.var.orgId, name, idemKey, input, result)
+          .catch((err) => {
+            console.warn(
+              JSON.stringify({
+                msg: "idempotency_unavailable",
+                phase: "complete",
+                operation: name,
+                error: err instanceof Error ? err.message : String(err),
+              }),
+            );
+          });
       }
       flushEvents(c);
       return c.json(result as never, 200, {

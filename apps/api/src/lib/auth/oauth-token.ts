@@ -29,11 +29,19 @@ export type OAuthClaims = {
  * cost we already accept for an API key. Reading them live also means revoking
  * a client takes effect immediately rather than at token expiry.
  */
-export async function verifyOAuthToken(db: WorkerDb, token: string): Promise<OAuthClaims | null> {
+export async function verifyOAuthToken(
+  db: WorkerDb,
+  token: string,
+  /** The expected `iss`. Tokens we did not issue for THIS deployment are not
+   *  ours, even when signed by a key we recognise. */
+  issuer: string,
+): Promise<OAuthClaims | null> {
   if (!token || token.startsWith("sk_")) return null;
 
   const resolved =
-    token.split(".").length === 3 ? await resolveJwt(db, token) : await resolveOpaque(db, token);
+    token.split(".").length === 3
+      ? await resolveJwt(db, token, issuer)
+      : await resolveOpaque(db, token);
   if (!resolved) return null;
 
   const [client] = await db
@@ -96,20 +104,33 @@ async function localJwks(db: WorkerDb) {
 async function resolveJwt(
   db: WorkerDb,
   token: string,
+  issuer: string,
 ): Promise<{ clientId: string; scopes: string[] } | null> {
   try {
     // Reject anything not shaped like an access token before doing key work.
     const header = decodeProtectedHeader(token);
     if (!header.alg) return null;
 
-    const { payload } = await jwtVerify(token, await localJwks(db));
-    const clientId =
-      typeof payload.client_id === "string"
-        ? payload.client_id
-        : typeof payload.sub === "string"
-          ? payload.sub
-          : null;
+    // The issuer is checked, not just the signature. Verifying the signature
+    // alone asks "did we sign this?", which is true of every token our own
+    // JWKS ever produced — including a user-delegated authorization-code token
+    // from the browser flow, which would then authenticate here AS THE CLIENT
+    // and act with the client's role rather than the person's.
+    const { payload } = await jwtVerify(token, await localJwks(db), {
+      issuer,
+    });
+
+    // A machine credential is `client_credentials`, where the subject IS the
+    // client. Falling back to `sub` for any other grant is what let a
+    // user-delegated token in: there, `sub` is the person.
+    const clientId = typeof payload.client_id === "string" ? payload.client_id : null;
     if (!clientId) return null;
+
+    // Belt and braces where the plugin records the grant: a token that says it
+    // came from somewhere else is rejected even if it carries a client_id.
+    const grant = payload.grant_type ?? payload.gty;
+    if (typeof grant === "string" && grant !== "client_credentials") return null;
+
     return { clientId, scopes: parseScope(payload.scope) };
   } catch {
     // Bad signature, expired, malformed — all indistinguishable to a caller.
