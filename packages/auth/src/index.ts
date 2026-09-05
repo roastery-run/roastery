@@ -111,6 +111,19 @@ export function cookiePrefix(env: AuthEnv): string {
   return environment && environment !== "production" ? `roastery-${environment}` : "roastery";
 }
 
+/**
+ * The prefix Better Auth ACTUALLY writes, which is what anything sniffing the
+ * cookie header must match. `createAuth` leaves the prefix at Better Auth's
+ * default on localhost — there is no sibling environment to collide with, and
+ * the domain-scoped attributes are invalid there — so the namespaced prefix
+ * above is only the answer once deployed. Checking for `roastery.session_token`
+ * locally finds nothing, and every local sign-in silently lands back on the
+ * login page.
+ */
+export function sessionCookiePrefix(env: AuthEnv): string {
+  return isLocal(env) ? "better-auth" : cookiePrefix(env);
+}
+
 function socialProviders(env: AuthEnv) {
   const providers: Record<string, { clientId: string; clientSecret: string }> = {};
   if (env.GITHUB_CLIENT_ID && env.GITHUB_CLIENT_SECRET) {

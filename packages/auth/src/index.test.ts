@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cookieDomain, cookiePrefix } from "./index";
+import { cookieDomain, cookiePrefix, sessionCookiePrefix } from "./index";
 
 /**
  * A session cookie scoped to a domain that does not cover the console is not
@@ -78,5 +78,21 @@ describe("cookiePrefix", () => {
     expect(cookiePrefix(env({ ENVIRONMENT: "staging" }))).toBe("roastery-staging");
     expect(cookiePrefix(env({ ENVIRONMENT: "production" }))).toBe("roastery");
     expect(cookiePrefix(env({}))).toBe("roastery");
+  });
+});
+
+describe("sessionCookiePrefix", () => {
+  it("is the namespaced prefix once deployed", () => {
+    expect(sessionCookiePrefix(env({ ENVIRONMENT: "staging" }))).toBe("roastery-staging");
+    expect(sessionCookiePrefix(env({}))).toBe("roastery");
+  });
+
+  it("is Better Auth's default on localhost, where createAuth sets no prefix", () => {
+    // The middleware skips session resolution when no cookie by this name is
+    // present. Matching the deployed prefix here meant no local session was
+    // ever read, and every sign-in bounced back to the login page.
+    expect(sessionCookiePrefix(env({ BETTER_AUTH_URL: "http://localhost:8787" }))).toBe(
+      "better-auth",
+    );
   });
 });

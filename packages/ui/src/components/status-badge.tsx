@@ -83,6 +83,11 @@ const STATUS_TONE: Record<string, StatusTone> = {
   matched: "success",
   shot_missing: "danger",
   sale_missing: "warning",
+  // Alerts. Without these a "critical" overdue milestone rendered with the
+  // neutral hollow ring, indistinguishable from "draft".
+  critical: "danger",
+  warning: "warning",
+  info: "info",
 };
 
 export function toneFor(status: string): StatusTone {

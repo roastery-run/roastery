@@ -100,8 +100,10 @@ describe("warmth", () => {
     }
   });
 
-  it("keeps corners squared", () => {
-    // Rounded corners read as consumer software. This is a tool.
-    expect(CSS).toMatch(/--radius:\s*0\.25rem/);
+  it("keeps the maia radius base", () => {
+    // The whole radius scale is derived from this value, and the maia
+    // components' `rounded-4xl` pills only read as pills from 0.625rem up. A
+    // preset re-apply or a "tidy" nudge here quietly flattens every control.
+    expect(CSS).toMatch(/--radius:\s*0\.625rem/);
   });
 });

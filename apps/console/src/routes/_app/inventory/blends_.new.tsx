@@ -310,7 +310,7 @@ function BlendBuilder() {
         </div>
 
         <aside className="space-y-4 lg:sticky lg:top-4 lg:self-start">
-          <div className="rounded-md border border-border bg-card p-4">
+          <div className="rounded-2xl bg-card ring-1 ring-foreground/10 p-4">
             <div className="text-muted-foreground text-xs">Total ratio</div>
             <div
               className={cn(

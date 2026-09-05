@@ -63,7 +63,7 @@ export function LockedModule({
   return (
     <div
       className={cn(
-        "flex flex-col items-start gap-3 rounded-md border border-dashed border-border bg-muted/40 p-8",
+        "flex flex-col items-start gap-3 rounded-2xl border border-dashed border-border bg-muted/40 p-8",
         className,
       )}
     >

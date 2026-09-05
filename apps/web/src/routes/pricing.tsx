@@ -57,7 +57,7 @@ function Pricing() {
             <div
               key={plan.slug}
               className={cn(
-                "flex flex-col rounded-md border bg-card p-6",
+                "flex flex-col rounded-2xl bg-card ring-1 ring-foreground/10 p-6",
                 plan.highlighted ? "border-primary" : "border-border",
               )}
             >

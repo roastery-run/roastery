@@ -53,7 +53,7 @@ export function Metric({
   className?: string;
 }) {
   return (
-    <div className={cn("rounded-md border border-border bg-card p-4", className)}>
+    <div className={cn("rounded-2xl bg-card ring-1 ring-foreground/10 p-4", className)}>
       <div className="text-xs font-medium text-muted-foreground">{label}</div>
       <div className="mt-1 flex items-baseline gap-1">
         <span className="font-mono text-2xl font-semibold tabular-nums">{value}</span>
