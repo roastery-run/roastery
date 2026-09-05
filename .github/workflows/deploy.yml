@@ -1,0 +1,79 @@
+name: Deploy
+
+# Staging deploys itself on every push to main. Production never does: it is
+# dispatched by a person, gated on the `production` GitHub environment, so the
+# approval and the audit trail exist whether or not anyone remembers to keep
+# one. Deploying from a laptop leaves neither.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Which environment to deploy
+        type: choice
+        options: [staging, production]
+        default: staging
+      rollout:
+        description: "Initial share of production traffic for the new API version (100 skips the canary; required for a release that adds a Durable Object migration)"
+        type: string
+        default: "10"
+
+concurrency:
+  # Never two deploys at once. The migration wrapper takes an advisory lock so
+  # they cannot corrupt each other, but the second would still be shifting
+  # traffic to a version built from an older commit.
+  group: deploy-${{ github.event.inputs.environment || 'staging' }}
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment || 'staging' }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+
+      - name: Deploy
+        env:
+          # Needs Workers Scripts, Workers KV, Queues, R2, D1-none, and
+          # HYPERDRIVE — a token missing the Hyperdrive scope fails only the
+          # Hyperdrive calls, with a bare "Authentication error [code: 10000]"
+          # that reads as a broken product rather than a missing permission.
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          # Points at the Neon branch for this environment. The migration
+          # wrapper compares its host against packages/db/environments.json and
+          # refuses on a mismatch, so a mis-scoped secret stops the deploy
+          # instead of migrating the wrong database.
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          ROLLOUT: ${{ github.event.inputs.rollout || '10' }}
+        run: |
+          if [[ "${{ github.event.inputs.environment || 'staging' }}" == "production" ]]; then
+            bash scripts/deploy-production.sh
+          else
+            bash scripts/deploy-staging.sh
+          fi
+
+      - name: Smoke
+        env:
+          BASE: ${{ (github.event.inputs.environment || 'staging') == 'production' && 'https://api.roastery.run' || 'https://api-staging.roastery.run' }}
+          SITE: ${{ (github.event.inputs.environment || 'staging') == 'production' && 'https://roastery.run' || 'https://staging.roastery.run' }}
+        run: |
+          set -euo pipefail
+          # Deployed does not mean working. These three are the paths whose
+          # failure is invisible: /health proves the database is reachable
+          # through Hyperdrive, the OpenAPI document proves the RPC registry
+          # mounted, and the site proves the SSR Worker booted with its vars.
+          for url in "$BASE/health" "$BASE/openapi.public.json" "$SITE/"; do
+            code="$(curl -sS -o /dev/null -w '%{http_code}' --max-time 20 "$url")"
+            echo "$code $url"
+            [[ "$code" == "200" ]] || exit 1
+          done

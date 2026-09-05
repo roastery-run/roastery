@@ -27,10 +27,19 @@ pnpm check
 pnpm typecheck
 pnpm test
 
+echo "==> Checking the configs"
+node scripts/check-deploy-config.mjs \
+  apps/api/wrangler.staging.jsonc \
+  apps/web/wrangler.staging.jsonc \
+  apps/console/wrangler.staging.jsonc \
+  apps/docs/wrangler.staging.jsonc
+
 echo "==> Migrating the staging database"
-# DATABASE_URL must point at the Neon `staging` branch. The authz seed re-runs
-# on every migrate, so permissions added since the last deploy actually arrive.
-pnpm db:migrate
+# `--target staging` compares DATABASE_URL's host against the staging Neon
+# endpoint and refuses if it points somewhere else, so an exported production
+# URL cannot be migrated by a staging deploy. The authz seed re-runs on every
+# migrate, so permissions added since the last deploy actually arrive.
+pnpm --filter @roastery/db migrate --target staging
 
 echo "==> api"
 pnpm --filter @roastery/api exec wrangler deploy --config wrangler.staging.jsonc
