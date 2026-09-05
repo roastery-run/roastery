@@ -263,28 +263,6 @@ export const lotConsumption = pgTable(
  * Rows here are an alert, not a repair. Silently correcting the balance would
  * hide whatever wrote it without a ledger row, which is the actual bug.
  */
-export const inventoryReconciliations = pgTable(
-  "inventory_reconciliations",
-  {
-    id: uuid("id").primaryKey().defaultRandom(),
-    orgId: uuid("org_id")
-      .notNull()
-      .references(() => organizations.id, { onDelete: "cascade" }),
-    greenLotId: uuid("green_lot_id")
-      .notNull()
-      .references(() => greenLots.id, { onDelete: "cascade" }),
-    expectedKg: numeric("expected_kg", { precision: 14, scale: 4 }).notNull(),
-    actualKg: numeric("actual_kg", { precision: 14, scale: 4 }).notNull(),
-    driftKg: numeric("drift_kg", { precision: 14, scale: 4 }).notNull(),
-    resolvedAt: timestamp("resolved_at", { withTimezone: true }),
-    resolvedBy: text("resolved_by").references(() => users.id, { onDelete: "set null" }),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-  },
-  (t) => [
-    index("inventory_recon_org_lot_idx").on(t.orgId, t.greenLotId, t.createdAt),
-    index("inventory_recon_open_idx").on(t.orgId, t.createdAt).where(sql`resolved_at IS NULL`),
-  ],
-);
 
 /**
  * The costs that make up a lot's landed price.

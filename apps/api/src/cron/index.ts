@@ -6,6 +6,7 @@
  * silent, so anything that does the work inline will eventually time out on
  * the one organization large enough to matter, and nobody will find out.
  */
+import { organizations } from "@roastery/db/schema";
 import type { Env } from "../env";
 import { closeWorkerDb, createOwnedWorkerDb } from "../lib/db/db";
 import { ensureShotPartitions } from "../lib/domain/shot-ingest";
@@ -18,6 +19,9 @@ export async function handleScheduled(cron: CronPattern, env: Env): Promise<void
   switch (cron) {
     case "* * * * *":
       await sweepOutbox(env);
+      break;
+    case "30 3 * * *":
+      await enqueueReconciliation(env);
       break;
     case "0 4 * * *":
       await rollShotPartitions(env);
@@ -71,6 +75,39 @@ async function sweepOutbox(env: Env): Promise<void> {
     await closeWorkerDb(db);
   }
 }
+
+/**
+ * Asks every organization to check its own books.
+ *
+ * Enqueue-only, per the rule at the top of this file: the scan is three
+ * aggregate queries per tenant, which is fine once and not fine four hundred
+ * times inside one scheduled handler. Running it here would time out on the
+ * largest tenant and report nothing.
+ *
+ * Runs at 03:30 so that anything it finds is already recorded when the 07:00
+ * digest goes out, rather than waiting a further day to be told.
+ */
+async function enqueueReconciliation(env: Env): Promise<void> {
+  if (!env.MAINTENANCE_QUEUE) return;
+  const queue = env.MAINTENANCE_QUEUE;
+  const db = createOwnedWorkerDb(env);
+  try {
+    const orgs = await db.select({ id: organizations.id }).from(organizations);
+    for (let i = 0; i < orgs.length; i += BATCH) {
+      await queue.sendBatch(
+        orgs
+          .slice(i, i + BATCH)
+          .map((org) => ({ body: { job: "reconcile" as const, orgId: org.id } })),
+      );
+    }
+    console.log(JSON.stringify({ msg: "reconciliation_enqueued", orgs: orgs.length }));
+  } finally {
+    await closeWorkerDb(db);
+  }
+}
+
+/** sendBatch accepts at most 100 messages. */
+const BATCH = 100;
 
 /**
  * Keeps the shot table's partition window ahead of real time.

@@ -12,11 +12,14 @@ import type { CafeSiteDO, LiveShot } from "../durable-objects/cafe-site";
 import type {
   Env,
   EventQueueMessage,
+  MaintenanceQueueMessage,
   ReportQueueMessage,
   ShotQueueMessage,
   WebhookQueueMessage,
 } from "../env";
 import { closeWorkerDb, createOwnedWorkerDb } from "../lib/db/db";
+import { withOrgDb } from "../lib/db/org-db";
+import { reconcileOrg } from "../lib/domain/reconciliation";
 import {
   type IncomingShot,
   prepareShots,
@@ -92,6 +95,48 @@ export async function handleWebhookQueue(
           }),
         );
         message.retry({ delaySeconds: 60 });
+      }
+    }
+  } finally {
+    await closeWorkerDb(db);
+  }
+}
+
+/**
+ * Scheduled work, one organization per message.
+ *
+ * The cron that feeds this only lists organizations and enqueues; the work
+ * happens here so that one large tenant cannot exhaust a scheduled handler's
+ * budget on behalf of everyone else, and so a failure retries for that tenant
+ * alone rather than aborting the run.
+ */
+export async function handleMaintenanceQueue(
+  batch: MessageBatch<MaintenanceQueueMessage>,
+  env: Env,
+): Promise<void> {
+  const db = createOwnedWorkerDb(env);
+  try {
+    for (const message of batch.messages) {
+      const { job, orgId } = message.body;
+      try {
+        if (job === "reconcile") {
+          const { found, recorded } = await withOrgDb(db, orgId, (odb) => reconcileOrg(odb));
+          // Logged even at zero: "the job ran and found nothing" and "the job
+          // did not run" have to be distinguishable, or a silently broken
+          // reconciliation looks exactly like a healthy ledger.
+          console.log(JSON.stringify({ msg: "reconciled", orgId, found, recorded }));
+        }
+        message.ack();
+      } catch (err) {
+        console.error(
+          JSON.stringify({
+            msg: "maintenance_failed",
+            job,
+            orgId,
+            error: err instanceof Error ? err.message : String(err),
+          }),
+        );
+        message.retry();
       }
     }
   } finally {

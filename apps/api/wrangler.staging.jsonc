@@ -33,7 +33,7 @@
   "triggers": {
     // Every minute: the outbox sweeper, which is what makes "committed but
     // never enqueued" recoverable. 04:00 snapshots, 07:00 alert digests.
-    "crons": ["* * * * *", "0 4 * * *", "0 7 * * *"]
+    "crons": ["* * * * *", "30 3 * * *", "0 4 * * *", "0 7 * * *"]
   },
 
   "observability": { "enabled": true, "head_sampling_rate": 1 },
@@ -112,7 +112,8 @@
       { "binding": "EVENT_QUEUE", "queue": "roastery-events-staging" },
       { "binding": "WEBHOOK_QUEUE", "queue": "roastery-webhooks-staging" },
       { "binding": "SHOT_QUEUE", "queue": "roastery-shots-staging" },
-      { "binding": "REPORT_QUEUE", "queue": "roastery-reports-staging" }
+      { "binding": "REPORT_QUEUE", "queue": "roastery-reports-staging" },
+      { "binding": "MAINTENANCE_QUEUE", "queue": "roastery-maintenance-staging" }
     ],
     "consumers": [
       {
@@ -150,12 +151,24 @@
         "retry_delay": 60,
         "dead_letter_queue": "roastery-reports-dlq-staging"
       },
+      {
+        // Reconciliation and any other per-organization scheduled work. One
+        // message per org, so a large tenant cannot exhaust a scheduled
+        // handler's budget on behalf of everyone else.
+        "queue": "roastery-maintenance-staging",
+        "max_batch_size": 1,
+        "max_batch_timeout": 5,
+        "max_retries": 3,
+        "max_concurrency": 3,
+        "dead_letter_queue": "roastery-maintenance-dlq-staging"
+      },
       // Drained by handleDeadLetterBatch. Declared but unconsumed, these
       // silently accumulate poison messages nobody ever sees.
       { "queue": "roastery-events-dlq-staging", "max_batch_size": 10, "max_retries": 1 },
       { "queue": "roastery-webhooks-dlq-staging", "max_batch_size": 10, "max_retries": 1 },
       { "queue": "roastery-shots-dlq-staging", "max_batch_size": 10, "max_retries": 1 },
-      { "queue": "roastery-reports-dlq-staging", "max_batch_size": 10, "max_retries": 1 }
+      { "queue": "roastery-reports-dlq-staging", "max_batch_size": 10, "max_retries": 1 },
+      { "queue": "roastery-maintenance-dlq-staging", "max_batch_size": 10, "max_retries": 1 }
     ]
   }
 }

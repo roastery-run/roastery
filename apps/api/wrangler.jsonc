@@ -39,7 +39,8 @@
       { "binding": "EVENT_QUEUE", "queue": "roastery-events" },
       { "binding": "WEBHOOK_QUEUE", "queue": "roastery-webhooks" },
       { "binding": "SHOT_QUEUE", "queue": "roastery-shots" },
-      { "binding": "REPORT_QUEUE", "queue": "roastery-reports" }
+      { "binding": "REPORT_QUEUE", "queue": "roastery-reports" },
+      { "binding": "MAINTENANCE_QUEUE", "queue": "roastery-maintenance" }
     ],
     "consumers": [
       {
@@ -85,7 +86,17 @@
         "max_retries": 2,
         "dead_letter_queue": "roastery-reports-dlq"
       },
+      {
+        // One message per organization: reconciliation, and whatever other
+        // per-tenant scheduled work follows it.
+        "queue": "roastery-maintenance",
+        "max_batch_size": 1,
+        "max_batch_timeout": 5,
+        "max_retries": 3,
+        "dead_letter_queue": "roastery-maintenance-dlq"
+      },
       { "queue": "roastery-events-dlq", "max_batch_size": 20, "max_retries": 1 },
+      { "queue": "roastery-maintenance-dlq", "max_batch_size": 20, "max_retries": 1 },
       { "queue": "roastery-reports-dlq", "max_batch_size": 20, "max_retries": 1 },
       { "queue": "roastery-shots-dlq", "max_batch_size": 20, "max_retries": 1 },
       { "queue": "roastery-webhooks-dlq", "max_batch_size": 20, "max_retries": 1 }
@@ -97,6 +108,8 @@
     // the commit and the inline enqueue.
     "crons": [
       "* * * * *",
+      // Nightly reconciliation: enqueues one check per organization.
+      "30 3 * * *",
       // Keeps the espresso_shots partition window ahead of real time.
       "0 4 * * *",
       // The daily alert digest. One email per organization, not one per alert:

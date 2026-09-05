@@ -27,10 +27,12 @@ const HANDLED = new Set([
   "webhooks",
   "shots",
   "reports",
+  "maintenance",
   "events-dlq",
   "webhooks-dlq",
   "shots-dlq",
   "reports-dlq",
+  "maintenance-dlq",
 ]);
 
 function configs(): { file: string; queues: string[] }[] {

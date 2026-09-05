@@ -1,4 +1,10 @@
-import { alertNotifications, contractMilestones, greenLots, materials } from "@roastery/db/schema";
+import {
+  alertNotifications,
+  contractMilestones,
+  greenLots,
+  inventoryReconciliations,
+  materials,
+} from "@roastery/db/schema";
 import { and, eq, isNull, lte, sql } from "drizzle-orm";
 import type { OrgDb } from "../db/org-db";
 
@@ -107,6 +113,39 @@ export async function scanAlerts(db: OrgDb): Promise<Alert[]> {
       message: m.leadTimeDays
         ? `Material "${m.name}" is at its reorder point (${m.leadTimeDays} day lead time)`
         : `Material "${m.name}" is at its reorder point`,
+    });
+  }
+
+  // Read from the reconciliation table rather than re-running the drift
+  // queries: that table IS the record, this is only the notification, and
+  // running the comparison twice invites the two to disagree about what was
+  // found. The nightly job writes at 03:30 so anything it found is here by the
+  // time the digest is built.
+  const drifts = await db.query(async (t, scope) =>
+    t
+      .select({
+        id: inventoryReconciliations.id,
+        kind: inventoryReconciliations.kind,
+        driftKg: inventoryReconciliations.driftKg,
+      })
+      .from(inventoryReconciliations)
+      .where(and(scope(inventoryReconciliations), isNull(inventoryReconciliations.resolvedAt)))
+      .limit(500),
+  );
+
+  for (const d of drifts) {
+    alerts.push({
+      ruleId: "inventory.ledger.drift",
+      subjectId: d.id,
+      // Critical, and deliberately not configurable. Drift means something
+      // wrote a cached weight outside the one path allowed to, so every number
+      // derived from that lot — valuations, availability, what can be promised
+      // to a customer — is suspect until someone looks.
+      severity: "critical",
+      message:
+        d.kind === "roasted_reservation"
+          ? `A roasted lot's reservation is out by ${d.driftKg} kg against its open allocations`
+          : `A lot's balance is out by ${d.driftKg} kg against its ledger`,
     });
   }
 

@@ -18,6 +18,17 @@ export type ShotQueueMessage = {
 /** One report to render, off the request path. */
 export type ReportQueueMessage = { reportId: string; orgId: string };
 
+/**
+ * Scheduled work, one message per organization.
+ *
+ * Cron decides what work exists and enqueues it; the work itself runs here,
+ * with its own connection and its own retry. A scheduled handler has one
+ * request's CPU budget and its failures are silent, so anything that loops
+ * over every tenant inline eventually times out on the one tenant large
+ * enough to matter — and nobody finds out.
+ */
+export type MaintenanceQueueMessage = { job: "reconcile"; orgId: string };
+
 /** Fan-out: one message per committed outbox event. */
 export type EventQueueMessage = { eventId: string };
 /** Delivery: one message per (endpoint, event) pair. */
@@ -63,6 +74,7 @@ export type Env = {
   SHOT_QUEUE?: Queue<ShotQueueMessage>;
   REPORT_QUEUE?: Queue<ReportQueueMessage>;
   WEBHOOK_QUEUE?: Queue<WebhookQueueMessage>;
+  MAINTENANCE_QUEUE?: Queue<MaintenanceQueueMessage>;
 
   /**
    * Browser Rendering, for report PDFs. Optional: without it reports render as

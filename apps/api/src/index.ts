@@ -13,6 +13,7 @@ import { handleScheduled } from "./cron";
 import type {
   Env,
   EventQueueMessage,
+  MaintenanceQueueMessage,
   ReportQueueMessage,
   ShotQueueMessage,
   WebhookQueueMessage,
@@ -35,6 +36,7 @@ import { createEmailSender } from "./lib/email/send";
 import {
   handleDeadLetterBatch,
   handleEventQueue,
+  handleMaintenanceQueue,
   handleReportQueue,
   handleShotQueue,
   handleWebhookQueue,
@@ -362,7 +364,11 @@ export default {
 
   async queue(
     batch: MessageBatch<
-      EventQueueMessage & WebhookQueueMessage & ShotQueueMessage & ReportQueueMessage
+      EventQueueMessage &
+        WebhookQueueMessage &
+        ShotQueueMessage &
+        ReportQueueMessage &
+        MaintenanceQueueMessage
     >,
     env: Env,
   ): Promise<void> {
@@ -375,9 +381,12 @@ export default {
         return handleShotQueue(batch as never, env);
       case "reports":
         return handleReportQueue(batch as never, env);
+      case "maintenance":
+        return handleMaintenanceQueue(batch as never, env);
       case "events-dlq":
       case "webhooks-dlq":
       case "shots-dlq":
+      case "maintenance-dlq":
       case "reports-dlq":
         return handleDeadLetterBatch(batch as never, env);
       default:
