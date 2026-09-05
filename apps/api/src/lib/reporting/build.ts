@@ -16,6 +16,7 @@ import {
 import { and, asc, desc, eq, gte, lte, type SQL } from "drizzle-orm";
 import { NotFound } from "../api/errors";
 import type { OrgDb } from "../db/org-db";
+import { kg } from "../domain/inventory";
 import type { ReportDocument, ReportSection } from "./render";
 
 type BuildContext = { db: OrgDb; orgId: string };
@@ -97,8 +98,12 @@ async function inventoryValuation(ctx: BuildContext): Promise<ReportSection[]> {
       .limit(500),
   );
 
-  const greenTotal = green.reduce((s, l) => s + Number.parseFloat(l.currentWeightKg ?? "0"), 0);
-  const greenValue = green.reduce((s, l) => s + Number.parseFloat(l.totalValueBase ?? "0"), 0);
+  // Exact, not float. A stock valuation is the report that gets forwarded to
+  // an accountant or an insurer, so it is the last place to sum money and
+  // weight through Number — the ledger is exact precisely so this figure can
+  // be reconciled against it, and a float total cannot be.
+  const greenTotal = green.reduce((total, l) => kg.add(total, l.currentWeightKg ?? "0"), "0");
+  const greenValue = green.reduce((total, l) => kg.add(total, l.totalValueBase ?? "0"), "0");
 
   return [
     {
@@ -107,7 +112,7 @@ async function inventoryValuation(ctx: BuildContext): Promise<ReportSection[]> {
         ["Lot", "Code", "Weight (kg)", "Value"],
         ...green.map((l) => [l.name, l.lotCode, nz(l.currentWeightKg, "0"), nz(l.totalValueBase)]),
       ],
-      note: `${green.length} lots · ${greenTotal.toFixed(4)} kg · ${greenValue.toFixed(2)} total`,
+      note: `${green.length} lots · ${greenTotal} kg · ${greenValue} total`,
     },
     {
       heading: "Roasted coffee",
@@ -137,8 +142,8 @@ async function productionSummary(ctx: BuildContext, params: Params): Promise<Rep
   );
 
   const completed = batches.filter((b) => b.status === "completed");
-  const charged = completed.reduce((s, b) => s + Number.parseFloat(b.chargeWeightKg ?? "0"), 0);
-  const dropped = completed.reduce((s, b) => s + Number.parseFloat(b.dropWeightKg ?? "0"), 0);
+  const charged = completed.reduce((total, b) => kg.add(total, b.chargeWeightKg ?? "0"), "0");
+  const dropped = completed.reduce((total, b) => kg.add(total, b.dropWeightKg ?? "0"), "0");
 
   return [
     {
@@ -155,9 +160,11 @@ async function productionSummary(ctx: BuildContext, params: Params): Promise<Rep
         ]),
       ],
       note:
-        `${completed.length} completed of ${batches.length} · ${charged.toFixed(2)} kg charged ` +
-        `→ ${dropped.toFixed(2)} kg roasted` +
-        (charged > 0 ? ` (${(((charged - dropped) / charged) * 100).toFixed(2)}% loss)` : ""),
+        `${completed.length} completed of ${batches.length} · ${charged} kg charged ` +
+        `→ ${dropped} kg roasted` +
+        (kg.cmp(charged, "0") > 0
+          ? ` (${kg.mulDiv(kg.sub(charged, dropped), "100", charged)}% loss)`
+          : ""),
     },
   ];
 }
@@ -179,6 +186,9 @@ async function qualitySummary(ctx: BuildContext, params: Params): Promise<Report
   );
 
   const withDtr = batches.filter((b) => b.dtrPct !== null);
+  // Float is right here, unlike the weights and money above: this is the mean
+  // and spread of a development-time ratio, a statistical summary of roast
+  // profiles that nothing reconciles against and no ledger records.
   const dtrValues = withDtr.map((b) => Number.parseFloat(b.dtrPct ?? "0"));
   const avgDtr = dtrValues.length ? dtrValues.reduce((a, b) => a + b, 0) / dtrValues.length : null;
 
@@ -231,7 +241,7 @@ async function cafePerformance(ctx: BuildContext, params: Params): Promise<Repor
   const shots = rollups.reduce((s, r) => s + r.shotCount, 0);
   const inSpec = rollups.reduce((s, r) => s + r.inSpecCount, 0);
   const channeling = rollups.reduce((s, r) => s + r.channelingCount, 0);
-  const coffee = rollups.reduce((s, r) => s + Number.parseFloat(r.coffeeUsedKg ?? "0"), 0);
+  const coffee = rollups.reduce((total, r) => kg.add(total, r.coffeeUsedKg ?? "0"), "0");
 
   return [
     {
@@ -252,7 +262,7 @@ async function cafePerformance(ctx: BuildContext, params: Params): Promise<Repor
         shots === 0
           ? "No shots in this window."
           : `${shots} shots · ${((inSpec / shots) * 100).toFixed(1)}% in spec · ` +
-            `${((channeling / shots) * 100).toFixed(1)}% channeling · ${coffee.toFixed(3)} kg used`,
+            `${((channeling / shots) * 100).toFixed(1)}% channeling · ${coffee} kg used`,
     },
   ];
 }

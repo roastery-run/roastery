@@ -29,6 +29,7 @@ import { BadRequest, Conflict, NotFound } from "../../lib/api/errors";
 import { type RpcAppEnv, type RpcContext, registerRpc } from "../../lib/api/rpc";
 import { isUniqueViolation } from "../../lib/db/db";
 import {
+  adjustReservation,
   applyInventoryTransaction,
   kg,
   recordTransformation,
@@ -379,6 +380,20 @@ registerRpc(
         weightKg: weight,
         transactionId: out.id,
       });
+      await tx.emit({
+        type: "inventory.green_lot.split",
+        resourceType: "green_lot",
+        resourceId: source.id,
+        // Both ids and the weight that moved: enough for a receiver to follow
+        // the lineage without replaying the ledger.
+        payload: {
+          id: source.id,
+          lotCode: source.lotCode,
+          childId: child.id,
+          childLotCode: child.lotCode,
+          weightKg: weight,
+        },
+      });
       return child.id;
     });
 
@@ -483,18 +498,12 @@ registerRpc(
       );
     }
 
-    const want = kg.normalize(input.weightKg);
-    const available = kg.sub(lot.currentWeightKg, lot.reservedWeightKg);
-    if (kg.cmp(available, want) < 0) {
-      throw new BadRequest(
-        `Only ${available} kg is unreserved on this lot; cannot reserve ${want} kg.`,
-      );
-    }
-    await ctx.db.update(
-      greenLots,
-      { reservedWeightKg: kg.add(lot.reservedWeightKg, want), updatedAt: new Date() },
-      eq(greenLots.id, input.id),
-    );
+    // The availability check and the write happen under one row lock inside
+    // adjustReservation. Read here, checked there: two reserves arriving
+    // together would otherwise both see the same free weight and both take it.
+    await ctx.db.transaction(async (tx) => {
+      await adjustReservation(tx, input.id, kg.normalize(input.weightKg));
+    });
     return toDto(await loadLot(ctx, input.id));
   },
 );
@@ -511,18 +520,9 @@ registerRpc(
     module: "inventory",
   },
   async (input, ctx) => {
-    const lot = await loadLot(ctx, input.id);
-    const want = kg.normalize(input.weightKg);
-    if (kg.cmp(lot.reservedWeightKg, want) < 0) {
-      throw new BadRequest(
-        `Only ${lot.reservedWeightKg} kg is reserved; cannot release ${want} kg.`,
-      );
-    }
-    await ctx.db.update(
-      greenLots,
-      { reservedWeightKg: kg.sub(lot.reservedWeightKg, want), updatedAt: new Date() },
-      eq(greenLots.id, input.id),
-    );
+    await ctx.db.transaction(async (tx) => {
+      await adjustReservation(tx, input.id, kg.sub("0", kg.normalize(input.weightKg)));
+    });
     return toDto(await loadLot(ctx, input.id));
   },
 );

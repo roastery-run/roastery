@@ -72,3 +72,18 @@ export async function verifyDownload(
 /** Fifteen minutes: long enough to click, short enough that a forward is useless. */
 export const DEFAULT_TTL_SECONDS = 900;
 export const MAX_TTL_SECONDS = 3600;
+
+/**
+ * The key that signs and verifies download links.
+ *
+ * Falls back to the session secret so a deployment that has not set the
+ * dedicated one keeps verifying links it already issued. Both sides of the
+ * signature go through here, so they cannot disagree about which key is in
+ * use.
+ */
+export function downloadSigningKey(env: {
+  DOWNLOAD_SIGNING_KEY?: string;
+  BETTER_AUTH_SECRET: string;
+}): string {
+  return env.DOWNLOAD_SIGNING_KEY || env.BETTER_AUTH_SECRET;
+}

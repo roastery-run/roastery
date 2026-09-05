@@ -1,4 +1,5 @@
 import { rolePermissions } from "@roastery/db/schema";
+import { AUTHZ_VERSION } from "@roastery/db/seed-authz";
 import { eq } from "drizzle-orm";
 import type { Env } from "../../env";
 import type { WorkerDb } from "../db/db";
@@ -23,9 +24,16 @@ export function can(perms: ReadonlySet<string>, permission: string): boolean {
 }
 
 /**
- * Built-in roles are shared across tenants and immutable, so they are safe to
- * cache for the life of an isolate. Custom roles are not, and are keyed by a
- * per-org epoch instead (below).
+ * Built-in roles are shared across tenants and immutable WITHIN A RELEASE, so
+ * they are safe to cache for the life of an isolate. Custom roles are not, and
+ * are keyed by a per-org epoch instead (below).
+ *
+ * "Within a release" is the part that used to be missing. The cache key was
+ * the constant "builtin", so a migration that granted a built-in role a new
+ * permission took up to an hour to take effect and nothing could hurry it —
+ * the operation it guarded simply denied, for everyone, including owners.
+ * `AUTHZ_VERSION` is derived from the grants themselves, so a release that
+ * changes them reads through at once.
  */
 const builtinCache = new Map<string, { perms: Set<string>; at: number }>();
 const BUILTIN_TTL_MS = 60_000;
@@ -48,20 +56,24 @@ async function loadRolePermissions(
 ): Promise<Set<string>> {
   const isBuiltin = BUILTIN_ROLES.has(roleSlug);
 
+  // The isolate cache is keyed by version too: an isolate can outlive a
+  // deploy, and a warm one serving last release's grants is the same bug in a
+  // shorter window.
+  const builtinKey = `${roleSlug}:${AUTHZ_VERSION}`;
   if (isBuiltin) {
-    const hit = builtinCache.get(roleSlug);
+    const hit = builtinCache.get(builtinKey);
     if (hit && Date.now() - hit.at < BUILTIN_TTL_MS) return hit.perms;
   }
 
   const epoch = isBuiltin
-    ? "builtin"
+    ? AUTHZ_VERSION
     : ((await env.ROASTERY_KV.get(permissionEpochKey(orgId))) ?? "0");
   const kvKey = `perms:${roleSlug}:${epoch}`;
 
   const cached = await env.ROASTERY_KV.get<string[]>(kvKey, "json");
   if (cached) {
     const set = new Set(cached);
-    if (isBuiltin) builtinCache.set(roleSlug, { perms: set, at: Date.now() });
+    if (isBuiltin) builtinCache.set(builtinKey, { perms: set, at: Date.now() });
     return set;
   }
 
@@ -72,7 +84,7 @@ async function loadRolePermissions(
   const set = new Set(rows.map((r) => r.p));
 
   await env.ROASTERY_KV.put(kvKey, JSON.stringify([...set]), { expirationTtl: 3600 });
-  if (isBuiltin) builtinCache.set(roleSlug, { perms: set, at: Date.now() });
+  if (isBuiltin) builtinCache.set(builtinKey, { perms: set, at: Date.now() });
   return set;
 }
 
@@ -105,6 +117,39 @@ export async function loadPermissions(
   const rolePerms = await loadRolePermissions(env, db, orgId, roleSlug);
   if (credentialScopes === null) return rolePerms;
   return new Set(credentialScopes.filter((s) => can(rolePerms, s)));
+}
+
+/**
+ * Whether `granter` can confer everything `role` would confer.
+ *
+ * The guard on issuing credentials and assigning roles. Without it, any role
+ * holding `console.credentials.write` can mint an owner-scoped API key and use
+ * it — an escalation that leaves no trace, because issuing a key is a
+ * perfectly ordinary thing for that permission to allow.
+ *
+ * Deliberately a SUBSET check over permission sets rather than a comparison of
+ * `roles.rank`. Rank orders roles for display and is documented in two places
+ * as never being an authorization input, for good reason: a hierarchy
+ * expressed as a number silently confers whatever happens to sit below it,
+ * including permissions added to that role later by a migration nobody
+ * reviewed against this call site. A subset check asks the only question that
+ * matters — can the caller already do all of this? — and stays correct as
+ * roles change.
+ *
+ * Wildcards work in both directions through `can`: an owner holding `*`
+ * satisfies everything, and a caller holding `inventory.*` can confer
+ * `inventory.green.write`.
+ */
+export function canGrantRole(
+  granter: ReadonlySet<string>,
+  rolePermissions: ReadonlySet<string>,
+): boolean {
+  for (const permission of rolePermissions) {
+    // A wildcard the granter does not itself hold as a wildcard is not
+    // coverable by enumeration: `*` is only satisfied by `*`.
+    if (!can(granter, permission)) return false;
+  }
+  return true;
 }
 
 /** Clears the isolate-level built-in cache. Tests only. */

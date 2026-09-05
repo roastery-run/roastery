@@ -1,4 +1,9 @@
-import { buildPersistOptions, configureApi, createQueryClient } from "@roastery/ui";
+import {
+  buildPersistOptions,
+  configureApi,
+  createQueryClient,
+  discardForeignCache,
+} from "@roastery/ui";
 import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
 import { createRouter, RouterProvider } from "@tanstack/react-router";
 import { StrictMode } from "react";
@@ -12,6 +17,15 @@ import "./index.css";
 configureApi({ baseUrl: ORIGINS.api });
 
 const queryClient = createQueryClient();
+
+// Before the persister rehydrates, not after.
+//
+// `ensureCacheOwner` also runs once /session/v1/me resolves, but that is a
+// round trip after PersistQueryClientProvider has already painted whatever was
+// in localStorage — so on a shared terminal the next person saw the previous
+// person's lists until the response landed. The owner is recorded on this
+// device, so it can be checked without asking the server anything.
+discardForeignCache();
 
 const router = createRouter({
   routeTree,

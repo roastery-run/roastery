@@ -13,16 +13,18 @@ import { handleScheduled } from "./cron";
 import type {
   Env,
   EventQueueMessage,
+  MaintenanceQueueMessage,
   ReportQueueMessage,
   ShotQueueMessage,
   WebhookQueueMessage,
 } from "./env";
-import { assertProductionBindings } from "./env";
+import { assertProductionBindings, isProduction } from "./env";
 import { ingestRoutes } from "./http/ingest";
 import { publicRoutes } from "./http/public";
 import { sessionRoutes } from "./http/session";
 import { streamRoutes } from "./http/stream";
 import { isHttpError } from "./lib/api/errors";
+import { recordMetric } from "./lib/api/metrics";
 import { openApiTags } from "./lib/api/openapi";
 import { rateLimit } from "./lib/api/rate-limit";
 import { RPC_REGISTRY, type RpcAppEnv, rpcPath } from "./lib/api/rpc";
@@ -35,6 +37,7 @@ import { createEmailSender } from "./lib/email/send";
 import {
   handleDeadLetterBatch,
   handleEventQueue,
+  handleMaintenanceQueue,
   handleReportQueue,
   handleShotQueue,
   handleWebhookQueue,
@@ -66,6 +69,10 @@ const app = new OpenAPIHono<RpcAppEnv>({
 app.use("*", async (c, next) => {
   assertProductionBindings(c.env);
   await next();
+  // The denominator. An error COUNT cannot distinguish a broken deploy from a
+  // busy morning; a rate can, so every request is counted here and the 5xx
+  // path counts itself below.
+  recordMetric(c.env, { kind: "request", operation: c.req.path });
 });
 
 app.use("*", secureHeaders());
@@ -120,9 +127,20 @@ app.use(
 // protects the unauthenticated, email-sending endpoints.
 app.use("/api/auth/*", async (c, next) => {
   const isSessionRead = c.req.path.includes("get-session");
+  // Sending a sign-in link is the one auth endpoint that puts mail in a
+  // stranger's inbox at our expense and under our sending reputation. At the
+  // general auth budget that is twenty emails a minute to addresses of the
+  // caller's choosing, so it gets its own, much tighter namespace.
+  //
+  // Better Auth had a rule for exactly this — three per five minutes — backed
+  // by in-memory storage, which on Workers is per-isolate and therefore
+  // enforced nothing. This is that rule, somewhere it can hold.
+  const isMagicLink = c.req.path.includes("sign-in/magic-link");
   const limiter = isSessionRead
     ? rateLimit("SESSION_RATE_LIMITER", { limit: 300, windowMs: 60_000 })
-    : rateLimit("AUTH_RATE_LIMITER", { limit: 20, windowMs: 60_000 });
+    : isMagicLink
+      ? rateLimit("MAGIC_LINK_LIMITER", { limit: 5, windowMs: 60_000 })
+      : rateLimit("AUTH_RATE_LIMITER", { limit: 20, windowMs: 60_000 });
   return limiter(c as never, next);
 });
 
@@ -167,6 +185,10 @@ mountRpcRoutes(app);
 // higher than the business API.
 app.use("/ingest/v1/*", rateLimit("INGEST_LIMITER", { limit: 1000, windowMs: 10_000 }));
 app.route("/", ingestRoutes);
+// A WebSocket upgrade runs authentication and three queries before the socket
+// is granted, so an authenticated viewer opening them in a loop is expensive
+// even though nothing is ever sent. It had no limit at all.
+app.use("/stream/v1/*", rateLimit("STREAM_LIMITER", { limit: 60, windowMs: 60_000 }));
 app.route("/", streamRoutes);
 
 /**
@@ -175,10 +197,39 @@ app.route("/", streamRoutes);
  * protection — an unguessable global token, and an expiring signature.
  */
 app.use("/trace/v1/*", rateLimit("RPC_SUSTAINED_LIMITER", { limit: 300, windowMs: 60_000 }));
-app.use("/reports/v1/*", rateLimit("AUTH_RATE_LIMITER", { limit: 20, windowMs: 60_000 }));
+// Its own namespace, not the auth limiter's. Both are keyed by IP for an
+// unauthenticated caller, so sharing meant a burst of report downloads from
+// one office NAT locked that office out of SIGNING IN — the starvation
+// CLAUDE.md warns about, between two surfaces with nothing in common but a
+// binding name.
+app.use("/reports/v1/*", rateLimit("REPORTS_LIMITER", { limit: 120, windowMs: 60_000 }));
 app.route("/", publicRoutes);
 
 /* --------------------------------------------------------------- metadata */
+
+/**
+ * The FULL document, including `console.*`.
+ *
+ * Authenticated, unlike the public one. Those operations are in the spec so
+ * the console's client is typed and the authorization test can enumerate them,
+ * and `/openapi.public.json` exists precisely to keep them out of what
+ * integrators read — but the unfiltered document was served to anyone who
+ * asked, which handed an attacker the exact shape of every internal operation,
+ * its input schema and the permission it wants.
+ *
+ * Any credential will do. The point is not that the contents are secret from
+ * customers; it is that enumerating the administrative surface should require
+ * being somebody.
+ */
+app.use("/openapi.json", rateLimit("SESSION_RATE_LIMITER", { limit: 300, windowMs: 60_000 }));
+app.use("/openapi.json", authMiddleware);
+app.use("/openapi.json", async (c, next) => {
+  const { userId, credential } = c.var.auth;
+  if (!userId && !credential) {
+    return c.json({ error: "Unauthorized", code: "unauthenticated" }, 401);
+  }
+  await next();
+});
 
 app.doc("/openapi.json", (c) => ({
   openapi: "3.1.0",
@@ -239,6 +290,19 @@ app.get("/docs", Scalar({ url: "/openapi.public.json", pageTitle: "ROASTERY API"
 app.get("/health", async (c) => {
   const deep = c.req.query("deep") === "1";
   if (!deep) return c.json({ ok: true, operations: RPC_REGISTRY.length });
+
+  // The deep check opens a Hyperdrive connection and reports the database
+  // name, the schema and its table count. That is a useful thing for an
+  // operator to see and a free fingerprint for anyone else, so it needs a
+  // token — which the uptime monitor holds. Unset, the deep check is simply
+  // unavailable rather than open: an absent secret must not mean "no check".
+  if (c.env.HEALTH_TOKEN) {
+    if (c.req.header("x-health-token") !== c.env.HEALTH_TOKEN) {
+      return c.json({ error: "Not found", code: "not_found" }, 404);
+    }
+  } else if (isProduction(c.env)) {
+    return c.json({ error: "Not found", code: "not_found" }, 404);
+  }
 
   const db = createWorkerDb(c.env);
   try {
@@ -323,6 +387,7 @@ app.onError((err, c) => {
       stack: err instanceof Error ? err.stack : undefined,
     }),
   );
+  recordMetric(c.env, { kind: "server_error", operation: c.req.path });
   return c.json({ error: "Internal error", correlationId }, 500);
 });
 
@@ -362,7 +427,11 @@ export default {
 
   async queue(
     batch: MessageBatch<
-      EventQueueMessage & WebhookQueueMessage & ShotQueueMessage & ReportQueueMessage
+      EventQueueMessage &
+        WebhookQueueMessage &
+        ShotQueueMessage &
+        ReportQueueMessage &
+        MaintenanceQueueMessage
     >,
     env: Env,
   ): Promise<void> {
@@ -375,9 +444,12 @@ export default {
         return handleShotQueue(batch as never, env);
       case "reports":
         return handleReportQueue(batch as never, env);
+      case "maintenance":
+        return handleMaintenanceQueue(batch as never, env);
       case "events-dlq":
       case "webhooks-dlq":
       case "shots-dlq":
+      case "maintenance-dlq":
       case "reports-dlq":
         return handleDeadLetterBatch(batch as never, env);
       default:

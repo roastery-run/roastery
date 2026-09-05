@@ -29,6 +29,41 @@
       "when": 1788326688990,
       "tag": "0003_flimsy_chameleon",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1788596236424,
+      "tag": "0004_tense_champions",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1788602179658,
+      "tag": "0005_faithful_bruce_banner",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1788618340376,
+      "tag": "0006_mature_lady_vermin",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1788618548197,
+      "tag": "0007_great_purifiers",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1788618587079,
+      "tag": "0008_backfill_green_reservations",
+      "breakpoints": true
     }
   ]
 }

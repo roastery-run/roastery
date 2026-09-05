@@ -159,6 +159,9 @@ export const NAV: NavSection[] = [
       { label: "Locations", to: "/settings/locations", permission: "catalog.location.read" },
       { label: "Products", to: "/settings/products", permission: "catalog.product.read" },
       { label: "Partners", to: "/settings/partners", permission: "catalog.party.read" },
+      // Owner-only in practice: `console.data.export` is granted to no other
+      // built-in role, so the entry simply does not render for anyone else.
+      { label: "Data & deletion", to: "/settings/data", permission: "console.data.export" },
     ],
   },
 ];

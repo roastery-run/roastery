@@ -61,11 +61,20 @@ export function ErrorState({
   title = "Something went wrong",
   description,
   onRetry,
+  /**
+   * The id the API logged this failure under.
+   *
+   * Shown because it is the only thing that connects what somebody saw to the
+   * log line explaining it. Rendered in a monospace, selectable block so it can
+   * be copied into a support message rather than transcribed from a screenshot.
+   */
+  correlationId,
   className,
 }: {
   title?: string;
   description?: React.ReactNode;
   onRetry?: () => void;
+  correlationId?: string;
   className?: string;
 }) {
   return (
@@ -78,6 +87,11 @@ export function ErrorState({
     >
       <p className="text-sm font-medium">{title}</p>
       {description ? <div className="text-sm text-muted-foreground">{description}</div> : null}
+      {correlationId ? (
+        <p className="text-muted-foreground text-xs">
+          Reference: <code className="select-all font-mono">{correlationId}</code>
+        </p>
+      ) : null}
       {onRetry ? (
         <Button size="sm" variant="outline" onClick={onRetry}>
           Try again

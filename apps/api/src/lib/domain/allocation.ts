@@ -17,6 +17,19 @@ import { kg } from "./inventory";
  * be promised to two customers; the weight leaves inventory at fulfilment.
  * Deducting at allocation would make the ledger claim a movement that has not
  * happened and the physical count stop matching the system.
+ *
+ * Both functions REQUIRE a transactional handle and take a row lock on every
+ * lot they touch. Neither used to, and the claim above was consequently only
+ * true when nothing ran concurrently: two allocations reading the same
+ * `reserved_weight_kg` both wrote their own total, and the same kilogram went
+ * to two customers with nothing in the data to show it. Unlike the balance,
+ * a reservation has no ledger to reconcile against — the roasted lot's
+ * counter is checked against open allocation rows by the reconciliation job,
+ * which is what turns a lost update here from invisible into reported.
+ *
+ * The caller opens the transaction, because allocating an ORDER means
+ * allocating every line of it: a failure on the third line has to undo the
+ * first two rather than leave the order half committed.
  */
 
 export type AllocationResult = {
@@ -28,11 +41,21 @@ export type AllocationResult = {
 };
 
 export async function allocateOrderLine(
+  /** Must be a transactional handle: see the note on locking above. */
   db: OrgDb,
   orderLineId: string,
   options: { strategy?: "fefo" | "fifo"; blendId?: string | null } = {},
 ): Promise<AllocationResult> {
-  const line = await db.findOne(salesOrderLines, eq(salesOrderLines.id, orderLineId));
+  // Locked first and held for the whole allocation, so two calls against one
+  // line serialise here rather than racing over `allocated_weight_kg`.
+  const [line] = await db.query(async (t, scope) =>
+    t
+      .select()
+      .from(salesOrderLines)
+      .for("update")
+      .where(and(scope(salesOrderLines), eq(salesOrderLines.id, orderLineId)))
+      .limit(1),
+  );
   if (!line) throw new NotFound("Order line not found");
 
   const outstanding = kg.sub(line.weightKg, line.allocatedWeightKg);
@@ -69,7 +92,12 @@ export async function allocateOrderLine(
         strategy === "fefo"
           ? sql`${roastedLots.bestBeforeAt} asc nulls last`
           : asc(roastedLots.roastedAt),
-      ),
+      )
+      // Locked in the SAME order they are consumed. Deliberately not SKIP
+      // LOCKED: the order is the feature, and skipping a lot another
+      // transaction happens to hold would quietly allocate the wrong coffee —
+      // fresher stock shipped ahead of the batch that expires first.
+      .for("update"),
   );
 
   let remaining = outstanding;
@@ -77,6 +105,8 @@ export async function allocateOrderLine(
 
   for (const lot of candidates) {
     if (kg.cmp(remaining, "0") <= 0) break;
+    // Read after the lock was granted, so this is the settled figure rather
+    // than what was free when the candidate list was built.
     const free = kg.sub(lot.currentWeightKg, lot.reservedWeightKg);
     if (kg.cmp(free, "0") <= 0) continue;
 
@@ -123,7 +153,13 @@ export async function allocateOrderLine(
   };
 }
 
-/** Releases open allocations for a line and returns the stock to available. */
+/**
+ * Releases open allocations for a line and returns the stock to available.
+ *
+ * Requires a transactional handle for the same reason as allocation: the lot
+ * counter, the allocation rows and the line's total have to move together or
+ * the line ends up claiming stock no allocation row backs.
+ */
 export async function releaseOrderLine(db: OrgDb, orderLineId: string): Promise<string> {
   const open = await db.query(async (t, scope) =>
     t
@@ -140,7 +176,14 @@ export async function releaseOrderLine(db: OrgDb, orderLineId: string): Promise<
 
   let released = "0";
   for (const a of open) {
-    const lot = await db.findOne(roastedLots, eq(roastedLots.id, a.roastedLotId));
+    const [lot] = await db.query(async (t, scope) =>
+      t
+        .select()
+        .from(roastedLots)
+        .for("update")
+        .where(and(scope(roastedLots), eq(roastedLots.id, a.roastedLotId)))
+        .limit(1),
+    );
     if (lot) {
       await db.update(
         roastedLots,
@@ -155,7 +198,14 @@ export async function releaseOrderLine(db: OrgDb, orderLineId: string): Promise<
     released = kg.add(released, a.weightKg);
   }
 
-  const line = await db.findOne(salesOrderLines, eq(salesOrderLines.id, orderLineId));
+  const [line] = await db.query(async (t, scope) =>
+    t
+      .select()
+      .from(salesOrderLines)
+      .for("update")
+      .where(and(scope(salesOrderLines), eq(salesOrderLines.id, orderLineId)))
+      .limit(1),
+  );
   if (line) {
     await db.update(
       salesOrderLines,

@@ -1,8 +1,9 @@
+import type { TraceSnapshot } from "@roastery/schemas";
 import { EmptyState } from "@roastery/ui";
 import { formatCountry, formatDate, formatPercent, humanize } from "@roastery/units";
 import { createFileRoute, notFound } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
-import { Coffee, Mountain } from "lucide-react";
+import { Coffee, Mountain, RefreshCw } from "lucide-react";
 
 /**
  * The page printed on a retail bag.
@@ -16,25 +17,15 @@ import { Coffee, Mountain } from "lucide-react";
  * It reads a FROZEN snapshot. Lots get merged and consumed after coffee ships,
  * so a live query would describe something other than what is in the bag.
  */
-type Trace = {
-  qrToken: string;
-  issuedAt: string;
-  coffee: {
-    name: string;
-    lotCode: string;
-    roastLevel: string | null;
-    roastedAt: string | null;
-  };
-  origins: {
-    producer: string | null;
-    country: string | null;
-    region: string | null;
-    altitude: string | null;
-    process: string | null;
-    varieties: string[];
-  }[];
-  roast: { batchNumber: string; roastedAt: string | null; weightLossPct: string | null } | null;
-};
+/**
+ * The certificate's shape, imported rather than restated.
+ *
+ * This was a hand-written copy of what the API returns, kept in sync by
+ * nobody. `traceSnapshotSchema` is now the single declaration, and the one
+ * place a drift would show up is a page printed on a bag somebody has already
+ * bought — which is the worst possible place to find out.
+ */
+type Trace = TraceSnapshot & { qrToken: string; issuedAt: string };
 
 /**
  * Runs on the server, so the API base is a server-side environment variable and
@@ -43,14 +34,50 @@ type Trace = {
 const fetchTrace = createServerFn({ method: "GET" })
   .inputValidator((code: string) => code)
   .handler(async ({ data: code }): Promise<Trace | null> => {
+    // Imported inside the handler: this module also ships to the client, and
+    // the bundler denies a static import of the server entry from a route.
+    const { setResponseHeader } = await import("@tanstack/react-start/server");
+
     // The token is 24 hex characters. Rejecting anything else here keeps a
     // malformed scan from becoming an upstream request at all.
     if (!/^[0-9a-f]{24}$/.test(code)) return null;
 
-    const base = process.env.API_URL ?? "http://localhost:8787";
-    const response = await fetch(`${base}/trace/v1/${code}`);
-    if (response.status === 404) return null;
+    // No localhost fallback. API_URL is a Worker var rather than a baked-in
+    // VITE_ value, so `verify-build-env.mjs` cannot see it and a production
+    // config that omits it would send every QR scan to a host that does not
+    // exist — served, cached and shared as a broken page. Failing here is
+    // caught by the error boundary and by the first smoke check after deploy.
+    // `import.meta.env.DEV` is only true under `vite dev`, so the convenience
+    // fallback cannot survive into a build.
+    const base = process.env.API_URL ?? (import.meta.env.DEV ? "http://localhost:8787" : undefined);
+    if (!base) throw new Error("API_URL is not configured for this deployment");
+    const response = await fetch(`${base}/trace/v1/${code}`, {
+      // A hung upstream otherwise holds this SSR request until the platform
+      // kills it, with nothing rendered.
+      signal: AbortSignal.timeout(5000),
+    });
+    if (response.status === 404) {
+      // Briefly cacheable. A mistyped code is worth absorbing at the edge, but
+      // not for long: a roaster who publishes the batch minutes later should
+      // not be told it does not exist for a day.
+      setResponseHeader("cache-control", "public, max-age=60");
+      return null;
+    }
     if (!response.ok) throw new Error("Could not load this coffee");
+
+    // A certificate is a FROZEN snapshot, which is what makes this cacheable
+    // at all. The API says the same thing about its own JSON — without it here
+    // the HTML wrapper is uncacheable, so every scan is still a Worker
+    // invocation plus a subrequest for a document that cannot change.
+    //
+    // s-maxage is a day at the edge, max-age five minutes in the browser, and
+    // stale-while-revalidate means a scan during revalidation is served from
+    // cache rather than waiting — which on a phone, in a café, on bad Wi-Fi,
+    // is the whole difference.
+    setResponseHeader(
+      "cache-control",
+      "public, max-age=300, s-maxage=86400, stale-while-revalidate=86400",
+    );
     return (await response.json()) as Trace;
   });
 
@@ -75,6 +102,25 @@ export const Route = createFileRoute("/trace/$code")({
         }
       : {},
   component: TracePage,
+  /**
+   * The API blipped, or timed out, or is misconfigured.
+   *
+   * Without this the QR target on a retail bag renders the framework's default
+   * error screen — a stack trace where the coffee's name should be, on the
+   * most-loaded page in the product, in front of somebody who has just bought
+   * a bag. `notFoundComponent` covered the code being wrong and nothing
+   * covered the system being wrong.
+   */
+  errorComponent: () => (
+    <div className="mx-auto max-w-2xl px-6 py-16">
+      <EmptyState
+        icon={RefreshCw}
+        title="We could not load this coffee right now"
+        description="Something went wrong at our end, not with your bag. Try again in a moment."
+        action={{ label: "Try again", onClick: () => window.location.reload() }}
+      />
+    </div>
+  ),
   notFoundComponent: () => (
     <div className="mx-auto max-w-2xl px-6 py-16">
       <EmptyState

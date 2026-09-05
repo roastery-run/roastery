@@ -46,12 +46,54 @@ export const traceOutput = z.object({
 
 /* ------------------------------------------------------------ certificates */
 
+/**
+ * What a certificate froze at the moment it was issued.
+ *
+ * Typed here rather than left as `z.unknown()` because this is the payload the
+ * QR page on a retail bag renders, and it was declared in two places: this
+ * schema said "unknown", and `apps/web` kept its own hand-written `Trace` type
+ * to make the page compile. Two definitions of one wire shape, with nothing
+ * holding them together — and the one that would notice a change is the one
+ * printed on a bag somebody already bought.
+ *
+ * Deliberately a SNAPSHOT and not a query: lots are merged, split and consumed
+ * after coffee ships, so a live lookup would describe something other than
+ * what is in the bag.
+ */
+export const traceSnapshotSchema = z.object({
+  coffee: z.object({
+    name: z.string(),
+    lotCode: z.string(),
+    roastLevel: z.string().nullable(),
+    roastedAt: z.string().nullable(),
+  }),
+  origins: z.array(
+    z.object({
+      producer: z.string().nullable(),
+      country: z.string().nullable(),
+      region: z.string().nullable(),
+      altitude: z.string().nullable(),
+      process: z.string().nullable(),
+      varieties: z.array(z.string()),
+    }),
+  ),
+  roast: z
+    .object({
+      batchNumber: z.string(),
+      roastedAt: z.string().nullable(),
+      weightLossPct: z.string().nullable(),
+    })
+    .nullable(),
+});
+
+export type TraceSnapshot = z.infer<typeof traceSnapshotSchema>;
+
 export const traceabilityRecordSchema = z.object({
   id: uuidSchema,
   qrToken: z.string(),
   roastedLotId: uuidSchema.nullable(),
   orderLineId: uuidSchema.nullable(),
-  snapshot: z.unknown(),
+  snapshot: traceSnapshotSchema,
   issuedAt: z.string(),
 });
 

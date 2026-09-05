@@ -54,3 +54,49 @@ describe("kg arithmetic is exact", () => {
     expect(total).toBe("18975.0000");
   });
 });
+
+/**
+ * Multiplication and division, which the ledger and the valuation reports both
+ * depend on being exact.
+ *
+ * The float versions these replace looked right in every hand-checked example
+ * and were wrong in aggregate — the failure only shows up when the parts have
+ * to add back up to the whole.
+ */
+describe("kg.mul, kg.div and kg.mulDiv", () => {
+  it("multiplies without drifting", () => {
+    expect(kg.mul("12.5000", "3.0000")).toBe("37.5000");
+    // 0.1 * 0.2 is the canonical float embarrassment: 0.020000000000000004.
+    expect(kg.mul("0.1000", "0.2000")).toBe("0.0200");
+  });
+
+  it("divides and rounds half-up at the shared scale", () => {
+    expect(kg.div("10.0000", "4.0000")).toBe("2.5000");
+    expect(kg.div("1.0000", "3.0000")).toBe("0.3333");
+    expect(kg.div("2.0000", "3.0000")).toBe("0.6667");
+  });
+
+  it("rounds symmetrically for negative weights, which are ordinary here", () => {
+    // A consumption is a negative delta; it must not round differently from
+    // the receipt that balances it.
+    expect(kg.div("-1.0000", "3.0000")).toBe("-0.3333");
+    expect(kg.mul("-2.5000", "2.0000")).toBe("-5.0000");
+  });
+
+  it("refuses to divide by zero rather than returning Infinity", () => {
+    expect(() => kg.div("1.0000", "0")).toThrow(/zero/i);
+    expect(() => kg.mulDiv("1.0000", "1.0000", "0")).toThrow(/zero/i);
+  });
+
+  it("rounds mulDiv once, so parts still sum to the whole", () => {
+    // Composing mul and div rounds twice and loses 0.03 kg on this split —
+    // green the ledger would then record as consumed by nothing.
+    const parts = ["33.3333", "33.3333", "33.3334"].map((pct) => kg.mulDiv("300.0000", pct, "100"));
+    expect(parts.reduce((total, part) => kg.add(total, part), "0")).toBe("300.0000");
+  });
+
+  it("keeps a percentage split of an awkward total exact", () => {
+    const parts = ["60.0000", "40.0000"].map((pct) => kg.mulDiv("7.7777", pct, "100"));
+    expect(parts.reduce((total, part) => kg.add(total, part), "0")).toBe("7.7777");
+  });
+});

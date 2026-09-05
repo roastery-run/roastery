@@ -13,6 +13,7 @@
  */
 import { sql } from "drizzle-orm";
 import {
+  check,
   date,
   index,
   integer,
@@ -272,5 +273,8 @@ export const alertNotifications = pgTable(
   (t) => [
     uniqueIndex("alert_notifications_dedupe_idx").on(t.orgId, t.ruleId, t.subjectId, t.digestDate),
     index("alert_notifications_org_date_idx").on(t.orgId, t.digestDate),
+    // The digest renders per severity and the console colours by it, so an
+    // unrecognised value is a row that renders as nothing.
+    check("alert_severity", sql`${t.severity} in ('info', 'warning', 'critical')`),
   ],
 );

@@ -27,10 +27,19 @@ pnpm check
 pnpm typecheck
 pnpm test
 
+echo "==> Checking the configs"
+node scripts/check-deploy-config.mjs \
+  apps/api/wrangler.staging.jsonc \
+  apps/web/wrangler.staging.jsonc \
+  apps/console/wrangler.staging.jsonc \
+  apps/docs/wrangler.staging.jsonc
+
 echo "==> Migrating the staging database"
-# DATABASE_URL must point at the Neon `staging` branch. The authz seed re-runs
-# on every migrate, so permissions added since the last deploy actually arrive.
-pnpm db:migrate
+# `--target staging` compares DATABASE_URL's host against the staging Neon
+# endpoint and refuses if it points somewhere else, so an exported production
+# URL cannot be migrated by a staging deploy. The authz seed re-runs on every
+# migrate, so permissions added since the last deploy actually arrive.
+pnpm --filter @roastery/db migrate --target staging
 
 echo "==> api"
 pnpm --filter @roastery/api exec wrangler deploy --config wrangler.staging.jsonc
@@ -45,8 +54,13 @@ pnpm --filter @roastery/web exec wrangler deploy --config wrangler.staging.jsonc
 pnpm --filter @roastery/console exec vite build --mode staging
 node scripts/verify-build-env.mjs apps/console/dist staging
 pnpm --filter @roastery/console exec wrangler deploy --config wrangler.staging.jsonc
+# API_URL is what the reference is GENERATED from, and it was unset — so a
+# staging docs build regenerated against localhost, failed, and silently
+# published the checked-in snapshot instead. Pointed at the API that was just
+# deployed above, the reference describes what is actually running.
 DOCS_URL=https://docs-staging.roastery.run \
   API_PUBLIC_URL=https://api-staging.roastery.run \
+  API_URL=https://api-staging.roastery.run \
   pnpm --filter @roastery/docs build
 pnpm --filter @roastery/docs exec wrangler deploy --config wrangler.staging.jsonc
 

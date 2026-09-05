@@ -16,6 +16,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          # The expand-only check diffs against the base branch, which a
+          # depth-1 clone does not have.
+          fetch-depth: 0
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
@@ -25,6 +29,26 @@ jobs:
       - run: pnpm check
       - run: pnpm typecheck
       - run: pnpm build
+
+      # A schema change without a generated migration typechecks, passes every
+      # test, and fails in production as `column does not exist`. Only the
+      # generator can tell: if running it produces a diff, one is missing.
+      - name: Migrations match the schema
+        run: |
+          pnpm --filter @roastery/db check
+          pnpm --filter @roastery/db generate
+          if [[ -n "$(git status --porcelain packages/db/drizzle)" ]]; then
+            echo "::error::A schema change has no migration. Run pnpm db:generate and commit the result."
+            git status --porcelain packages/db/drizzle
+            git diff -- packages/db/drizzle
+            exit 1
+          fi
+
+      # Deploys migrate before traffic shifts, and a gradual rollout runs two
+      # versions at once, so a migration that drops or retypes a column breaks
+      # the release still serving.
+      - name: Migrations are expand-only
+        run: node scripts/check-migration-expand-only.mjs origin/${{ github.base_ref || 'main' }}
 
   test:
     runs-on: ubuntu-latest

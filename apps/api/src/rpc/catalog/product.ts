@@ -144,8 +144,17 @@ registerRpc(
     module: "core",
   },
   async (input, ctx) => {
-    const [row] = await ctx.db.update(products, patch(input), eq(products.id, input.id));
-    if (!row) throw new NotFound("Product not found");
+    const row = await ctx.db.transaction(async (tx) => {
+      const [updated] = await tx.update(products, patch(input), eq(products.id, input.id));
+      if (!updated) throw new NotFound("Product not found");
+      await tx.emit({
+        type: "catalog.product.updated",
+        resourceType: "product",
+        resourceId: updated.id,
+        payload: { id: updated.id, sku: updated.sku, name: updated.name },
+      });
+      return updated;
+    });
     return toDto(row);
   },
 );

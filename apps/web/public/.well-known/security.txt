@@ -1,0 +1,10 @@
+# How to report a vulnerability in ROASTERY.
+#
+# The privacy policy already gives this address; RFC 9116 is where a researcher
+# looks first, and an address they cannot find is one they do not use.
+
+Contact: mailto:security@roastery.run
+Expires: 2027-09-05T00:00:00.000Z
+Preferred-Languages: en
+Canonical: https://roastery.run/.well-known/security.txt
+Policy: https://roastery.run/legal/privacy

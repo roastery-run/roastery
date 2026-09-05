@@ -71,6 +71,15 @@ export const blends = pgTable(
     uniqueIndex("blends_org_code_idx").on(t.orgId, t.code),
     index("blends_org_type_active_idx").on(t.orgId, t.blendType, t.isActive),
     index("blends_org_created_idx").on(t.orgId, t.createdAt, t.id),
+    // Free text on a field the console filters by and the label renderer
+    // prints. A CHECK rather than a pgEnum: the set is already declared in
+    // `roastLevelSchema` and validated at the edge, and an enum would need a
+    // migration to add a value — this only has to stop a typo becoming a
+    // permanent category nobody can filter for.
+    check(
+      "blends_roast_level",
+      sql`${t.roastLevel} is null or ${t.roastLevel} in ('light', 'medium', 'dark')`,
+    ),
   ],
 );
 
@@ -149,6 +158,10 @@ export const roastedLots = pgTable(
     index("roasted_lots_org_blend_idx").on(t.orgId, t.blendId),
     index("roasted_lots_org_batch_idx").on(t.orgId, t.roastBatchId),
     index("roasted_lots_org_created_idx").on(t.orgId, t.createdAt, t.id),
+    check(
+      "roasted_lots_roast_level",
+      sql`${t.roastLevel} is null or ${t.roastLevel} in ('light', 'medium', 'dark')`,
+    ),
   ],
 );
 

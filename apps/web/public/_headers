@@ -1,0 +1,24 @@
+# Cloudflare Workers static asset headers.
+#
+# The console already had this; the marketing site and the QR trace page did
+# not, so they were served with no framing protection, no nosniff and no
+# referrer policy at all — on the only pages a stranger ever loads.
+#
+# Page Cache-Control is NOT set here. The trace route sets its own per response
+# (a found certificate is cacheable for a day, a miss for a minute, an error
+# not at all), and a blanket rule here would flatten that distinction.
+
+/assets/*
+  # Vite hashes these filenames, so the content behind a URL never changes.
+  Cache-Control: public, max-age=31536000, immutable
+
+/*
+  X-Content-Type-Options: nosniff
+  # The pricing page carries sign-up calls to action, which is exactly what
+  # clickjacking targets.
+  X-Frame-Options: DENY
+  Referrer-Policy: strict-origin-when-cross-origin
+  # Two years, preloadable. Every origin here is HTTPS-only already; this stops
+  # the first request of a session being the one that leaks.
+  Strict-Transport-Security: max-age=63072000; includeSubDomains; preload
+  Permissions-Policy: camera=(), microphone=(), geolocation=(), interest-cohort=()

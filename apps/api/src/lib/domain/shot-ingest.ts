@@ -268,13 +268,89 @@ export async function ensureShotPartitions(db: WorkerDb, monthsAhead = 3): Promi
     const from = month.toISOString().slice(0, 10);
     const to = next.toISOString().slice(0, 10);
 
-    await db.execute(
-      sql.raw(
-        `CREATE TABLE IF NOT EXISTS ${name} PARTITION OF espresso_shots ` +
-          `FOR VALUES FROM ('${from}') TO ('${to}')`,
-      ),
+    if (await partitionExists(db, name)) continue;
+
+    /*
+     * CREATE TABLE ... PARTITION OF is one statement that both creates and
+     * attaches, and attaching FAILS OUTRIGHT while the DEFAULT partition holds
+     * any row belonging to the new range. That is not hypothetical: the
+     * default exists precisely to catch shots from a bridge with a wrong
+     * clock, and one shot dated next month is enough to make next month's
+     * partition impossible to create — permanently, since the cron retries the
+     * same failing statement every night. Everything then accumulates in the
+     * default partition, which is the exact outcome partitioning was for, and
+     * the only symptom is a log line.
+     *
+     * So: create the table detached, move any rows the default already holds
+     * for that range into it, and attach. All in one transaction, because a
+     * half-done move is rows in two places.
+     */
+    await withLockRetry(async () =>
+      db.transaction(async (tx) => {
+        // Never block the shop floor waiting for a lock. ATTACH needs a lock on
+        // the parent, and shots are being inserted into it continuously, so the
+        // right failure is a fast one that retries rather than a maintenance job
+        // that holds up ingest.
+        await tx.execute(sql.raw("SET LOCAL lock_timeout = '5s'"));
+        await tx.execute(
+          sql.raw(`CREATE TABLE IF NOT EXISTS ${name} (LIKE espresso_shots INCLUDING ALL)`),
+        );
+        await tx.execute(
+          sql.raw(
+            `WITH moved AS (
+             DELETE FROM espresso_shots_overflow
+              WHERE pulled_at >= '${from}' AND pulled_at < '${to}'
+              RETURNING *
+           )
+           INSERT INTO ${name} SELECT * FROM moved`,
+          ),
+        );
+        await tx.execute(
+          sql.raw(
+            `ALTER TABLE espresso_shots ATTACH PARTITION ${name} ` +
+              `FOR VALUES FROM ('${from}') TO ('${to}')`,
+          ),
+        );
+      }),
     );
     created.push(name);
   }
   return created;
+}
+
+/** Postgres: deadlock detected, and lock timeout. Both mean "try again". */
+const RETRYABLE_LOCK_CODES = new Set(["40P01", "55P03"]);
+const LOCK_RETRIES = 3;
+
+/**
+ * Retries work that lost a lock race.
+ *
+ * Attaching a partition contends with ordinary traffic on the same table —
+ * inserts from every bar, and the cascading deletes that follow an
+ * organization being removed. Postgres resolves a deadlock by killing one
+ * side, and there is no reason that side should be the roll-forward: it is
+ * idempotent, nothing is waiting on it, and the alternative is a month with no
+ * partition until somebody notices.
+ */
+async function withLockRetry<T>(work: () => Promise<T>): Promise<T> {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return await work();
+    } catch (err) {
+      const code =
+        (err as { cause?: { code?: string }; code?: string }).cause?.code ??
+        (err as { code?: string }).code;
+      if (!code || !RETRYABLE_LOCK_CODES.has(code) || attempt >= LOCK_RETRIES) throw err;
+      // Short, increasing, and jittered so two Workers retrying do not collide
+      // again on the same schedule.
+      await new Promise((resolve) => setTimeout(resolve, attempt * 250 + Math.random() * 250));
+    }
+  }
+}
+
+async function partitionExists(db: WorkerDb, name: string): Promise<boolean> {
+  const rows = await db.execute<{ exists: boolean }>(
+    sql`select to_regclass(${`public.${name}`}) is not null as exists`,
+  );
+  return [...rows][0]?.exists === true;
 }

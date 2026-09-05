@@ -1,0 +1,11 @@
+# See apps/web/public/_headers. The docs site is fully static, so the only
+# distinction that matters is hashed assets versus everything else.
+
+/_astro/*
+  Cache-Control: public, max-age=31536000, immutable
+
+/*
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: DENY
+  Referrer-Policy: strict-origin-when-cross-origin
+  Strict-Transport-Security: max-age=63072000; includeSubDomains; preload

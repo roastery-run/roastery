@@ -90,9 +90,27 @@ export async function plansOfferingModule(db: WorkerDb, module: ModuleKey): Prom
   return rows.filter((r) => r.value === true).map((r) => r.plan);
 }
 
+/**
+ * Statuses that still entitle an organization to its plan.
+ *
+ * `trialing` counts — the trial IS the product. `past_due` does not: a card
+ * that failed is a conversation, and the grace period belongs in billing where
+ * somebody chose its length, not here as an accident of never checking.
+ */
+const ACTIVE_STATUSES = new Set(["active", "trialing"]);
+
+export function subscriptionActive(ents: Entitlements): boolean {
+  return ACTIVE_STATUSES.has(ents.status);
+}
+
 export function hasModule(ents: Entitlements, module: ModuleKey): boolean {
   // `core` is implicit: it is what every plan, including the free tier, gets.
   if (module === "core") return true;
+  // The status was loaded, stored on this object, and read by nothing — so a
+  // canceled subscription kept its full plan indefinitely. Checked here rather
+  // than at the call site because this is the one function every gated
+  // operation already goes through.
+  if (!subscriptionActive(ents)) return false;
   return ents.values[`module:${module}`] === true;
 }
 

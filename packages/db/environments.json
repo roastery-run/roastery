@@ -1,0 +1,18 @@
+{
+  "//": "Neon compute endpoint hosts per environment, used by scripts/migrate.mjs to refuse a migration aimed at the wrong branch. Endpoint hostnames are not secrets: they are useless without the credential, and committing them is what makes the check trustworthy rather than dependent on another variable that could also be wrong. Update these if a branch's compute is recreated.",
+  "local": { "hosts": ["localhost", "127.0.0.1", "db"] },
+  "staging": {
+    "branch": "br-square-cherry-ax5t4vx0",
+    "hosts": [
+      "ep-solitary-meadow-ax82n7dm.c-4.us-east-2.aws.neon.tech",
+      "ep-solitary-meadow-ax82n7dm-pooler.c-4.us-east-2.aws.neon.tech"
+    ]
+  },
+  "production": {
+    "branch": "br-ancient-shape-axlabby8",
+    "hosts": [
+      "ep-round-truth-axxjn730.c-4.us-east-2.aws.neon.tech",
+      "ep-round-truth-axxjn730-pooler.c-4.us-east-2.aws.neon.tech"
+    ]
+  }
+}

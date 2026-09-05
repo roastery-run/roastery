@@ -6,11 +6,15 @@
  * silent, so anything that does the work inline will eventually time out on
  * the one organization large enough to matter, and nobody will find out.
  */
+import { organizations } from "@roastery/db/schema";
+import { and, isNotNull, isNull, lte } from "drizzle-orm";
 import type { Env } from "../env";
+import { recordMetric } from "../lib/api/metrics";
 import { closeWorkerDb, createOwnedWorkerDb } from "../lib/db/db";
 import { ensureShotPartitions } from "../lib/domain/shot-ingest";
 import { findDueDeliveries, findPendingFanOut } from "../lib/events/webhook-delivery";
 import { sendAlertDigests } from "./alerts";
+import { checkOpsThresholds } from "./ops";
 
 export type CronPattern = string;
 
@@ -19,11 +23,17 @@ export async function handleScheduled(cron: CronPattern, env: Env): Promise<void
     case "* * * * *":
       await sweepOutbox(env);
       break;
+    case "30 3 * * *":
+      await enqueueMaintenance(env);
+      break;
     case "0 4 * * *":
       await rollShotPartitions(env);
       break;
     case "0 7 * * *":
       await sendAlertDigests(env);
+      break;
+    case "*/5 * * * *":
+      await checkOpsThresholds(env);
       break;
     default:
       console.warn(JSON.stringify({ msg: "unhandled_cron", cron }));
@@ -67,10 +77,83 @@ async function sweepOutbox(env: Env): Promise<void> {
         }),
       );
     }
+  } catch (err) {
+    // The sweeper IS the durability half of the outbox. If it is failing, the
+    // guarantee that a committed change eventually fans out is not holding —
+    // and an unhandled throw in a scheduled handler is invisible, which is the
+    // worst possible way for that to be true.
+    console.error(
+      JSON.stringify({
+        msg: "outbox_sweep_failed",
+        error: err instanceof Error ? err.message : String(err),
+      }),
+    );
+    recordMetric(env, { kind: "maintenance_failed", job: "outbox_sweep" });
   } finally {
     await closeWorkerDb(db);
   }
 }
+
+/**
+ * Asks every organization to check its own books, and clears out the ones that
+ * asked to be forgotten.
+ *
+ * Enqueue-only, per the rule at the top of this file: the scan is three
+ * aggregate queries per tenant, which is fine once and not fine four hundred
+ * times inside one scheduled handler. Running it here would time out on the
+ * largest tenant and report nothing.
+ *
+ * Runs at 03:30 so that anything it finds is already recorded when the 07:00
+ * digest goes out, rather than waiting a further day to be told.
+ */
+async function enqueueMaintenance(env: Env): Promise<void> {
+  if (!env.MAINTENANCE_QUEUE) return;
+  const queue = env.MAINTENANCE_QUEUE;
+  const db = createOwnedWorkerDb(env);
+  try {
+    const orgs = await db
+      .select({ id: organizations.id })
+      .from(organizations)
+      // A deleted organization is not reconciled: its numbers are about to
+      // stop existing, and reporting drift on them would be noise at exactly
+      // the moment somebody is winding the account down.
+      .where(isNull(organizations.deletedAt));
+    for (let i = 0; i < orgs.length; i += BATCH) {
+      const slice = orgs.slice(i, i + BATCH);
+      await queue.sendBatch(
+        slice.map((org) => ({ body: { job: "reconcile" as const, orgId: org.id } })),
+      );
+      await queue.sendBatch(
+        slice.map((org) => ({ body: { job: "retention" as const, orgId: org.id } })),
+      );
+    }
+
+    // Sessions, verification tokens and shot partitions belong to the
+    // deployment rather than to any tenant, so they are swept once.
+    await queue.send({ job: "retention-global", orgId: null });
+
+    // Organizations whose grace period has run out. Enqueued rather than
+    // purged here: removing one is eighty cascading tables plus its object
+    // storage, which is not work for a scheduled handler's budget.
+    const due = await db
+      .select({ id: organizations.id })
+      .from(organizations)
+      .where(and(isNotNull(organizations.deletedAt), lte(organizations.purgeAfter, new Date())))
+      .limit(BATCH);
+    if (due.length > 0) {
+      await queue.sendBatch(due.map((org) => ({ body: { job: "purge" as const, orgId: org.id } })));
+    }
+
+    console.log(
+      JSON.stringify({ msg: "maintenance_enqueued", orgs: orgs.length, purges: due.length }),
+    );
+  } finally {
+    await closeWorkerDb(db);
+  }
+}
+
+/** sendBatch accepts at most 100 messages. */
+const BATCH = 100;
 
 /**
  * Keeps the shot table's partition window ahead of real time.
@@ -92,6 +175,7 @@ async function rollShotPartitions(env: Env): Promise<void> {
         error: err instanceof Error ? err.message : String(err),
       }),
     );
+    recordMetric(env, { kind: "maintenance_failed", job: "shot_partitions" });
   } finally {
     await closeWorkerDb(db);
   }

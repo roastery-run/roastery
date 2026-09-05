@@ -12,11 +12,20 @@ import type { CafeSiteDO, LiveShot } from "../durable-objects/cafe-site";
 import type {
   Env,
   EventQueueMessage,
+  MaintenanceQueueMessage,
   ReportQueueMessage,
   ShotQueueMessage,
   WebhookQueueMessage,
 } from "../env";
+import { recordMetric } from "../lib/api/metrics";
 import { closeWorkerDb, createOwnedWorkerDb } from "../lib/db/db";
+import { withOrgDb } from "../lib/db/org-db";
+import { reconcileOrg } from "../lib/domain/reconciliation";
+import {
+  applyGlobalRetention,
+  applyRetention,
+  dropExpiredShotPartitions,
+} from "../lib/domain/retention";
 import {
   type IncomingShot,
   prepareShots,
@@ -24,6 +33,7 @@ import {
   touchedHours,
   writeShots,
 } from "../lib/domain/shot-ingest";
+import { purgeOrg, runExport } from "../lib/domain/tenant-lifecycle";
 import { attemptDelivery, fanOutEvent } from "../lib/events/webhook-delivery";
 import { runReport } from "../lib/reporting/run";
 
@@ -100,6 +110,65 @@ export async function handleWebhookQueue(
 }
 
 /**
+ * Scheduled work, one organization per message.
+ *
+ * The cron that feeds this only lists organizations and enqueues; the work
+ * happens here so that one large tenant cannot exhaust a scheduled handler's
+ * budget on behalf of everyone else, and so a failure retries for that tenant
+ * alone rather than aborting the run.
+ */
+export async function handleMaintenanceQueue(
+  batch: MessageBatch<MaintenanceQueueMessage>,
+  env: Env,
+): Promise<void> {
+  const db = createOwnedWorkerDb(env);
+  try {
+    for (const message of batch.messages) {
+      const { job, orgId } = message.body;
+      try {
+        if (job === "reconcile") {
+          const { found, recorded } = await withOrgDb(db, orgId, (odb) => reconcileOrg(odb));
+          // Logged even at zero: "the job ran and found nothing" and "the job
+          // did not run" have to be distinguishable, or a silently broken
+          // reconciliation looks exactly like a healthy ledger.
+          console.log(JSON.stringify({ msg: "reconciled", orgId, found, recorded }));
+        } else if (message.body.job === "export") {
+          await runExport(db, env, message.body.exportId);
+        } else if (job === "retention") {
+          const removed = await withOrgDb(db, orgId, (odb) => applyRetention(odb));
+          console.log(JSON.stringify({ msg: "retention_applied", orgId, ...removed }));
+        } else if (job === "retention-global") {
+          const removed = await applyGlobalRetention(db);
+          const dropped = await dropExpiredShotPartitions(db);
+          console.log(
+            JSON.stringify({ msg: "retention_global", ...removed, partitions: dropped.length }),
+          );
+        } else if (job === "purge") {
+          // Re-checks the grace period itself rather than trusting the message
+          // that scheduled it: a purge is the one job where acting on a stale
+          // instruction cannot be undone.
+          await purgeOrg(db, env, orgId);
+        }
+        message.ack();
+      } catch (err) {
+        console.error(
+          JSON.stringify({
+            msg: "maintenance_failed",
+            job,
+            orgId,
+            error: err instanceof Error ? err.message : String(err),
+          }),
+        );
+        recordMetric(env, { kind: "maintenance_failed", job });
+        message.retry();
+      }
+    }
+  } finally {
+    await closeWorkerDb(db);
+  }
+}
+
+/**
  * The dead-letter queues.
  *
  * A DLQ that only logs is a DLQ nobody looks at, so this records the terminal
@@ -107,7 +176,9 @@ export async function handleWebhookQueue(
  * debugging a broken integration is already looking.
  */
 export async function handleDeadLetterBatch(
-  batch: MessageBatch<EventQueueMessage | WebhookQueueMessage>,
+  batch: MessageBatch<
+    EventQueueMessage | WebhookQueueMessage | ShotQueueMessage | ReportQueueMessage
+  >,
   env: Env,
 ): Promise<void> {
   const db = createOwnedWorkerDb(env);
@@ -122,14 +193,58 @@ export async function handleDeadLetterBatch(
           deliveryId: body.deliveryId,
         }),
       );
+      // Counted as well as logged: a log line is only found by somebody who
+      // already suspects a problem, and the whole point of a dead letter is
+      // that nobody suspects one.
+      recordMetric(env, { kind: "dead_letter", queue: batch.queue });
+
       if (body.deliveryId) {
         const { markDead } = await import("../lib/events/webhook-dead-letter");
         await markDead(db, body.deliveryId, `Dead-lettered from ${batch.queue}`);
+      } else {
+        // A webhook delivery has a row to record its fate on, and the
+        // deliveries screen is where somebody debugging one already looks.
+        // Shots and reports have nowhere — so those messages were logged and
+        // acked, and the espresso shots in them were simply gone, after the
+        // bridge had already been told `{ok: true, accepted: N}`. That is the
+        // silent partial success CLAUDE.md warns about, at the end of a queue.
+        //
+        // The body is kept in R2 so it can be replayed. It is a few kilobytes
+        // of JSON, it only exists when something has already failed five
+        // times, and the alternative is telling a café their morning is
+        // missing and nothing can be done.
+        await archiveDeadLetter(env, batch.queue, message.body);
       }
       message.ack();
     }
   } finally {
     await closeWorkerDb(db);
+  }
+}
+
+/**
+ * Keeps a dead-lettered message so it can be replayed by hand.
+ *
+ * Best-effort by design: this runs when something has already failed
+ * repeatedly, and throwing here would retry the DLQ message itself, which is
+ * the one queue with nowhere left to send it.
+ */
+async function archiveDeadLetter(env: Env, queue: string, body: unknown): Promise<void> {
+  if (!env.ROASTERY_R2) return;
+  const key = `dead-letters/${queue}/${new Date().toISOString()}-${crypto.randomUUID()}.json`;
+  try {
+    await env.ROASTERY_R2.put(key, JSON.stringify(body, null, 2), {
+      httpMetadata: { contentType: "application/json" },
+    });
+    console.error(JSON.stringify({ msg: "dead_letter_archived", queue, key }));
+  } catch (err) {
+    console.error(
+      JSON.stringify({
+        msg: "dead_letter_archive_failed",
+        queue,
+        error: err instanceof Error ? err.message : String(err),
+      }),
+    );
   }
 }
 

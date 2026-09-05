@@ -1,0 +1,217 @@
+{
+  "name": "roastery-api-production",
+  "main": "src/index.ts",
+  "compatibility_date": "2025-09-01",
+  "compatibility_flags": ["nodejs_compat"],
+
+  // Served ONLY on the route below. Left enabled, the default
+  // roastery-api-production.<subdomain>.workers.dev hostname exposes the whole
+  // API on a hostname that bypasses the roastery.run zone, and with it the WAF
+  // and zone rate-limiting rules.
+  "workers_dev": false,
+  "preview_urls": false,
+
+  // Near the database, so a multi-query request does not pay a round trip per
+  // query.
+  "placement": { "mode": "smart" },
+
+  // Without this the bundle is minified and a Workers Logs stack points at
+  // unreadable positions.
+  "upload_source_maps": true,
+
+  "vars": {
+    // Read by assertProductionBindings and by the auth package's environment
+    // detection. Anything that is not `development` or `test` is treated as
+    // production, so a missing value fails closed rather than silently
+    // disabling every production check.
+    "ENVIRONMENT": "production",
+    "BETTER_AUTH_URL": "https://api.roastery.run",
+    "WEB_URL": "https://roastery.run",
+    "CONSOLE_URL": "https://app.roastery.run"
+  },
+
+  "routes": [{ "pattern": "api.roastery.run", "custom_domain": true }],
+
+  "triggers": {
+    // Every minute: the outbox sweeper, which is what makes "committed but
+    // never enqueued" recoverable. 04:00 shot partition window, 07:00 alert
+    // digests.
+    "crons": ["* * * * *", "*/5 * * * *", "30 3 * * *", "0 4 * * *", "0 7 * * *"]
+  },
+
+  // Workers Logs keeps a limited window, and the correlation id the API hands
+  // a customer is worthless once the line it points at has aged out. Logpush
+  // sends them somewhere with a retention policy of our choosing; the
+  // destination is configured in the dashboard, this only opts the Worker in.
+  "logpush": true,
+
+  // 100% while volume is low, which is the right trade in a private beta: the
+  // failures worth catching are rare, and sampling is how a rare failure
+  // becomes an unreproducible one. Revisit against real ingest volume — the
+  // shots queue is sized for ten thousand a batch.
+  "observability": { "enabled": true, "head_sampling_rate": 1 },
+
+  "hyperdrive": [
+    {
+      // Caching-ENABLED. Staleness-tolerant catalogue reads only.
+      "binding": "HYPERDRIVE",
+      "id": "TODO_ID_HYPERDRIVE_CACHED"
+    },
+    {
+      // Caching-DISABLED over the same database, and the default for
+      // everything: the query cache does not participate in transactions, and
+      // a revoked credential has to stop working now rather than in 60s.
+      "binding": "HYPERDRIVE_CACHE_DISABLED",
+      "id": "TODO_ID_HYPERDRIVE_UNCACHED"
+    }
+  ],
+
+  // Operational counters: dead letters, 5xx, failed scheduled work. Queue
+  // depth is not readable from a binding, so the DLQ consumer counts
+  // messages as they arrive and the */5 cron reads them back.
+  "analytics_engine_datasets": [{ "binding": "OPS_METRICS", "dataset": "roastery_ops" }],
+
+  "kv_namespaces": [{ "binding": "ROASTERY_KV", "id": "TODO_ID_KV" }],
+
+  // Cloudflare Email Sending from mail.roastery.run. SPF, DKIM and DMARC are
+  // provisioned with the domain; staging sends from its own subdomain so a
+  // staging mishap cannot spend this domain's sending reputation.
+  "send_email": [{ "name": "EMAIL" }],
+
+  "r2_buckets": [{ "binding": "ROASTERY_R2", "bucket_name": "roastery-curves" }],
+
+  "durable_objects": {
+    "bindings": [
+      { "name": "ROAST_BATCH", "class_name": "RoastBatchDO" },
+      { "name": "CAFE_SITE", "class_name": "CafeSiteDO" }
+    ]
+  },
+
+  // Copied verbatim from the other environments: a fresh Worker replays the
+  // whole list from v1, so an omitted tag creates a class that never existed.
+  "migrations": [
+    { "tag": "v1", "new_sqlite_classes": ["RoastBatchDO"] },
+    { "tag": "v2", "new_sqlite_classes": ["CafeSiteDO"] }
+  ],
+
+  // The limit a Worker enforces comes from the binding config, never from the
+  // call site — so a surface with a different budget needs its own namespace
+  // rather than a smaller argument.
+  "ratelimits": [
+    {
+      "name": "RPC_SUSTAINED_LIMITER",
+      "namespace_id": "1001",
+      "simple": { "limit": 300, "period": 60 }
+    },
+    {
+      "name": "RPC_BURST_LIMITER",
+      "namespace_id": "1002",
+      "simple": { "limit": 60, "period": 10 }
+    },
+    {
+      "name": "AUTH_RATE_LIMITER",
+      "namespace_id": "1003",
+      "simple": { "limit": 20, "period": 60 }
+    },
+    {
+      "name": "SESSION_RATE_LIMITER",
+      "namespace_id": "1004",
+      "simple": { "limit": 300, "period": 60 }
+    },
+    {
+      // Machine telemetry. Sharing the API's namespace capped a bridge at
+      // 60 requests per 10s AND let a busy bar starve the console.
+      "name": "INGEST_LIMITER",
+      "namespace_id": "1005",
+      "simple": { "limit": 1000, "period": 10 }
+    },
+    {
+      // Signed report downloads. Separate from AUTH_RATE_LIMITER because both
+      // are IP-keyed for an unauthenticated caller, so one office downloading
+      // reports was locking itself out of sign-in.
+      "name": "REPORTS_LIMITER",
+      "namespace_id": "1006",
+      "simple": { "limit": 120, "period": 60 }
+    },
+    {
+      // WebSocket upgrades: auth plus three queries each before the socket is
+      // granted, so they need a ceiling even though the socket itself is cheap.
+      "name": "STREAM_LIMITER",
+      "namespace_id": "1007",
+      "simple": { "limit": 60, "period": 60 }
+    },
+    {
+      // Sending a sign-in link: five per minute per IP. Deliberately far below
+      // the general auth budget, because this endpoint sends mail to an
+      // address the caller chooses, from our sending domain.
+      "name": "MAGIC_LINK_LIMITER",
+      "namespace_id": "1008",
+      "simple": { "limit": 5, "period": 60 }
+    }
+  ],
+
+  "queues": {
+    "producers": [
+      { "binding": "EVENT_QUEUE", "queue": "roastery-events-production" },
+      { "binding": "WEBHOOK_QUEUE", "queue": "roastery-webhooks-production" },
+      { "binding": "SHOT_QUEUE", "queue": "roastery-shots-production" },
+      { "binding": "REPORT_QUEUE", "queue": "roastery-reports-production" },
+      { "binding": "MAINTENANCE_QUEUE", "queue": "roastery-maintenance-production" }
+    ],
+    "consumers": [
+      {
+        "queue": "roastery-events-production",
+        "max_batch_size": 50,
+        "max_batch_timeout": 5,
+        "max_retries": 5,
+        // Bounded: unset, a backlog fans out arbitrarily many consumers, each
+        // opening a Hyperdrive connection, and the pool goes before the queue
+        // drains.
+        "max_concurrency": 5,
+        "dead_letter_queue": "roastery-events-dlq-production"
+      },
+      {
+        "queue": "roastery-webhooks-production",
+        "max_batch_size": 10,
+        "max_retries": 5,
+        "max_concurrency": 10,
+        "retry_delay": 30,
+        "dead_letter_queue": "roastery-webhooks-dlq-production"
+      },
+      {
+        "queue": "roastery-shots-production",
+        "max_batch_size": 100,
+        "max_batch_timeout": 10,
+        "max_retries": 3,
+        "max_concurrency": 5,
+        "dead_letter_queue": "roastery-shots-dlq-production"
+      },
+      {
+        "queue": "roastery-reports-production",
+        "max_batch_size": 1,
+        "max_retries": 2,
+        "max_concurrency": 2,
+        "retry_delay": 60,
+        "dead_letter_queue": "roastery-reports-dlq-production"
+      },
+      {
+        // Reconciliation and any other per-organization scheduled work. One
+        // message per org, so a large tenant cannot exhaust a scheduled
+        // handler's budget on behalf of everyone else.
+        "queue": "roastery-maintenance-production",
+        "max_batch_size": 1,
+        "max_batch_timeout": 5,
+        "max_retries": 3,
+        "max_concurrency": 3,
+        "dead_letter_queue": "roastery-maintenance-dlq-production"
+      },
+      // Drained by handleDeadLetterBatch. Declared but unconsumed, these
+      // silently accumulate poison messages nobody ever sees.
+      { "queue": "roastery-events-dlq-production", "max_batch_size": 10, "max_retries": 1 },
+      { "queue": "roastery-webhooks-dlq-production", "max_batch_size": 10, "max_retries": 1 },
+      { "queue": "roastery-shots-dlq-production", "max_batch_size": 10, "max_retries": 1 },
+      { "queue": "roastery-reports-dlq-production", "max_batch_size": 10, "max_retries": 1 },
+      { "queue": "roastery-maintenance-dlq-production", "max_batch_size": 10, "max_retries": 1 }
+    ]
+  }
+}

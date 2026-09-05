@@ -14,6 +14,7 @@ import { Route as PricingRouteImport } from './routes/pricing'
 import { Route as PricingDotmdRouteImport } from './routes/pricing[.]md'
 import { Route as RobotsDottxtRouteImport } from './routes/robots[.]txt'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
+import { Route as LegalSlugRouteImport } from './routes/legal.$slug'
 import { Route as SolutionsSlugRouteImport } from './routes/solutions.$slug'
 import { Route as TraceCodeRouteImport } from './routes/trace.$code'
 
@@ -42,6 +43,11 @@ const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
   path: '/sitemap.xml',
   getParentRoute: () => rootRouteImport,
 } as any)
+const LegalSlugRoute = LegalSlugRouteImport.update({
+  id: '/legal/$slug',
+  path: '/legal/$slug',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SolutionsSlugRoute = SolutionsSlugRouteImport.update({
   id: '/solutions/$slug',
   path: '/solutions/$slug',
@@ -59,6 +65,7 @@ export interface FileRoutesByFullPath {
   '/pricing.md': typeof PricingDotmdRoute
   '/robots.txt': typeof RobotsDottxtRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/legal/$slug': typeof LegalSlugRoute
   '/solutions/$slug': typeof SolutionsSlugRoute
   '/trace/$code': typeof TraceCodeRoute
 }
@@ -68,6 +75,7 @@ export interface FileRoutesByTo {
   '/pricing.md': typeof PricingDotmdRoute
   '/robots.txt': typeof RobotsDottxtRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/legal/$slug': typeof LegalSlugRoute
   '/solutions/$slug': typeof SolutionsSlugRoute
   '/trace/$code': typeof TraceCodeRoute
 }
@@ -78,6 +86,7 @@ export interface FileRoutesById {
   '/pricing.md': typeof PricingDotmdRoute
   '/robots.txt': typeof RobotsDottxtRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/legal/$slug': typeof LegalSlugRoute
   '/solutions/$slug': typeof SolutionsSlugRoute
   '/trace/$code': typeof TraceCodeRoute
 }
@@ -89,6 +98,7 @@ export interface FileRouteTypes {
     | '/pricing.md'
     | '/robots.txt'
     | '/sitemap.xml'
+    | '/legal/$slug'
     | '/solutions/$slug'
     | '/trace/$code'
   fileRoutesByTo: FileRoutesByTo
@@ -98,6 +108,7 @@ export interface FileRouteTypes {
     | '/pricing.md'
     | '/robots.txt'
     | '/sitemap.xml'
+    | '/legal/$slug'
     | '/solutions/$slug'
     | '/trace/$code'
   id:
@@ -107,6 +118,7 @@ export interface FileRouteTypes {
     | '/pricing.md'
     | '/robots.txt'
     | '/sitemap.xml'
+    | '/legal/$slug'
     | '/solutions/$slug'
     | '/trace/$code'
   fileRoutesById: FileRoutesById
@@ -117,6 +129,7 @@ export interface RootRouteChildren {
   PricingDotmdRoute: typeof PricingDotmdRoute
   RobotsDottxtRoute: typeof RobotsDottxtRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
+  LegalSlugRoute: typeof LegalSlugRoute
   SolutionsSlugRoute: typeof SolutionsSlugRoute
   TraceCodeRoute: typeof TraceCodeRoute
 }
@@ -158,6 +171,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SitemapDotxmlRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/legal/$slug': {
+      id: '/legal/$slug'
+      path: '/legal/$slug'
+      fullPath: '/legal/$slug'
+      preLoaderRoute: typeof LegalSlugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/solutions/$slug': {
       id: '/solutions/$slug'
       path: '/solutions/$slug'
@@ -181,6 +201,7 @@ const rootRouteChildren: RootRouteChildren = {
   PricingDotmdRoute: PricingDotmdRoute,
   RobotsDottxtRoute: RobotsDottxtRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
+  LegalSlugRoute: LegalSlugRoute,
   SolutionsSlugRoute: SolutionsSlugRoute,
   TraceCodeRoute: TraceCodeRoute,
 }

@@ -9,13 +9,16 @@
  *   2  every /rpc/v1 path has a registry entry with a permission and a module
  *   3  every declared permission slug actually exists
  *   4  a route's module agrees with its permission's module
- *   5  (live probes — added in Phase 2, once a seeded database is available)
+ *   5  live probes: the documented failure order, over HTTP
  *   6  src/rpc/** never touches the unscoped database handle
  *   7  every table is tenant-classified
- *   8  (cross-tenant fuzz — Phase 2, needs a database)
+ *   8  cross-tenant fuzz: no list operation returns another tenant's rows
  *
  * Checks 1-4, 6 and 7 are static: no database, no network, so they stay in the
- * fast feedback loop and run on every save.
+ * fast feedback loop and run on every save. Checks 5 and 8 need a real request
+ * and a real database, so they live in `authorization-live.test.ts` and skip
+ * without TEST_DATABASE_URL — which CI sets, and `integration test wiring`
+ * fails the run if it does not.
  */
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
@@ -45,10 +48,42 @@ const GUARDED_PREFIXES = [
   // The live roast socket. Authorization happens in the Worker before the
   // upgrade is handed to the Durable Object, which has no notion of identity.
   "/stream/v1/",
+  // The session bootstrap: authenticated, but deliberately NOT org-scoped,
+  // because "which organizations may I act in" has no organization to scope
+  // to. It was guarded all along and simply missing from this list — which
+  // the broader route inventory found the moment it stopped reading only the
+  // OpenAPI document.
+  "/session/v1/",
 ];
 
-/** Routes that are public by design. Each one is a deliberate decision. */
-const PUBLIC_ROUTES = new Set(["/health", "/docs", "/openapi.json"]);
+/**
+ * Authenticated routes that sit on no prefix of their own.
+ *
+ * `/openapi.json` is the full document, including every `console.*` operation
+ * with its input schema and required permission. Any credential opens it; the
+ * filtered `/openapi.public.json` is what integrators read.
+ */
+const GUARDED_ROUTES = new Set(["/openapi.json"]);
+
+/**
+ * Routes that are public by design. Each one is a deliberate decision.
+ *
+ * `/openapi.json` is NOT among them: the full document lists every
+ * `console.*` operation with its input schema and required permission, so it
+ * requires a credential. `/openapi.public.json` is the one integrators read.
+ */
+const PUBLIC_ROUTES = new Set(["/health", "/docs", "/openapi.public.json"]);
+
+/**
+ * Public by design, and each protected by something other than a credential.
+ *
+ * These carry their own proof: a QR token that is 96 bits of randomness and
+ * unguessable, and a signature that binds the organization, the resource and
+ * an expiry together. They are separated from PUBLIC_ROUTES because the reason
+ * they are open is different — not "this is harmless" but "the URL IS the
+ * authorization".
+ */
+const SIGNED_ROUTES = ["/trace/v1/", "/reports/v1/", "/exports/v1/"];
 
 function openApiDocument(): {
   paths: Record<string, Record<string, { operationId?: string }>>;
@@ -71,15 +106,31 @@ function walk(dir: string): string[] {
   return out;
 }
 
+/**
+ * EVERY route the Worker answers, not only the ones in the OpenAPI document.
+ *
+ * The inventory used to read the generated document, which sounds equivalent
+ * and is not: routes registered on a plain Hono router — the QR trace page,
+ * report downloads, export downloads — never appear in it. Three
+ * unauthenticated routes were therefore exempt from the check that exists to
+ * find unauthenticated routes, and a fourth could have been added without the
+ * gate noticing. Hono's own router is the real surface.
+ */
+function registeredPaths(): string[] {
+  const routes = (app as unknown as { routes?: { path: string }[] }).routes ?? [];
+  return [...new Set(routes.map((r) => r.path))].filter((path) => !path.endsWith("*")).sort();
+}
+
 describe("1. route inventory", () => {
   it("every route is either guarded or explicitly public", () => {
-    const doc = openApiDocument();
     const unguarded: string[] = [];
 
-    for (const path of Object.keys(doc.paths)) {
+    for (const path of registeredPaths()) {
       if (PUBLIC_ROUTES.has(path)) continue;
       if (path.startsWith("/api/auth/")) continue;
+      if (GUARDED_ROUTES.has(path)) continue;
       if (GUARDED_PREFIXES.some((p) => path.startsWith(p))) continue;
+      if (SIGNED_ROUTES.some((p) => path.startsWith(p))) continue;
       unguarded.push(path);
     }
 

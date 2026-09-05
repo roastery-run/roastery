@@ -2,6 +2,7 @@ import { Button, cn } from "@roastery/ui";
 import { Link } from "@tanstack/react-router";
 import type * as React from "react";
 import { HeaderNav } from "@/components/header-nav";
+import { LEGAL } from "@/content/legal";
 import { HEADER_NAV } from "@/content/nav";
 import { SITE } from "@/content/site";
 import { SOLUTIONS } from "@/content/solutions";
@@ -86,6 +87,13 @@ export function SiteFooter() {
               API reference
             </a>
           </li>
+          {/* Derived from the same registry the pages render from, so a
+              document cannot exist without a way to reach it. */}
+          {LEGAL.map((page) => (
+            <FooterLink key={page.slug} to="/legal/$slug" params={{ slug: page.slug }}>
+              {page.label}
+            </FooterLink>
+          ))}
         </FooterColumn>
       </div>
 

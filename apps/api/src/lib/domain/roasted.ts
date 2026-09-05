@@ -204,16 +204,21 @@ export async function validateBlendAvailability(
   };
 }
 
-/** roasted / (1 - loss%) — the green needed to yield a roasted target. */
+/**
+ * roasted / (1 - loss%) — the green needed to yield a roasted target.
+ *
+ * Exact, because the answer becomes a `roast_consume` ledger row: this decides
+ * how much green a roast is recorded as having eaten, and a float here puts
+ * its rounding error permanently into the balance.
+ */
 export function grossUpForLoss(roastedKg: string, lossPct: string): string {
-  const loss = Number.parseFloat(lossPct);
-  if (!Number.isFinite(loss) || loss <= 0 || loss >= 100) return kg.normalize(roastedKg);
-  const scaled = Number.parseFloat(roastedKg) / (1 - loss / 100);
-  return kg.normalize(scaled.toFixed(4));
+  const loss = kg.normalize(lossPct);
+  if (kg.cmp(loss, "0") <= 0 || kg.cmp(loss, "100") >= 0) return kg.normalize(roastedKg);
+  // roasted x 100 / (100 - loss), in one rounding rather than three.
+  return kg.mulDiv(roastedKg, "100", kg.sub("100", loss));
 }
 
 /** value x pct/100, at the shared 4-decimal scale. */
 export function percentOf(value: string, pct: string): string {
-  const result = (Number.parseFloat(value) * Number.parseFloat(pct)) / 100;
-  return kg.normalize(result.toFixed(4));
+  return kg.mulDiv(value, pct, "100");
 }

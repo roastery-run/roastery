@@ -7,6 +7,10 @@
   // client<->origin round-trip per query. No-op in local dev.
   "placement": { "mode": "smart" },
   "vars": {
+    // Declared explicitly: assertProductionBindings treats an ABSENT
+    // ENVIRONMENT as production, so that a deployed config which forgets it
+    // fails loudly instead of silently skipping every production check.
+    "ENVIRONMENT": "development",
     "BETTER_AUTH_URL": "http://localhost:8787",
     "WEB_URL": "http://localhost:5173",
     "CONSOLE_URL": "http://localhost:5174"
@@ -35,7 +39,8 @@
       { "binding": "EVENT_QUEUE", "queue": "roastery-events" },
       { "binding": "WEBHOOK_QUEUE", "queue": "roastery-webhooks" },
       { "binding": "SHOT_QUEUE", "queue": "roastery-shots" },
-      { "binding": "REPORT_QUEUE", "queue": "roastery-reports" }
+      { "binding": "REPORT_QUEUE", "queue": "roastery-reports" },
+      { "binding": "MAINTENANCE_QUEUE", "queue": "roastery-maintenance" }
     ],
     "consumers": [
       {
@@ -81,7 +86,17 @@
         "max_retries": 2,
         "dead_letter_queue": "roastery-reports-dlq"
       },
+      {
+        // One message per organization: reconciliation, and whatever other
+        // per-tenant scheduled work follows it.
+        "queue": "roastery-maintenance",
+        "max_batch_size": 1,
+        "max_batch_timeout": 5,
+        "max_retries": 3,
+        "dead_letter_queue": "roastery-maintenance-dlq"
+      },
       { "queue": "roastery-events-dlq", "max_batch_size": 20, "max_retries": 1 },
+      { "queue": "roastery-maintenance-dlq", "max_batch_size": 20, "max_retries": 1 },
       { "queue": "roastery-reports-dlq", "max_batch_size": 20, "max_retries": 1 },
       { "queue": "roastery-shots-dlq", "max_batch_size": 20, "max_retries": 1 },
       { "queue": "roastery-webhooks-dlq", "max_batch_size": 20, "max_retries": 1 }
@@ -93,6 +108,8 @@
     // the commit and the inline enqueue.
     "crons": [
       "* * * * *",
+      // Nightly reconciliation: enqueues one check per organization.
+      "30 3 * * *",
       // Keeps the espresso_shots partition window ahead of real time.
       "0 4 * * *",
       // The daily alert digest. One email per organization, not one per alert:
@@ -147,6 +164,29 @@
       "name": "SESSION_RATE_LIMITER",
       "namespace_id": "1004",
       "simple": { "limit": 300, "period": 60 }
+    },
+    {
+      // Signed report downloads. Separate from AUTH_RATE_LIMITER because both
+      // are IP-keyed for an unauthenticated caller, so one office downloading
+      // reports was locking itself out of sign-in.
+      "name": "REPORTS_LIMITER",
+      "namespace_id": "1006",
+      "simple": { "limit": 120, "period": 60 }
+    },
+    {
+      // WebSocket upgrades: auth plus three queries each before the socket is
+      // granted, so they need a ceiling even though the socket itself is cheap.
+      "name": "STREAM_LIMITER",
+      "namespace_id": "1007",
+      "simple": { "limit": 60, "period": 60 }
+    },
+    {
+      // Sending a sign-in link: five per minute per IP. Deliberately far below
+      // the general auth budget, because this endpoint sends mail to an
+      // address the caller chooses, from our sending domain.
+      "name": "MAGIC_LINK_LIMITER",
+      "namespace_id": "1008",
+      "simple": { "limit": 5, "period": 60 }
     }
   ]
 }

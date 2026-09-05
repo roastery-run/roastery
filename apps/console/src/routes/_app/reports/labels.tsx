@@ -1,4 +1,3 @@
-import encodeQR from "@paulmillr/qr";
 import type { LabelBinding, LabelBlock, LabelTemplate } from "@roastery/schemas";
 import {
   Alert,
@@ -31,6 +30,7 @@ import {
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { AlertTriangle, ArrowDown, ArrowUp, Plus, Printer, Tag, Trash2 } from "lucide-react";
+import encodeQR from "qr";
 import * as React from "react";
 import { toast } from "sonner";
 import {

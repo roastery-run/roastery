@@ -46,7 +46,7 @@ export default defineConfig({
           items: [{ autogenerate: { directory: "reference" } }],
         },
       ],
-      editLink: { baseUrl: "https://github.com/roastery/roastery/edit/main/apps/docs/" },
+      editLink: { baseUrl: "https://github.com/roastery-run/roastery/edit/main/apps/docs/" },
       lastUpdated: true,
     }),
   ],

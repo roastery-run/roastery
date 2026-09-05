@@ -5,12 +5,12 @@
  * caller has no organization in hand. A QR code on a retail bag is scanned by
  * a phone in a café; a report link is opened from an email.
  */
-import { reports, traceabilityRecords } from "@roastery/db/schema";
+import { dataExports, reports, traceabilityRecords } from "@roastery/db/schema";
 import { eq } from "drizzle-orm";
 import { Hono } from "hono";
 import type { Env } from "../env";
 import { closeWorkerDb, createWorkerDb, safeExecutionCtx } from "../lib/db/db";
-import { verifyDownload } from "../lib/reporting/signed-url";
+import { downloadSigningKey, verifyDownload } from "../lib/reporting/signed-url";
 
 export const publicRoutes = new Hono<{ Bindings: Env }>();
 
@@ -60,6 +60,80 @@ publicRoutes.get("/trace/v1/:token", async (c) => {
 });
 
 /**
+ * Export download, one file at a time.
+ *
+ * An export is a directory rather than a document — one NDJSON file per table
+ * plus a manifest — so unlike a report there is no single object to serve. The
+ * signature covers the export, the org and the expiry, and the file name is
+ * checked against the manifest rather than trusted: without that, a token for
+ * a legitimate export would read any key under that prefix, and the prefix is
+ * built from ids a caller partly controls.
+ */
+publicRoutes.get("/exports/v1/:id/:file", async (c) => {
+  const id = c.req.param("id");
+  const file = c.req.param("file");
+  const orgId = c.req.query("org");
+  const expires = Number(c.req.query("expires"));
+  const token = c.req.query("token");
+
+  if (!orgId || !token || !Number.isFinite(expires)) {
+    return c.json({ error: "Invalid download link", code: "bad_request" }, 400);
+  }
+
+  const verdict = await verifyDownload(
+    downloadSigningKey(c.env),
+    { reportId: id, orgId, expiresAt: expires },
+    token,
+  );
+  if (!verdict.ok) {
+    return c.json(
+      verdict.reason === "expired"
+        ? { error: "This download link has expired", code: "link_expired" }
+        : { error: "Invalid download link", code: "forbidden" },
+      403,
+    );
+  }
+
+  const db = createWorkerDb(c.env);
+  try {
+    const [row] = await db
+      .select({
+        orgId: dataExports.orgId,
+        objectKey: dataExports.objectKey,
+        manifest: dataExports.manifest,
+      })
+      .from(dataExports)
+      .where(eq(dataExports.id, id))
+      .limit(1);
+
+    // As with reports: the signature already binds the org, but a row that
+    // says otherwise must not be served on the strength of a token alone.
+    if (!row || row.orgId !== orgId || !row.objectKey) {
+      return c.json({ error: "Not found", code: "not_found" }, 404);
+    }
+
+    const manifest = row.manifest as { tables?: { file: string }[] } | null;
+    const known = file === "manifest.json" || (manifest?.tables ?? []).some((t) => t.file === file);
+    if (!known) return c.json({ error: "Not found", code: "not_found" }, 404);
+
+    const object = await c.env.ROASTERY_R2.get(`${row.objectKey}/${file}`);
+    if (!object) return c.json({ error: "Not found", code: "not_found" }, 404);
+
+    return new Response(object.body as unknown as ReadableStream, {
+      headers: {
+        "Content-Type": file.endsWith(".json") ? "application/json" : "application/x-ndjson",
+        "Content-Disposition": `attachment; filename="${file}"`,
+        // A complete copy of a business's records. Never cached, and the link
+        // it came from is short-lived by design.
+        "Cache-Control": "private, no-store",
+      },
+    });
+  } finally {
+    await closeWorkerDb(db, safeExecutionCtx(c));
+  }
+});
+
+/**
  * Report download.
  *
  * Served by the Worker out of a private bucket. The signature covers the org,
@@ -77,7 +151,7 @@ publicRoutes.get("/reports/v1/:id", async (c) => {
   }
 
   const verdict = await verifyDownload(
-    c.env.BETTER_AUTH_SECRET,
+    downloadSigningKey(c.env),
     { reportId: id, orgId, expiresAt: expires },
     token,
   );

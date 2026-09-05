@@ -313,28 +313,37 @@ registerRpc(
     }
 
     const lines = await linesOf(ctx, order.id);
-    const results = [];
-    for (const line of lines) {
-      if (kg.cmp(kg.sub(line.weightKg, line.allocatedWeightKg), "0") <= 0) continue;
-      results.push(await allocateOrderLine(ctx.db, line.id, { strategy: input.strategy }));
-    }
 
-    const shortfall = results.reduce((sum, r) => sum + Number.parseFloat(r.shortfallKg), 0);
-    await ctx.db.emit({
-      type: "orders.order.allocated",
-      resourceType: "sales_order",
-      resourceId: order.id,
-      payload: {
-        id: order.id,
-        orderNumber: order.orderNumber,
-        strategy: input.strategy ?? "fefo",
-        // The shortfall is part of the event, not something a receiver has to
-        // infer by comparing numbers. A partial allocation that arrives
-        // looking like a success is how a warehouse ships short.
-        fullyAllocated: shortfall === 0,
-        shortfallKg: shortfall.toFixed(4),
-      },
+    // One transaction for the whole order. Allocating line by line outside one
+    // meant a failure on the third line kept the claims made by the first two:
+    // stock reserved against an order that reports as unallocated, released by
+    // nothing, and visible only as roasted lots that will not allocate.
+    const results = await ctx.db.transaction(async (tx) => {
+      const allocated = [];
+      for (const line of lines) {
+        if (kg.cmp(kg.sub(line.weightKg, line.allocatedWeightKg), "0") <= 0) continue;
+        allocated.push(await allocateOrderLine(tx, line.id, { strategy: input.strategy }));
+      }
+
+      const shortfall = allocated.reduce((sum, r) => kg.add(sum, r.shortfallKg), "0");
+      await tx.emit({
+        type: "orders.order.allocated",
+        resourceType: "sales_order",
+        resourceId: order.id,
+        payload: {
+          id: order.id,
+          orderNumber: order.orderNumber,
+          strategy: input.strategy ?? "fefo",
+          // The shortfall is part of the event, not something a receiver has to
+          // infer by comparing numbers. A partial allocation that arrives
+          // looking like a success is how a warehouse ships short.
+          fullyAllocated: kg.cmp(shortfall, "0") === 0,
+          shortfallKg: shortfall,
+        },
+      });
+      return allocated;
     });
+
     return { orderId: order.id, lines: results };
   },
 );
@@ -351,7 +360,7 @@ registerRpc(
     module: "orders",
   },
   async (input, ctx) => {
-    const released = await releaseOrderLine(ctx.db, input.orderLineId);
+    const released = await ctx.db.transaction((tx) => releaseOrderLine(tx, input.orderLineId));
     return { orderLineId: input.orderLineId, allocatedKg: released };
   },
 );

@@ -40,10 +40,26 @@ export const organizations = pgTable(
       defaultRoastLossPct?: number;
       costAllocationPolicy?: "weight" | "value";
     }>(),
+    /**
+     * Deletion is a two-step: marked here, purged later.
+     *
+     * A `DELETE` cascades through eighty tables and is irreversible the moment
+     * it commits. Somebody who deletes the wrong organization needs a window in
+     * which that is fixable, and a customer who changes their mind an hour
+     * later should not need a database restore. Requests from a marked
+     * organization are refused immediately, so the grace period is not
+     * continued service — it is only time to reverse the decision.
+     */
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
+    /** When the maintenance job may actually remove it. */
+    purgeAfter: timestamp("purge_after", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [uniqueIndex("organizations_slug_idx").on(t.slug)],
+  (t) => [
+    uniqueIndex("organizations_slug_idx").on(t.slug),
+    index("organizations_purge_idx").on(t.purgeAfter).where(sql`deleted_at is not null`),
+  ],
 );
 
 /* -------------------------------------------------------- roles + permissions */

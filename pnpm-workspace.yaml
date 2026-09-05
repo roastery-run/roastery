@@ -29,6 +29,10 @@ catalog:
   react: ^19.2.0
   react-dom: ^19.2.0
   react-hook-form: ^7.64.0
+  # Context-holding: `toast()` targets whichever <Toaster/> instance its own
+  # copy of the module rendered, so two versions means a toast fired from the
+  # console never reaches the one the design system mounted.
+  sonner: ^2.0.8
   tailwind-merge: ^3.3.1
   tailwindcss: ^4.1.14
   typescript: ^5.9.3

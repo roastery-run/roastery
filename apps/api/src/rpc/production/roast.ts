@@ -375,6 +375,23 @@ registerRpc(
           targetId: produced.id,
           weightKg: dropWeight,
         });
+        // A separate event from the batch completing. An integrator watching
+        // stock cares that a new roasted lot exists and how much of it there
+        // is; one watching production cares about the roast. Folding the first
+        // into the second would make anybody tracking inventory subscribe to
+        // production events and parse them for a lot id.
+        await ctx.db.emit({
+          type: "inventory.roasted_lot.created",
+          resourceType: "roasted_lot",
+          resourceId: produced.id,
+          payload: {
+            id: produced.id,
+            lotCode: produced.lotCode,
+            weightKg: dropWeight,
+            roastBatchId: batch.id,
+            bestBeforeAt: produced.bestBeforeAt?.toISOString() ?? null,
+          },
+        });
       }
     }
 

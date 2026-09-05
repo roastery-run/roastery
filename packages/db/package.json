@@ -13,9 +13,9 @@
     "typecheck": "tsc --noEmit",
     "generate": "drizzle-kit generate",
     "ensure-extensions": "node scripts/ensure-extensions.mjs",
-    "migrate": "pnpm ensure-extensions && drizzle-kit migrate && pnpm seed-authz",
-    "push": "drizzle-kit push",
-    "seed-authz": "node scripts/seed-authz.mjs"
+    "migrate": "node scripts/migrate.mjs",
+    "seed-authz": "node scripts/seed-authz.mjs",
+    "check": "drizzle-kit check"
   },
   "dependencies": {
     "drizzle-orm": "catalog:"

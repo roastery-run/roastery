@@ -7,6 +7,8 @@
  * only its own deliveries, and a fan-out retry cannot re-POST to endpoints
  * that already succeeded.
  */
+
+import { isLocalEnvironment } from "@roastery/auth";
 import { events, organizations, webhookDeliveries, webhookEndpoints } from "@roastery/db/schema";
 import { and, eq, inArray, isNull, lt, sql } from "drizzle-orm";
 import { notifiedAddresses } from "../../cron/alerts";
@@ -15,6 +17,7 @@ import type { WorkerDb } from "../db/db";
 import { trySend } from "../email/send";
 import { webhookDisabled } from "../email/templates";
 import { subscriptionMatches } from "./events";
+import { resolvesToBlockedAddress } from "./ssrf";
 import { openSecret, signatureHeader } from "./webhook-crypto";
 
 /**
@@ -306,6 +309,33 @@ export async function attemptDelivery(
 
   let statusCode: number | null = null;
   let networkError: string | null = null;
+
+  // Re-checked here, not only at registration. The hostname was public when it
+  // was registered; DNS belongs to whoever owns the name, and they can point
+  // it at 169.254.169.254 an hour later. This is the last moment before we
+  // make the request.
+  //
+  // Not in development or test, where a receiver on 127.0.0.1 is the ordinary
+  // way to work on an integration — and where "our own network" is a laptop.
+  // Keyed on ENVIRONMENT, which treats anything unrecognised as production, so
+  // a misconfigured deployment enforces the guard rather than skipping it.
+  const blocked =
+    !isLocalEnvironment(env) && (await resolvesToBlockedAddress(new URL(endpoint.url).hostname));
+  if (blocked) {
+    await applyOutcome(db, env, delivery.id, endpoint, attempt, {
+      kind: "dead",
+      statusCode: null,
+      error: "blocked_destination: the endpoint resolves to an address we will not send to",
+      durationMs: Date.now() - startedAt,
+    });
+    return {
+      kind: "dead",
+      statusCode: null,
+      error: "blocked_destination",
+      durationMs: Date.now() - startedAt,
+    };
+  }
+
   try {
     const response = await fetch(endpoint.url, {
       method: "POST",
@@ -323,6 +353,9 @@ export async function attemptDelivery(
       },
       body: serialized,
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      // A redirect is a destination we did not check. Following one would make
+      // every guard above bypassable with a 302.
+      redirect: "manual",
     });
     statusCode = response.status;
     // The body is not read. We only need the status, and a receiver streaming
@@ -470,17 +503,43 @@ async function disableEndpoint(
 }
 
 /** Deliveries whose retry is due. The safety net if a queue message is lost. */
+/**
+ * Claims deliveries whose retry is due, and hands them to the sweeper.
+ *
+ * The claim is the point. Selecting due rows and re-enqueuing them raced with
+ * the queue's own retry: when a scheduled retry came due at the same minute
+ * the sweeper ran, both fired, and the receiver got the same event twice. They
+ * are told to dedupe on the event id so that is survivable — but `attempt` and
+ * `consecutive_failures` both double-count, which brings an endpoint to the
+ * auto-disable threshold in half the failures it should take. Disabling a
+ * customer's integration early is not a duplicate-delivery nuisance.
+ *
+ * Pushing `next_attempt_at` forward is the lease: another sweep within the
+ * window no longer sees the row, and if this run dies the row simply comes due
+ * again.
+ */
+const SWEEP_LEASE_SECONDS = 120;
+
 export async function findDueDeliveries(db: WorkerDb, limit = 200): Promise<string[]> {
-  const rows = await db
-    .select({ id: webhookDeliveries.id })
-    .from(webhookDeliveries)
+  const claimed = await db
+    .update(webhookDeliveries)
+    .set({ nextAttemptAt: new Date(Date.now() + SWEEP_LEASE_SECONDS * 1000) })
     .where(
-      and(
-        inArray(webhookDeliveries.status, ["pending", "failed"]),
-        lt(webhookDeliveries.nextAttemptAt, new Date()),
+      inArray(
+        webhookDeliveries.id,
+        db
+          .select({ id: webhookDeliveries.id })
+          .from(webhookDeliveries)
+          .where(
+            and(
+              inArray(webhookDeliveries.status, ["pending", "failed"]),
+              lt(webhookDeliveries.nextAttemptAt, new Date()),
+            ),
+          )
+          .orderBy(webhookDeliveries.nextAttemptAt)
+          .limit(limit),
       ),
     )
-    .orderBy(webhookDeliveries.nextAttemptAt)
-    .limit(limit);
-  return rows.map((r) => r.id);
+    .returning({ id: webhookDeliveries.id });
+  return claimed.map((r) => r.id);
 }

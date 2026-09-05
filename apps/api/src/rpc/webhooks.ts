@@ -448,7 +448,9 @@ registerRpc(
         sequence: Number(e.sequence),
         resourceType: e.resourceType,
         resourceId: e.resourceId,
-        payload: e.payload,
+        // jsonb, so the driver types it `unknown`. Every writer goes through
+        // `emit`, whose payload is a Record.
+        payload: (e.payload ?? {}) as Record<string, unknown>,
         occurredAt: e.occurredAt.toISOString(),
       })),
       nextSequence: items.length ? Number(items[items.length - 1]?.sequence) : null,

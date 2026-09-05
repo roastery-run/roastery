@@ -13,7 +13,8 @@
  * Prints the API key ONCE. It is hashed in the database and cannot be read
  * back, which is the point.
  */
-import { createHash, randomBytes, randomUUID } from "node:crypto";
+import { randomBytes, randomUUID } from "node:crypto";
+import { defaultKeyHasher } from "@better-auth/api-key";
 import pg from "pg";
 
 const arg = (flag, fallback) => {
@@ -38,12 +39,15 @@ if (!url) {
 }
 
 /**
- * Matches @better-auth/api-key's `defaultKeyHasher`: SHA-256, base64url, no
- * padding. Reproduced rather than imported because the plugin's hasher is not
- * exported — and a mismatch here fails as "invalid credential" at request
- * time, which is a slow way to learn about it.
+ * The plugin's own hasher, imported rather than reimplemented.
+ *
+ * This used to be a hand-written SHA-256/base64url line, on the belief that
+ * the plugin did not export one. It does — `lib/auth/api-keys.ts` has been
+ * importing it all along — and the two agreeing was luck that would have run
+ * out at a version bump, failing as "invalid credential" on the first request
+ * of a new customer's onboarding: the slowest possible way to learn about it.
  */
-const hashKey = (raw) => createHash("sha256").update(raw).digest("base64url");
+const hashKey = (raw) => defaultKeyHasher(raw);
 
 const client = new pg.Client({ connectionString: url });
 await client.connect();
@@ -96,7 +100,10 @@ try {
       randomUUID(),
       "bootstrap",
       raw.slice(0, 10),
-      hashKey(raw),
+      // Awaited: the plugin's hasher is async where the hand-rolled one was
+      // sync, and an un-awaited Promise stringifies into the column as
+      // "[object Promise]" — a key that can never verify.
+      await hashKey(raw),
       orgId,
       JSON.stringify({ roleSlug: "owner", scopes: null, createdBy: user.rows[0].id }),
     ],

@@ -1,4 +1,5 @@
 import {
+  greenLotReservations,
   greenLots,
   inventoryTransactions,
   lotConsumption,
@@ -62,7 +63,62 @@ export const kg = {
   },
   isNegative: (a: string) => toUnits(a) < 0n,
   normalize: (a: string | number) => fromUnits(toUnits(a)),
+  /**
+   * Multiplication and division, half-up at the shared scale.
+   *
+   * Kept here with the rest of the exact arithmetic because the alternative
+   * kept reappearing: `Number.parseFloat(a) * Number.parseFloat(b)` followed
+   * by `.toFixed(4)`, which looks exact and is not. It is not only rounding
+   * error — splitting a blend that way makes the components fail to sum to the
+   * whole, and the difference goes into the ledger as green that was consumed
+   * by nothing.
+   *
+   * Intermediate products are computed at double scale and rounded once, so
+   * `mul` and `div` each round exactly once rather than accumulating.
+   */
+  mul: (a: string, b: string) => {
+    const scale = 10n ** BigInt(SCALE);
+    return fromUnits(roundHalfUp(toUnits(a) * toUnits(b), scale));
+  },
+  div: (a: string, b: string) => {
+    const divisor = toUnits(b);
+    if (divisor === 0n) throw new Error("Division by zero");
+    const scale = 10n ** BigInt(SCALE);
+    return fromUnits(roundHalfUp(toUnits(a) * scale, divisor));
+  },
+  /**
+   * a x b / c, rounded ONCE.
+   *
+   * The reason this exists rather than composing `mul` and `div`: each of
+   * those rounds to the shared scale, so `div` first throws away the digits
+   * `mul` needed. Splitting 300 kg three ways at 33.3333% via
+   * `mul(300, div(33.3333, 100))` gives 299.97 — the intermediate 0.333333
+   * became 0.3333 — while one rounding gives 299.9999. The 0.03 kg difference
+   * is green that the ledger would record as consumed by nothing.
+   */
+  mulDiv: (a: string, b: string, c: string) => {
+    const divisor = toUnits(c);
+    if (divisor === 0n) throw new Error("Division by zero");
+    return fromUnits(roundHalfUp(toUnits(a) * toUnits(b), divisor));
+  },
 };
+
+/**
+ * Half-up, and symmetric about zero.
+ *
+ * Banker's rounding would be defensible for money, but every quantity here is
+ * a weight a person reads off a scale, and half-up is what they expect. The
+ * sign handling matters because a negative delta is an ordinary ledger entry.
+ */
+function roundHalfUp(numerator: bigint, denominator: bigint): bigint {
+  const negative = numerator < 0n !== denominator < 0n;
+  const n = numerator < 0n ? -numerator : numerator;
+  const d = denominator < 0n ? -denominator : denominator;
+  const quotient = n / d;
+  const remainder = n % d;
+  const rounded = remainder * 2n >= d ? quotient + 1n : quotient;
+  return negative ? -rounded : rounded;
+}
 
 export type TransactionInput = {
   greenLotId: string;
@@ -317,6 +373,92 @@ export async function recordTransformation(
     ratioPct: edge.ratioPct ?? null,
     transactionId: edge.transactionId ?? null,
   });
+}
+
+/**
+ * Moves a lot's reservation counter under a row lock.
+ *
+ * A reservation is a claim, not a movement: reserving coffee commits it
+ * without it leaving the warehouse, so it moves `reserved_weight_kg` and never
+ * the balance or the ledger. That is right, and it is why this needs its own
+ * guard — there is no ledger row to reconcile a reservation against, so a lost
+ * update here is undetectable after the fact rather than merely wrong.
+ *
+ * It was a read-modify-write with no lock and no transaction. Two reserves
+ * arriving together both read `reserved = 0`, both wrote `reserved = want`,
+ * and the same kilogram was promised to two orders. The check and the write
+ * have to see the same row, so the SELECT takes `FOR UPDATE` and the caller
+ * supplies the transaction.
+ *
+ * `available` deliberately subtracts the reservation from the CURRENT balance
+ * rather than the initial one: coffee already roasted is gone, and reserving
+ * against it would promise weight that no longer exists.
+ */
+export async function adjustReservation(
+  tx: OrgDb,
+  greenLotId: string,
+  deltaKg: string,
+  reason?: string,
+): Promise<{ reservedWeightKg: string }> {
+  const delta = kg.normalize(deltaKg);
+
+  const [lot] = await tx.query(async (t, scope) =>
+    t
+      .select({
+        currentWeightKg: greenLots.currentWeightKg,
+        reservedWeightKg: greenLots.reservedWeightKg,
+      })
+      .from(greenLots)
+      .for("update")
+      .where(and(scope(greenLots), eq(greenLots.id, greenLotId)))
+      .limit(1),
+  );
+  if (!lot) throw new NotFound("Lot not found");
+
+  const reserved = kg.normalize(lot.reservedWeightKg);
+  const next = kg.add(reserved, delta);
+
+  if (kg.isNegative(next)) {
+    throw new BadRequest(
+      `Only ${reserved} kg is reserved; cannot release ${kg.sub("0", delta)} kg.`,
+    );
+  }
+
+  const available = kg.sub(lot.currentWeightKg, reserved);
+  if (kg.cmp(delta, "0") > 0 && kg.cmp(available, delta) < 0) {
+    throw new BadRequest(
+      `Only ${available} kg is unreserved on this lot; cannot reserve ${delta} kg.`,
+    );
+  }
+
+  // The ledger row, written under the same lock as the counter it explains.
+  // Without it the counter was the only record of a reservation, so a lost
+  // update left nothing to reconcile against — the one cached weight in the
+  // system that could not check itself.
+  const [seqRow] = await tx.query(async (t, scope) =>
+    t
+      .select({ seq: sql<number>`coalesce(max(${greenLotReservations.seq}), 0) + 1` })
+      .from(greenLotReservations)
+      .where(and(scope(greenLotReservations), eq(greenLotReservations.greenLotId, greenLotId))),
+  );
+
+  await tx.insert(greenLotReservations, {
+    greenLotId,
+    seq: seqRow?.seq ?? 1,
+    deltaKg: delta,
+    reservedBeforeKg: reserved,
+    reservedAfterKg: next,
+    reason: reason ?? null,
+    createdBy: tx.actor.userId,
+  });
+
+  await tx.update(
+    greenLots,
+    { reservedWeightKg: next, updatedAt: new Date() },
+    eq(greenLots.id, greenLotId),
+  );
+
+  return { reservedWeightKg: next };
 }
 
 /**
