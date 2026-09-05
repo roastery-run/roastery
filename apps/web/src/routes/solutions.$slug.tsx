@@ -93,7 +93,7 @@ function SolutionView() {
           </div>
         ))}
 
-        <div className="rounded-md border border-border bg-card p-6">
+        <div className="rounded-2xl bg-card ring-1 ring-foreground/10 p-6">
           <h2 className="font-medium">Everything here is in the API</h2>
           <p className="mt-1 text-muted-foreground text-sm">
             This area is <code className="font-mono">{page.apiNamespace}.*</code> — the same

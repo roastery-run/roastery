@@ -48,7 +48,7 @@ export function DetailLayout({
         actions={actions}
       />
 
-      <dl className="grid gap-x-6 gap-y-3 rounded-md border border-border bg-card p-4 sm:grid-cols-2 lg:grid-cols-4">
+      <dl className="grid gap-x-6 gap-y-3 rounded-2xl bg-card ring-1 ring-foreground/10 p-4 sm:grid-cols-2 lg:grid-cols-4">
         {facts.map((fact) => (
           <div key={fact.label} className="min-w-0">
             <dt className="text-muted-foreground text-xs">{fact.label}</dt>

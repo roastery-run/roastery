@@ -14,7 +14,7 @@ export function CompareTable() {
 
   return (
     <TooltipProvider delayDuration={200}>
-      <div className="overflow-x-auto rounded-md border border-border">
+      <div className="overflow-x-auto rounded-2xl ring-1 ring-foreground/10">
         <table className="w-full min-w-3xl text-sm">
           <caption className="sr-only">What each plan includes</caption>
           <thead className="sticky top-0 bg-card">

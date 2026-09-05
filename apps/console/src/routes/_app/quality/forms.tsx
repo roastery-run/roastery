@@ -269,7 +269,7 @@ function FormBuilder() {
                 />
               ) : (
                 draft.fields.map((field, index) => (
-                  <div key={index} className="space-y-2 rounded-sm border border-border p-3">
+                  <div key={index} className="space-y-2 rounded-xl border border-border p-3">
                     <div className="flex flex-wrap items-end gap-2">
                       <div className="min-w-40 flex-1 space-y-1.5">
                         <Label className="text-xs">Label</Label>

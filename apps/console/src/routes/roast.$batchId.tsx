@@ -163,7 +163,7 @@ function LiveRoast() {
               ]}
             />
           ) : (
-            <div className="grid h-[380px] place-items-center rounded-md border border-border border-dashed text-muted-foreground text-sm">
+            <div className="grid h-[380px] place-items-center rounded-2xl border border-border border-dashed text-muted-foreground text-sm">
               {status === "open"
                 ? "Connected. Waiting for the first sample from the machine."
                 : "Connecting to the roast…"}
@@ -231,7 +231,7 @@ function LiveRoast() {
  */
 function Reading({ label, value, live }: { label: string; value: string; live?: boolean }) {
   return (
-    <div className="rounded-md border border-border bg-card p-3">
+    <div className="rounded-2xl bg-card ring-1 ring-foreground/10 p-3">
       <div className="flex items-center gap-1.5 text-muted-foreground text-xs">
         {label}
         {live ? (

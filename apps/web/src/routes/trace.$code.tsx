@@ -123,7 +123,7 @@ function TracePage() {
           origins.map((origin) => (
             <div
               key={`${origin.producer ?? "?"}-${origin.region ?? "?"}`}
-              className="rounded-md border border-border bg-card p-5"
+              className="rounded-2xl bg-card ring-1 ring-foreground/10 p-5"
             >
               <div className="flex items-start gap-3">
                 <Mountain className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden="true" />
@@ -151,7 +151,7 @@ function TracePage() {
       {roast ? (
         <section className="mt-10 space-y-3">
           <h2 className="font-medium text-sm uppercase tracking-wide">How it was roasted</h2>
-          <dl className="grid grid-cols-2 gap-x-6 gap-y-2 rounded-md border border-border bg-card p-5 text-sm">
+          <dl className="grid grid-cols-2 gap-x-6 gap-y-2 rounded-2xl bg-card ring-1 ring-foreground/10 p-5 text-sm">
             <dt className="text-muted-foreground">Batch</dt>
             <dd className="font-mono">{roast.batchNumber}</dd>
             <dt className="text-muted-foreground">Roasted</dt>

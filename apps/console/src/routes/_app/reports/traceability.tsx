@@ -180,7 +180,10 @@ function Traceability() {
                 </div>
                 <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
                   {nodes.map((node) => (
-                    <div key={node.id} className="rounded-md border border-border bg-card p-3">
+                    <div
+                      key={node.id}
+                      className="rounded-2xl bg-card ring-1 ring-foreground/10 p-3"
+                    >
                       <Badge variant="secondary" className="mb-1.5">
                         {humanize(node.kind)}
                       </Badge>

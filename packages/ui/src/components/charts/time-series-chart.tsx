@@ -214,7 +214,7 @@ export function TimeSeriesChart({
         // biome-ignore lint/a11y/noNoninteractiveTabindex: keyboard data cursor requires focus.
         tabIndex={0}
         onKeyDown={onKeyDown}
-        className="w-full rounded-md border border-border bg-card p-2 focus-visible:outline-2 focus-visible:outline-ring"
+        className="w-full rounded-2xl bg-card ring-1 ring-foreground/10 p-2 focus-visible:outline-2 focus-visible:outline-ring"
       />
 
       {/* Throttled by React's own batching to one update per cursor move. A

@@ -102,7 +102,7 @@ export function DataTable<T>({
       <div className={cn("space-y-2", className)} aria-busy="true" aria-live="polite">
         <span className="sr-only">Loading</span>
         {Array.from({ length: 8 }, (_, i) => (
-          <Skeleton key={i} className="h-9 w-full" />
+          <Skeleton key={i} className="h-10 w-full" />
         ))}
       </div>
     );
@@ -110,7 +110,7 @@ export function DataTable<T>({
 
   if (rows.length === 0) {
     return (
-      <div className="rounded-md border border-border bg-card px-6 py-16 text-center text-sm text-muted-foreground">
+      <div className="rounded-2xl bg-card ring-1 ring-foreground/10 px-6 py-16 text-center text-sm text-muted-foreground">
         {empty ?? "Nothing here yet."}
       </div>
     );
@@ -122,7 +122,7 @@ export function DataTable<T>({
     <div
       ref={scrollRef}
       className={cn(
-        "relative overflow-auto rounded-md border border-border bg-card",
+        "relative overflow-auto rounded-2xl bg-card ring-1 ring-foreground/10",
         shouldVirtualize && "max-h-[70vh]",
         className,
       )}
@@ -139,7 +139,9 @@ export function DataTable<T>({
                   <TableHead
                     key={header.id}
                     style={meta?.width ? { width: meta.width } : undefined}
-                    className={cn("h-9 text-xs font-medium", meta?.align === "end" && "text-right")}
+                    // Shorter than maia's h-12 heads: this table is the list
+                    // surface behind thirty routes and is read for density.
+                    className={cn("h-10", meta?.align === "end" && "text-right")}
                     aria-sort={
                       isSorted ? (sort?.dir === "asc" ? "ascending" : "descending") : undefined
                     }

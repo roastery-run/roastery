@@ -326,7 +326,7 @@ function LabelDesigner() {
                   return (
                     <div
                       key={block.id}
-                      className="flex flex-wrap items-center gap-2 rounded-sm border border-border p-2"
+                      className="flex flex-wrap items-center gap-2 rounded-xl border border-border p-2"
                     >
                       {block.kind === "rule" ? (
                         <span className="flex-1 text-muted-foreground text-sm">Hairline rule</span>

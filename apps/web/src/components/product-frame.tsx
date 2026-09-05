@@ -27,7 +27,7 @@ export function ProductFrame({
 }) {
   return (
     <figure className={cn("space-y-2", className)}>
-      <div className="overflow-hidden rounded-md border border-border bg-card shadow-sm">
+      <div className="overflow-hidden rounded-2xl bg-card ring-1 ring-foreground/10 shadow-sm">
         <div className="flex items-center gap-1.5 border-border border-b bg-muted/40 px-3 py-2">
           <span className="size-2 rounded-full bg-muted-foreground/30" aria-hidden="true" />
           <span className="size-2 rounded-full bg-muted-foreground/30" aria-hidden="true" />

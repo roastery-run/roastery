@@ -131,7 +131,7 @@ function Home() {
             There is no screen that can do something the API cannot — that gap is structurally
             impossible here, because building one would mean building it twice.
           </p>
-          <pre className="mt-6 overflow-x-auto rounded-md border border-border bg-card p-4 font-mono text-xs">
+          <pre className="mt-6 overflow-x-auto rounded-2xl bg-card ring-1 ring-foreground/10 p-4 font-mono text-xs">
             <code>{`curl -X POST ${SITE.api}/rpc/v1/inventory.green.listGreenLots \\
   -H "Authorization: Bearer $ROASTERY_API_KEY" \\
   -H "X-Roastery-Org: $ORG_ID" \\
