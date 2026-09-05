@@ -13,6 +13,8 @@ import {
   CardTitle,
   cn,
   EmptyState,
+  Field,
+  FieldLabel,
   Input,
   Label,
   PageHeader,
@@ -213,22 +215,22 @@ function LabelDesigner() {
               <CardTitle className="text-sm">Stock</CardTitle>
             </CardHeader>
             <CardContent className="grid gap-3 sm:grid-cols-3">
-              <Field label="Name">
+              <LabeledField label="Name">
                 <Input value={draft.name} onChange={(e) => update({ name: e.target.value })} />
-              </Field>
-              <Field label="Width (mm)">
+              </LabeledField>
+              <LabeledField label="Width (mm)">
                 <MmInput value={draft.widthMm} onChange={(v) => update({ widthMm: v })} />
-              </Field>
-              <Field label="Height (mm)">
+              </LabeledField>
+              <LabeledField label="Height (mm)">
                 <MmInput value={draft.heightMm} onChange={(v) => update({ heightMm: v })} />
-              </Field>
-              <Field label="Margin (mm)">
+              </LabeledField>
+              <LabeledField label="Margin (mm)">
                 <MmInput value={draft.marginMm} onChange={(v) => update({ marginMm: v })} />
-              </Field>
-              <Field label="QR size (mm)">
+              </LabeledField>
+              <LabeledField label="QR size (mm)">
                 <MmInput value={draft.qrSizeMm} onChange={(v) => update({ qrSizeMm: v })} />
-              </Field>
-              <Field label="QR corner">
+              </LabeledField>
+              <LabeledField label="QR corner">
                 <Select
                   value={draft.qrPosition}
                   onValueChange={(v) => update({ qrPosition: v as Draft["qrPosition"] })}
@@ -243,7 +245,7 @@ function LabelDesigner() {
                     <SelectItem value="bottom-left">Bottom left</SelectItem>
                   </SelectContent>
                 </Select>
-              </Field>
+              </LabeledField>
               <div className="flex items-center gap-2 sm:col-span-3">
                 <Switch
                   id="default"
@@ -494,7 +496,7 @@ function LabelDesigner() {
           ) : (
             <>
               <div className="print:hidden">
-                <Field label="Preview against">
+                <LabeledField label="Preview against">
                   <Select value={certificate?.id} onValueChange={setCertificateId}>
                     <SelectTrigger>
                       <SelectValue />
@@ -507,7 +509,7 @@ function LabelDesigner() {
                       ))}
                     </SelectContent>
                   </Select>
-                </Field>
+                </LabeledField>
               </div>
 
               {certificate ? <LabelPreview draft={draft} certificate={certificate} /> : null}
@@ -519,15 +521,22 @@ function LabelDesigner() {
   );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+/**
+ * A Field whose control does not need an explicit id.
+ *
+ * The label sheet has a dozen small numeric controls; generating the id here
+ * and cloning it onto the child keeps each call site to one line without
+ * losing the label/control association.
+ */
+function LabeledField({ label, children }: { label: string; children: React.ReactNode }) {
   const id = React.useId();
   return (
-    <div className="space-y-1.5">
-      <Label htmlFor={id}>{label}</Label>
+    <Field>
+      <FieldLabel htmlFor={id}>{label}</FieldLabel>
       {React.isValidElement(children)
         ? React.cloneElement(children as React.ReactElement<{ id?: string }>, { id })
         : children}
-    </div>
+    </Field>
   );
 }
 

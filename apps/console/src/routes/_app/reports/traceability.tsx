@@ -6,6 +6,8 @@ import {
   CardHeader,
   CardTitle,
   EmptyState,
+  Field,
+  FieldLabel,
   Input,
   Label,
   PageHeader,
@@ -102,8 +104,8 @@ function Traceability() {
               if (id.trim()) setQuery({ kind, id: id.trim() });
             }}
           >
-            <div className="space-y-1.5">
-              <Label htmlFor="kind">Kind</Label>
+            <Field>
+              <FieldLabel htmlFor="kind">Kind</FieldLabel>
               <Select value={kind} onValueChange={setKind}>
                 <SelectTrigger id="kind" className="w-44">
                   <SelectValue />
@@ -116,7 +118,7 @@ function Traceability() {
                   ))}
                 </SelectContent>
               </Select>
-            </div>
+            </Field>
 
             <div className="min-w-72 flex-1 space-y-1.5">
               <Label htmlFor="id">Identifier</Label>
@@ -129,8 +131,8 @@ function Traceability() {
               />
             </div>
 
-            <div className="space-y-1.5">
-              <Label htmlFor="direction">Direction</Label>
+            <Field>
+              <FieldLabel htmlFor="direction">Direction</FieldLabel>
               <Select
                 value={direction}
                 onValueChange={(value) => setDirection(value as "backward" | "forward")}
@@ -143,7 +145,7 @@ function Traceability() {
                   <SelectItem value="forward">Forward — where it went</SelectItem>
                 </SelectContent>
               </Select>
-            </div>
+            </Field>
 
             <Button type="submit" disabled={!id.trim()}>
               <Search className="size-3.5" aria-hidden="true" />

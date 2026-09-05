@@ -9,11 +9,18 @@ import {
   CardTitle,
   DataTable,
   EmptyState,
+  Field,
+  FieldLabel,
   Input,
-  Label,
+  Item,
+  ItemActions,
+  ItemContent,
+  ItemDescription,
+  ItemTitle,
   PageHeader,
   rpc,
   rpcMutate,
+  Spinner,
   StatusBadge,
 } from "@roastery/ui";
 import { formatRelative } from "@roastery/units";
@@ -154,7 +161,7 @@ function Webhooks() {
               rather than asking us for it.
             </p>
             <div className="flex items-center gap-2">
-              <code className="flex-1 overflow-x-auto rounded-sm bg-muted px-2 py-1 font-mono text-xs">
+              <code className="flex-1 overflow-x-auto rounded-lg bg-muted px-2 py-1 font-mono text-xs">
                 {secret}
               </code>
               <Button
@@ -189,8 +196,8 @@ function Webhooks() {
                 create.mutate();
               }}
             >
-              <div className="min-w-64 flex-1 space-y-1.5">
-                <Label htmlFor="url">URL</Label>
+              <Field className="min-w-64 flex-1">
+                <FieldLabel htmlFor="url">URL</FieldLabel>
                 <Input
                   id="url"
                   type="url"
@@ -199,9 +206,9 @@ function Webhooks() {
                   placeholder="https://example.com/hooks/roastery"
                   required
                 />
-              </div>
+              </Field>
               <Button type="submit" disabled={create.isPending || !url.trim()}>
-                <Plus className="size-3.5" aria-hidden="true" />
+                {create.isPending ? <Spinner /> : <Plus className="size-3.5" aria-hidden="true" />}
                 Add
               </Button>
             </form>
@@ -227,48 +234,57 @@ function Webhooks() {
               className="border-0"
             />
           ) : (
+            // A real <ul>/<li> rather than ItemGroup: that component marks
+            // itself role="list" but Item never claims listitem, so the pair
+            // announces as a list with nothing in it.
             <ul className="divide-y divide-border">
               {items.map((endpoint) => (
-                <li key={endpoint.id} className="flex flex-wrap items-center gap-3 py-3">
-                  <div className="min-w-0 flex-1">
-                    <div className="truncate font-mono text-sm">{endpoint.url}</div>
-                    <div className="text-muted-foreground text-xs">
-                      {endpoint.eventTypes.length === 0
-                        ? "All event types"
-                        : `${endpoint.eventTypes.length} subscription${endpoint.eventTypes.length === 1 ? "" : "s"}`}
-                      {endpoint.lastSuccessAt
-                        ? ` · last delivered ${formatRelative(endpoint.lastSuccessAt)}`
-                        : " · never delivered"}
-                    </div>
-                    {/* auto_disabled is distinct from disabled: one is a
+                <Item key={endpoint.id} asChild size="sm" className="px-0">
+                  <li>
+                    <ItemContent>
+                      <ItemTitle className="truncate font-mono font-normal">
+                        {endpoint.url}
+                      </ItemTitle>
+                      <ItemDescription className="text-xs">
+                        {endpoint.eventTypes.length === 0
+                          ? "All event types"
+                          : `${endpoint.eventTypes.length} subscription${endpoint.eventTypes.length === 1 ? "" : "s"}`}
+                        {endpoint.lastSuccessAt
+                          ? ` · last delivered ${formatRelative(endpoint.lastSuccessAt)}`
+                          : " · never delivered"}
+                      </ItemDescription>
+                      {/* auto_disabled is distinct from disabled: one is a
                         decision somebody made, the other is a self-inflicted
                         outage, and they need different words. */}
-                    {endpoint.status === "auto_disabled" ? (
-                      <div className="mt-1 flex items-center gap-1.5 text-destructive text-xs">
-                        <AlertTriangle className="size-3" aria-hidden="true" />
-                        {endpoint.disabledReason ?? "Disabled after repeated failures"}
-                      </div>
-                    ) : null}
-                  </div>
+                      {endpoint.status === "auto_disabled" ? (
+                        <div className="mt-1 flex items-center gap-1.5 text-destructive text-xs">
+                          <AlertTriangle className="size-3" aria-hidden="true" />
+                          {endpoint.disabledReason ?? "Disabled after repeated failures"}
+                        </div>
+                      ) : null}
+                    </ItemContent>
 
-                  <StatusBadge status={endpoint.status} />
+                    <ItemActions>
+                      <StatusBadge status={endpoint.status} />
 
-                  {can("webhooks.write") ? (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() =>
-                        setStatus.mutate({
-                          id: endpoint.id,
-                          status: endpoint.status === "active" ? "disabled" : "active",
-                        })
-                      }
-                      disabled={setStatus.isPending}
-                    >
-                      {endpoint.status === "active" ? "Disable" : "Re-enable"}
-                    </Button>
-                  ) : null}
-                </li>
+                      {can("webhooks.write") ? (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() =>
+                            setStatus.mutate({
+                              id: endpoint.id,
+                              status: endpoint.status === "active" ? "disabled" : "active",
+                            })
+                          }
+                          disabled={setStatus.isPending}
+                        >
+                          {endpoint.status === "active" ? "Disable" : "Re-enable"}
+                        </Button>
+                      ) : null}
+                    </ItemActions>
+                  </li>
+                </Item>
               ))}
             </ul>
           )}

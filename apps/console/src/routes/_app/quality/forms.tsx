@@ -12,6 +12,9 @@ import {
   CardTitle,
   Checkbox,
   EmptyState,
+  Field,
+  FieldDescription,
+  FieldLabel,
   Input,
   Label,
   PageHeader,
@@ -192,21 +195,21 @@ function FormBuilder() {
               <CardTitle className="text-sm">Template</CardTitle>
             </CardHeader>
             <CardContent className="grid gap-3 sm:grid-cols-2">
-              <div className="space-y-1.5">
-                <Label htmlFor="template-name">Name</Label>
+              <Field>
+                <FieldLabel htmlFor="template-name">Name</FieldLabel>
                 <Input
                   id="template-name"
                   value={draft.name}
                   onChange={(e) => update({ name: e.target.value })}
                 />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="template-kind">Used on</Label>
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="template-kind">Used on</FieldLabel>
                 <Select
                   value={draft.kind}
                   onValueChange={(v) => update({ kind: v as FormTemplateKind })}
                 >
-                  <SelectTrigger id="template-kind">
+                  <SelectTrigger id="template-kind" aria-describedby="template-kind-description">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -217,10 +220,10 @@ function FormBuilder() {
                     ))}
                   </SelectContent>
                 </Select>
-                <p className="text-muted-foreground text-xs">
+                <FieldDescription id="template-kind-description" className="text-xs">
                   {KINDS.find((k) => k.value === draft.kind)?.where}
-                </p>
-              </div>
+                </FieldDescription>
+              </Field>
               <div className="flex items-center gap-2 sm:col-span-2">
                 <Switch
                   id="template-default"
@@ -370,8 +373,8 @@ function FormBuilder() {
                     ) : null}
 
                     {field.type === "select" ? (
-                      <div className="space-y-1.5">
-                        <Label className="text-xs">Options, comma separated</Label>
+                      <Field>
+                        <FieldLabel className="text-xs">Options, comma separated</FieldLabel>
                         <Input
                           value={optionText[index] ?? (field.options ?? []).join(", ")}
                           onChange={(e) => {
@@ -388,7 +391,7 @@ function FormBuilder() {
                           }}
                           placeholder="light, medium, dark"
                         />
-                      </div>
+                      </Field>
                     ) : null}
                   </div>
                 ))

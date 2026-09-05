@@ -9,6 +9,9 @@ import {
   CardHeader,
   CardTitle,
   cn,
+  Field,
+  FieldDescription,
+  FieldLabel,
   Input,
   Label,
   PageHeader,
@@ -159,17 +162,17 @@ function BlendBuilder() {
               <CardTitle className="text-sm">Identity</CardTitle>
             </CardHeader>
             <CardContent className="grid gap-3 sm:grid-cols-2">
-              <div className="space-y-1.5">
-                <Label htmlFor="name">Name</Label>
+              <Field>
+                <FieldLabel htmlFor="name">Name</FieldLabel>
                 <Input
                   id="name"
                   value={name}
                   onChange={(event) => setName(event.target.value)}
                   placeholder="House Blend"
                 />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="code">Code</Label>
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="code">Code</FieldLabel>
                 <Input
                   id="code"
                   value={code}
@@ -177,11 +180,11 @@ function BlendBuilder() {
                   placeholder="BL-HOUSE"
                   className="font-mono"
                 />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="roast">Roast level</Label>
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="roast">Roast level</FieldLabel>
                 <Select value={roastLevel} onValueChange={setRoastLevel}>
-                  <SelectTrigger id="roast">
+                  <SelectTrigger id="roast" aria-describedby="roast-description">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -192,24 +195,25 @@ function BlendBuilder() {
                     ))}
                   </SelectContent>
                 </Select>
-                <p className="text-muted-foreground text-xs">
+                <FieldDescription id="roast-description" className="text-xs">
                   {/* Not cosmetic: this decides where the blend lands in a
                       roast day — light before dark. */}
                   Decides the roast order: light runs before dark.
-                </p>
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="loss">Target weight loss</Label>
+                </FieldDescription>
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="loss">Target weight loss</FieldLabel>
                 <Input
                   id="loss"
+                  aria-describedby="loss-description"
                   value={lossPct}
                   onChange={(event) => setLossPct(event.target.value)}
                   className="font-mono"
                 />
-                <p className="text-muted-foreground text-xs">
+                <FieldDescription id="loss-description" className="text-xs">
                   100 kg roasted needs {formatWeight(greenFor100)} of green.
-                </p>
-              </div>
+                </FieldDescription>
+              </Field>
               <div className="flex items-center gap-2 sm:col-span-2">
                 <Switch id="decaf" checked={isDecaf} onCheckedChange={setIsDecaf} />
                 <Label htmlFor="decaf">Decaffeinated</Label>

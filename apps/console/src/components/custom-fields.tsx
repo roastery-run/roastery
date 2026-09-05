@@ -1,7 +1,9 @@
 import type { FormField } from "@roastery/schemas";
 import {
+  Field,
+  FieldDescription,
+  FieldLabel,
   Input,
-  Label,
   Select,
   SelectContent,
   SelectItem,
@@ -30,18 +32,27 @@ export function CustomFields({
     <div className="space-y-3">
       {fields.map((field) => {
         const id = `custom-${field.key}`;
+        const help =
+          field.help ??
+          (field.type === "number" && (field.min !== undefined || field.max !== undefined)
+            ? `${field.min ?? "—"} to ${field.max ?? "—"}`
+            : null);
+        // Wired by id rather than left as loose text underneath: a range a
+        // screen-reader user never hears is a range they will get wrong.
+        const describedBy = help ? `${id}-description` : undefined;
         return (
-          <div key={field.key} className="space-y-1.5">
-            <Label htmlFor={id}>
+          <Field key={field.key}>
+            <FieldLabel htmlFor={id}>
               {field.label || field.key}
               {field.required ? <span aria-hidden="true"> *</span> : null}
               {field.required ? <span className="sr-only"> (required)</span> : null}
-            </Label>
+            </FieldLabel>
 
             {field.type === "boolean" ? (
               <div className="flex items-center gap-2">
                 <Switch
                   id={id}
+                  aria-describedby={describedBy}
                   checked={values[field.key] === true}
                   onCheckedChange={(checked) => onChange(field.key, checked)}
                 />
@@ -54,7 +65,7 @@ export function CustomFields({
                 value={(values[field.key] as string) ?? ""}
                 onValueChange={(value) => onChange(field.key, value)}
               >
-                <SelectTrigger id={id}>
+                <SelectTrigger id={id} aria-describedby={describedBy}>
                   <SelectValue placeholder="Choose" />
                 </SelectTrigger>
                 <SelectContent>
@@ -68,6 +79,7 @@ export function CustomFields({
             ) : (
               <Input
                 id={id}
+                aria-describedby={describedBy}
                 value={(values[field.key] as string | number | undefined) ?? ""}
                 inputMode={field.type === "number" ? "decimal" : undefined}
                 min={field.min}
@@ -82,14 +94,12 @@ export function CustomFields({
               />
             )}
 
-            {field.help ? (
-              <p className="text-muted-foreground text-xs">{field.help}</p>
-            ) : field.type === "number" && (field.min !== undefined || field.max !== undefined) ? (
-              <p className="text-muted-foreground text-xs">
-                {field.min ?? "—"} to {field.max ?? "—"}
-              </p>
+            {help ? (
+              <FieldDescription id={describedBy} className="text-xs">
+                {help}
+              </FieldDescription>
             ) : null}
-          </div>
+          </Field>
         );
       })}
     </div>

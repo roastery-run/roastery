@@ -9,6 +9,7 @@
  */
 import {
   Button,
+  ButtonGroup,
   DataTable,
   type DataTableProps,
   Input,
@@ -112,7 +113,7 @@ export function ListPage<T>({
       />
 
       {(history.length > 0 || nextCursor) && (
-        <div className="flex items-center justify-end gap-2">
+        <ButtonGroup className="ml-auto">
           <Button
             variant="outline"
             size="sm"
@@ -138,7 +139,7 @@ export function ListPage<T>({
             Next
             <ChevronRight className="size-3.5" aria-hidden="true" />
           </Button>
-        </div>
+        </ButtonGroup>
       )}
     </div>
   );
