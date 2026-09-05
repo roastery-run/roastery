@@ -1,4 +1,4 @@
-import { machineBridgeTokens, roastBatches } from "@roastery/db/schema";
+import { cafeMachines, machineBridgeTokens, roastBatches } from "@roastery/db/schema";
 import { and, eq } from "drizzle-orm";
 import { Hono } from "hono";
 import type { IngestBody, RoastBatchDO } from "../durable-objects/roast-batch";
@@ -30,6 +30,8 @@ type BridgeContext = {
   tokenId: string;
   machineId: string | null;
   cafeMachineId: string | null;
+  /** The site this bridge's café machine belongs to. Never from the request. */
+  cafeSiteId: string | null;
 };
 
 async function authenticateBridge(
@@ -47,11 +49,29 @@ async function authenticateBridge(
       .limit(1);
 
     if (!token || token.revokedAt || token.expiresAt <= new Date()) return null;
+
+    // The site comes from the MACHINE, for the same reason the machine id
+    // comes from the token: it is not the caller's to choose. `siteId` used to
+    // be taken from the request body unvalidated, so a compromised bar bridge
+    // could write its shots into any other site in the organization — and,
+    // because the value names a Durable Object, could create an unbounded
+    // number of them by varying the string.
+    let cafeSiteId: string | null = null;
+    if (token.cafeMachineId) {
+      const [machine] = await db
+        .select({ siteId: cafeMachines.siteId })
+        .from(cafeMachines)
+        .where(and(eq(cafeMachines.id, token.cafeMachineId), eq(cafeMachines.orgId, token.orgId)))
+        .limit(1);
+      cafeSiteId = machine?.siteId ?? null;
+    }
+
     return {
       orgId: token.orgId,
       tokenId: token.id,
       machineId: token.machineId,
       cafeMachineId: token.cafeMachineId,
+      cafeSiteId,
     };
   } finally {
     await closeWorkerDb(db);
@@ -139,8 +159,19 @@ ingestRoutes.post("/ingest/v1/cafe/shots", async (c) => {
   }
 
   const shots = Array.isArray(body.shots) ? body.shots : null;
-  if (!body.siteId || !shots) {
-    return c.json({ ok: false, error: "siteId and shots are required" }, 400);
+  if (!shots) {
+    return c.json({ ok: false, error: "shots are required" }, 400);
+  }
+  if (!bridge.cafeSiteId) {
+    // The machine exists but is not attached to a site, so there is nowhere
+    // for these shots to belong. Refusing beats inventing a destination.
+    return c.json({ ok: false, error: "machine_has_no_site" }, 409);
+  }
+  // A bridge that thinks it is somewhere else is misconfigured, and silently
+  // filing its shots under the right site would hide that until somebody
+  // wondered why a bar's numbers looked wrong.
+  if (body.siteId && body.siteId !== bridge.cafeSiteId) {
+    return c.json({ ok: false, error: "site_mismatch" }, 409);
   }
   // A bar posts a handful at a time; a huge batch is a bug or an attack. The
   // bridge chunks its replay buffer rather than sending a day in one request.
@@ -154,7 +185,8 @@ ingestRoutes.post("/ingest/v1/cafe/shots", async (c) => {
 
   await c.env.SHOT_QUEUE.send({
     orgId: bridge.orgId,
-    siteId: body.siteId,
+    // From the machine, never the body: see authenticateBridge.
+    siteId: bridge.cafeSiteId,
     // From the TOKEN, never the body. A machine id a caller can choose would
     // let a compromised bar write shots for another site's equipment.
     machineId: bridge.cafeMachineId,

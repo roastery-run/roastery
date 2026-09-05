@@ -116,14 +116,51 @@ export const listEndpointsOutput = listOutput(webhookEndpointSchema);
 
 export const getEndpointInput = z.object({ id: uuidSchema });
 
+/**
+ * Hosts a webhook may never point at.
+ *
+ * Duplicated in `apps/api/src/lib/events/ssrf.ts`, which repeats the check at
+ * DELIVERY time and additionally resolves the name. Both are needed: this one
+ * rejects the URL while somebody is looking at the error message, and that one
+ * catches a hostname that resolved somewhere public today and points at a
+ * metadata address tomorrow. The schema cannot do DNS, and the delivery path
+ * cannot produce a helpful form error.
+ */
+const BLOCKED_WEBHOOK_HOSTS = ["localhost", ".local", ".internal", "roastery.run"];
+
+const webhookUrl = z
+  .string()
+  .url()
+  .max(2000)
+  .refine((v) => v.startsWith("https://"), {
+    message: "Webhook URLs must be https — a signature does not protect a payload in transit",
+  })
+  .refine(
+    (v) => {
+      let url: URL;
+      try {
+        url = new URL(v);
+      } catch {
+        return false;
+      }
+      if (url.username || url.password) return false;
+      if (!["", "443", "8443"].includes(url.port)) return false;
+      const host = url.hostname.toLowerCase().replace(/\.$/, "");
+      // An IP literal skips DNS entirely, so it is the one form where the
+      // destination cannot change under us — and the one most likely to be
+      // pointed inward.
+      if (host.includes(":") || /^\d{1,3}(\.\d{1,3}){3}$/.test(host)) return false;
+      if (!host.includes(".")) return false;
+      return !BLOCKED_WEBHOOK_HOSTS.some((b) => host === b || host.endsWith(b));
+    },
+    {
+      message:
+        "That host is not a valid webhook destination: use a public hostname on the default HTTPS port.",
+    },
+  );
+
 export const createEndpointInput = z.object({
-  url: z
-    .string()
-    .url()
-    .max(2000)
-    .refine((v) => v.startsWith("https://"), {
-      message: "Webhook URLs must be https — a signature does not protect a payload in transit",
-    }),
+  url: webhookUrl,
   description: z.string().max(500).optional(),
   /** Empty subscribes to everything, including types added later. */
   eventTypes: z.array(eventTypeFilterSchema).max(50).default([]),

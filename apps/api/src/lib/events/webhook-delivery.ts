@@ -15,6 +15,7 @@ import type { WorkerDb } from "../db/db";
 import { trySend } from "../email/send";
 import { webhookDisabled } from "../email/templates";
 import { subscriptionMatches } from "./events";
+import { resolvesToBlockedAddress } from "./ssrf";
 import { openSecret, signatureHeader } from "./webhook-crypto";
 
 /**
@@ -306,6 +307,27 @@ export async function attemptDelivery(
 
   let statusCode: number | null = null;
   let networkError: string | null = null;
+
+  // Re-checked here, not only at registration. The hostname was public when it
+  // was registered; DNS belongs to whoever owns the name, and they can point
+  // it at 169.254.169.254 an hour later. This is the last moment before we
+  // make the request.
+  const blocked = await resolvesToBlockedAddress(new URL(endpoint.url).hostname);
+  if (blocked) {
+    await applyOutcome(db, env, delivery.id, endpoint, attempt, {
+      kind: "dead",
+      statusCode: null,
+      error: "blocked_destination: the endpoint resolves to an address we will not send to",
+      durationMs: Date.now() - startedAt,
+    });
+    return {
+      kind: "dead",
+      statusCode: null,
+      error: "blocked_destination",
+      durationMs: Date.now() - startedAt,
+    };
+  }
+
   try {
     const response = await fetch(endpoint.url, {
       method: "POST",
@@ -323,6 +345,9 @@ export async function attemptDelivery(
       },
       body: serialized,
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      // A redirect is a destination we did not check. Following one would make
+      // every guard above bypassable with a 302.
+      redirect: "manual",
     });
     statusCode = response.status;
     // The body is not read. We only need the status, and a receiver streaming
