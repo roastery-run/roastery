@@ -50,8 +50,14 @@ const GUARDED_PREFIXES = [
   "/stream/v1/",
 ];
 
-/** Routes that are public by design. Each one is a deliberate decision. */
-const PUBLIC_ROUTES = new Set(["/health", "/docs", "/openapi.json"]);
+/**
+ * Routes that are public by design. Each one is a deliberate decision.
+ *
+ * `/openapi.json` is NOT among them: the full document lists every
+ * `console.*` operation with its input schema and required permission, so it
+ * requires a credential. `/openapi.public.json` is the one integrators read.
+ */
+const PUBLIC_ROUTES = new Set(["/health", "/docs", "/openapi.public.json"]);
 
 function openApiDocument(): {
   paths: Record<string, Record<string, { operationId?: string }>>;

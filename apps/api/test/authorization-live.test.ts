@@ -138,6 +138,29 @@ describe.skipIf(!hasTestDb)("authorization, over HTTP", () => {
     expect(response.status).toBe(401);
   });
 
+  it("refuses the full OpenAPI document to an anonymous caller", async () => {
+    // It lists every console operation with its input schema and the
+    // permission it wants — a map of the administrative surface.
+    const anonymous = await app.fetch(new Request("http://localhost/openapi.json"), env);
+    expect(anonymous.status).toBe(401);
+
+    // The filtered one stays open: it is what integrators read.
+    const filtered = await app.fetch(new Request("http://localhost/openapi.public.json"), env);
+    expect(filtered.status).toBe(200);
+  });
+
+  it("serves the full document to a credential", async () => {
+    const response = await app.fetch(
+      new Request("http://localhost/openapi.json", {
+        headers: { Authorization: `Bearer ${viewerKey}` },
+      }),
+      env,
+    );
+    expect(response.status).toBe(200);
+    const doc = (await response.json()) as { paths: Record<string, unknown> };
+    expect(Object.keys(doc.paths)).toContain("/rpc/v1/console.listMembers");
+  });
+
   /* ------------------------------------------------------------- check 8 */
 
   it("never returns another organization's rows from any list operation", async () => {

@@ -207,6 +207,30 @@ app.route("/", publicRoutes);
 
 /* --------------------------------------------------------------- metadata */
 
+/**
+ * The FULL document, including `console.*`.
+ *
+ * Authenticated, unlike the public one. Those operations are in the spec so
+ * the console's client is typed and the authorization test can enumerate them,
+ * and `/openapi.public.json` exists precisely to keep them out of what
+ * integrators read — but the unfiltered document was served to anyone who
+ * asked, which handed an attacker the exact shape of every internal operation,
+ * its input schema and the permission it wants.
+ *
+ * Any credential will do. The point is not that the contents are secret from
+ * customers; it is that enumerating the administrative surface should require
+ * being somebody.
+ */
+app.use("/openapi.json", rateLimit("SESSION_RATE_LIMITER", { limit: 300, windowMs: 60_000 }));
+app.use("/openapi.json", authMiddleware);
+app.use("/openapi.json", async (c, next) => {
+  const { userId, credential } = c.var.auth;
+  if (!userId && !credential) {
+    return c.json({ error: "Unauthorized", code: "unauthenticated" }, 401);
+  }
+  await next();
+});
+
 app.doc("/openapi.json", (c) => ({
   openapi: "3.1.0",
   info: {
