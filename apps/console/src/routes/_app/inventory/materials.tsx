@@ -1,9 +1,18 @@
-import { StatusBadge, tableSearchSchema, withSearchDefaults } from "@roastery/ui";
+import {
+  parseFilter,
+  StatusBadge,
+  serializeFilter,
+  tableSearchSchema,
+  withSearchDefaults,
+} from "@roastery/ui";
 import { formatNumber, humanize } from "@roastery/units";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import type { ColumnDef } from "@tanstack/react-table";
+import { CreateMaterial } from "@/components/inventory/create-material";
+import { ListFilter, optionsFrom } from "@/components/list-filter";
 import { ListPage } from "@/components/list-page";
 import { useListQuery } from "@/lib/list-route";
+import { useWorkspace } from "@/lib/workspace";
 
 export const Route = createFileRoute("/_app/inventory/materials")({
   validateSearch: tableSearchSchema,
@@ -22,7 +31,20 @@ type Material = {
 };
 
 const columns: ColumnDef<Material>[] = [
-  { accessorKey: "name", header: "Material", meta: { label: "Material" } },
+  {
+    accessorKey: "name",
+    header: "Material",
+    meta: { label: "Material" },
+    cell: ({ row }) => (
+      <Link
+        to="/inventory/materials/$materialId"
+        params={{ materialId: row.original.id }}
+        className="font-medium hover:underline"
+      >
+        {row.original.name}
+      </Link>
+    ),
+  },
   {
     accessorKey: "sku",
     header: "SKU",
@@ -66,9 +88,27 @@ const columns: ColumnDef<Material>[] = [
   },
 ];
 
+const MATERIAL_KINDS = [
+  "bag",
+  "label",
+  "valve",
+  "box",
+  "tin",
+  "capsule",
+  "tape",
+  "insert",
+  "merch",
+  "other",
+] as const;
+
 function Materials() {
   const search = withSearchDefaults(Route.useSearch());
-  const query = useListQuery<Material>("inventory.material.listMaterials", search);
+  const { can } = useWorkspace();
+  const filters = parseFilter(search.filter);
+  const query = useListQuery<Material>("inventory.material.listMaterials", search, {
+    kind: search.status || undefined,
+    needsReorder: filters.reorder === "1" ? true : undefined,
+  });
 
   return (
     <ListPage
@@ -76,11 +116,39 @@ function Materials() {
       description="Packaging, labels and everything else a finished bag needs."
       searchPlaceholder="Search materials"
       search={search}
-      nextCursor={query.data?.page.nextCursor}
+      query={query}
+      filters={(update) => (
+        <>
+          {/* The one question this screen exists to answer. It was reachable
+              only by reading fifty rows and comparing two numbers per row. */}
+          <ListFilter
+            id="material-reorder"
+            label="Filter by whether stock needs reordering"
+            value={filters.reorder ?? ""}
+            options={[{ value: "1", label: "Needs reordering" }]}
+            allLabel="Any stock level"
+            onChange={(value) =>
+              update({
+                filter: serializeFilter({ ...parseFilter(search.filter), reorder: value }),
+                cursor: "",
+              })
+            }
+          />
+          {/* `status` carries the kind here: the URL contract has one
+              single-value slot per list and a material has no status. */}
+          <ListFilter
+            id="material-kind"
+            label="Filter by kind"
+            value={search.status}
+            options={optionsFrom(MATERIAL_KINDS)}
+            allLabel="Any kind"
+            onChange={(kind) => update({ status: kind, cursor: "" })}
+          />
+        </>
+      )}
+      actions={<CreateMaterial canWrite={can("inventory.material.write")} />}
       table={{
-        data: query.data?.items ?? [],
         columns,
-        isLoading: query.isLoading,
         rowKey: (row) => row.id,
         empty: "No materials yet.",
       }}

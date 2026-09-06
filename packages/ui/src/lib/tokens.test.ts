@@ -53,6 +53,27 @@ describe("Kiln palette", () => {
     expect(ratio ?? 0).toBeGreaterThanOrEqual(4.5);
   });
 
+  /**
+   * The status colours are also used as TEXT, and that was untested.
+   *
+   * The assertion above checks `--warning` against `--warning-foreground` —
+   * the badge's own fill and text. But the product also writes
+   * `text-warning`, `text-destructive` and `text-success` directly onto the
+   * page and card grounds: a stale best-before, a below-reorder count, a short
+   * component, a negative ledger delta. Those pairs were passing by accident.
+   * A 0.02 nudge to any of these tokens "because it looks nicer" would have
+   * broken text nobody was checking, which is the exact rot the palette test
+   * exists to prevent.
+   */
+  it.each(THEMES)("status colours are legible AS TEXT on both grounds in %s", (theme) => {
+    for (const status of ["success", "warning", "destructive", "info", "primary"]) {
+      for (const ground of ["background", "card"]) {
+        const ratio = contrastRatio(token(status, theme), token(ground, theme));
+        expect(ratio ?? 0, `text-${status} on ${ground} in ${theme}`).toBeGreaterThanOrEqual(4.5);
+      }
+    }
+  });
+
   it.each(THEMES)("borders are visible without being loud in %s", (theme) => {
     const ratio = contrastRatio(token("border", theme), token("background", theme));
     // Not an AA text requirement — a hairline rule is decoration — but a

@@ -76,11 +76,9 @@ function Partners() {
       description="Importers, exporters, mills and customers."
       searchPlaceholder="Search partners"
       search={search}
-      nextCursor={query.data?.page.nextCursor}
+      query={query}
       table={{
-        data: query.data?.items ?? [],
         columns,
-        isLoading: query.isLoading,
         rowKey: (row) => row.id,
         empty: "No partners yet.",
       }}

@@ -25,6 +25,7 @@ import { Route as AppInventoryLotIdRouteImport } from './routes/_app/inventory/$
 import { Route as AppInventoryBlendsRouteImport } from './routes/_app/inventory/blends'
 import { Route as AppInventoryBomRouteImport } from './routes/_app/inventory/bom'
 import { Route as AppInventoryCostsRouteImport } from './routes/_app/inventory/costs'
+import { Route as AppInventoryImportRouteImport } from './routes/_app/inventory/import'
 import { Route as AppInventoryMaterialsRouteImport } from './routes/_app/inventory/materials'
 import { Route as AppInventoryRoastedRouteImport } from './routes/_app/inventory/roasted'
 import { Route as AppOrdersIndexRouteImport } from './routes/_app/orders/index'
@@ -50,7 +51,10 @@ import { Route as AppSettingsMembersRouteImport } from './routes/_app/settings/m
 import { Route as AppSettingsPartnersRouteImport } from './routes/_app/settings/partners'
 import { Route as AppSettingsProductsRouteImport } from './routes/_app/settings/products'
 import { Route as AppSettingsWebhooksRouteImport } from './routes/_app/settings/webhooks'
+import { Route as AppInventoryBlendsBlendIdRouteImport } from './routes/_app/inventory/blends_.$blendId'
 import { Route as AppInventoryBlendsNewRouteImport } from './routes/_app/inventory/blends_.new'
+import { Route as AppInventoryMaterialsMaterialIdRouteImport } from './routes/_app/inventory/materials_.$materialId'
+import { Route as AppInventoryRoastedRoastedLotIdRouteImport } from './routes/_app/inventory/roasted_.$roastedLotId'
 
 const AppRoute = AppRouteImport.update({
   id: '/_app',
@@ -129,6 +133,11 @@ const AppInventoryBomRoute = AppInventoryBomRouteImport.update({
 const AppInventoryCostsRoute = AppInventoryCostsRouteImport.update({
   id: '/inventory/costs',
   path: '/inventory/costs',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppInventoryImportRoute = AppInventoryImportRouteImport.update({
+  id: '/inventory/import',
+  path: '/inventory/import',
   getParentRoute: () => AppRoute,
 } as any)
 const AppInventoryMaterialsRoute = AppInventoryMaterialsRouteImport.update({
@@ -256,11 +265,29 @@ const AppSettingsWebhooksRoute = AppSettingsWebhooksRouteImport.update({
   path: '/settings/webhooks',
   getParentRoute: () => AppRoute,
 } as any)
+const AppInventoryBlendsBlendIdRoute =
+  AppInventoryBlendsBlendIdRouteImport.update({
+    id: '/inventory/blends_/$blendId',
+    path: '/inventory/blends/$blendId',
+    getParentRoute: () => AppRoute,
+  } as any)
 const AppInventoryBlendsNewRoute = AppInventoryBlendsNewRouteImport.update({
   id: '/inventory/blends_/new',
   path: '/inventory/blends/new',
   getParentRoute: () => AppRoute,
 } as any)
+const AppInventoryMaterialsMaterialIdRoute =
+  AppInventoryMaterialsMaterialIdRouteImport.update({
+    id: '/inventory/materials_/$materialId',
+    path: '/inventory/materials/$materialId',
+    getParentRoute: () => AppRoute,
+  } as any)
+const AppInventoryRoastedRoastedLotIdRoute =
+  AppInventoryRoastedRoastedLotIdRouteImport.update({
+    id: '/inventory/roasted_/$roastedLotId',
+    path: '/inventory/roasted/$roastedLotId',
+    getParentRoute: () => AppRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
@@ -275,6 +302,7 @@ export interface FileRoutesByFullPath {
   '/inventory/blends': typeof AppInventoryBlendsRoute
   '/inventory/bom': typeof AppInventoryBomRoute
   '/inventory/costs': typeof AppInventoryCostsRoute
+  '/inventory/import': typeof AppInventoryImportRoute
   '/inventory/materials': typeof AppInventoryMaterialsRoute
   '/inventory/roasted': typeof AppInventoryRoastedRoute
   '/orders/$orderId': typeof AppOrdersOrderIdRoute
@@ -303,7 +331,10 @@ export interface FileRoutesByFullPath {
   '/roasting/': typeof AppRoastingIndexRoute
   '/samples/': typeof AppSamplesIndexRoute
   '/settings/': typeof AppSettingsIndexRoute
+  '/inventory/blends/$blendId': typeof AppInventoryBlendsBlendIdRoute
   '/inventory/blends/new': typeof AppInventoryBlendsNewRoute
+  '/inventory/materials/$materialId': typeof AppInventoryMaterialsMaterialIdRoute
+  '/inventory/roasted/$roastedLotId': typeof AppInventoryRoastedRoastedLotIdRoute
 }
 export interface FileRoutesByTo {
   '/login': typeof LoginRoute
@@ -318,6 +349,7 @@ export interface FileRoutesByTo {
   '/inventory/blends': typeof AppInventoryBlendsRoute
   '/inventory/bom': typeof AppInventoryBomRoute
   '/inventory/costs': typeof AppInventoryCostsRoute
+  '/inventory/import': typeof AppInventoryImportRoute
   '/inventory/materials': typeof AppInventoryMaterialsRoute
   '/inventory/roasted': typeof AppInventoryRoastedRoute
   '/orders/$orderId': typeof AppOrdersOrderIdRoute
@@ -346,7 +378,10 @@ export interface FileRoutesByTo {
   '/roasting': typeof AppRoastingIndexRoute
   '/samples': typeof AppSamplesIndexRoute
   '/settings': typeof AppSettingsIndexRoute
+  '/inventory/blends/$blendId': typeof AppInventoryBlendsBlendIdRoute
   '/inventory/blends/new': typeof AppInventoryBlendsNewRoute
+  '/inventory/materials/$materialId': typeof AppInventoryMaterialsMaterialIdRoute
+  '/inventory/roasted/$roastedLotId': typeof AppInventoryRoastedRoastedLotIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -363,6 +398,7 @@ export interface FileRoutesById {
   '/_app/inventory/blends': typeof AppInventoryBlendsRoute
   '/_app/inventory/bom': typeof AppInventoryBomRoute
   '/_app/inventory/costs': typeof AppInventoryCostsRoute
+  '/_app/inventory/import': typeof AppInventoryImportRoute
   '/_app/inventory/materials': typeof AppInventoryMaterialsRoute
   '/_app/inventory/roasted': typeof AppInventoryRoastedRoute
   '/_app/orders/$orderId': typeof AppOrdersOrderIdRoute
@@ -391,7 +427,10 @@ export interface FileRoutesById {
   '/_app/roasting/': typeof AppRoastingIndexRoute
   '/_app/samples/': typeof AppSamplesIndexRoute
   '/_app/settings/': typeof AppSettingsIndexRoute
+  '/_app/inventory/blends_/$blendId': typeof AppInventoryBlendsBlendIdRoute
   '/_app/inventory/blends_/new': typeof AppInventoryBlendsNewRoute
+  '/_app/inventory/materials_/$materialId': typeof AppInventoryMaterialsMaterialIdRoute
+  '/_app/inventory/roasted_/$roastedLotId': typeof AppInventoryRoastedRoastedLotIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -408,6 +447,7 @@ export interface FileRouteTypes {
     | '/inventory/blends'
     | '/inventory/bom'
     | '/inventory/costs'
+    | '/inventory/import'
     | '/inventory/materials'
     | '/inventory/roasted'
     | '/orders/$orderId'
@@ -436,7 +476,10 @@ export interface FileRouteTypes {
     | '/roasting/'
     | '/samples/'
     | '/settings/'
+    | '/inventory/blends/$blendId'
     | '/inventory/blends/new'
+    | '/inventory/materials/$materialId'
+    | '/inventory/roasted/$roastedLotId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/login'
@@ -451,6 +494,7 @@ export interface FileRouteTypes {
     | '/inventory/blends'
     | '/inventory/bom'
     | '/inventory/costs'
+    | '/inventory/import'
     | '/inventory/materials'
     | '/inventory/roasted'
     | '/orders/$orderId'
@@ -479,7 +523,10 @@ export interface FileRouteTypes {
     | '/roasting'
     | '/samples'
     | '/settings'
+    | '/inventory/blends/$blendId'
     | '/inventory/blends/new'
+    | '/inventory/materials/$materialId'
+    | '/inventory/roasted/$roastedLotId'
   id:
     | '__root__'
     | '/_app'
@@ -495,6 +542,7 @@ export interface FileRouteTypes {
     | '/_app/inventory/blends'
     | '/_app/inventory/bom'
     | '/_app/inventory/costs'
+    | '/_app/inventory/import'
     | '/_app/inventory/materials'
     | '/_app/inventory/roasted'
     | '/_app/orders/$orderId'
@@ -523,7 +571,10 @@ export interface FileRouteTypes {
     | '/_app/roasting/'
     | '/_app/samples/'
     | '/_app/settings/'
+    | '/_app/inventory/blends_/$blendId'
     | '/_app/inventory/blends_/new'
+    | '/_app/inventory/materials_/$materialId'
+    | '/_app/inventory/roasted_/$roastedLotId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -645,6 +696,13 @@ declare module '@tanstack/react-router' {
       path: '/inventory/costs'
       fullPath: '/inventory/costs'
       preLoaderRoute: typeof AppInventoryCostsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/inventory/import': {
+      id: '/_app/inventory/import'
+      path: '/inventory/import'
+      fullPath: '/inventory/import'
+      preLoaderRoute: typeof AppInventoryImportRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/inventory/materials': {
@@ -822,11 +880,32 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppSettingsWebhooksRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/inventory/blends_/$blendId': {
+      id: '/_app/inventory/blends_/$blendId'
+      path: '/inventory/blends/$blendId'
+      fullPath: '/inventory/blends/$blendId'
+      preLoaderRoute: typeof AppInventoryBlendsBlendIdRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/inventory/blends_/new': {
       id: '/_app/inventory/blends_/new'
       path: '/inventory/blends/new'
       fullPath: '/inventory/blends/new'
       preLoaderRoute: typeof AppInventoryBlendsNewRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/inventory/materials_/$materialId': {
+      id: '/_app/inventory/materials_/$materialId'
+      path: '/inventory/materials/$materialId'
+      fullPath: '/inventory/materials/$materialId'
+      preLoaderRoute: typeof AppInventoryMaterialsMaterialIdRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/inventory/roasted_/$roastedLotId': {
+      id: '/_app/inventory/roasted_/$roastedLotId'
+      path: '/inventory/roasted/$roastedLotId'
+      fullPath: '/inventory/roasted/$roastedLotId'
+      preLoaderRoute: typeof AppInventoryRoastedRoastedLotIdRouteImport
       parentRoute: typeof AppRoute
     }
   }
@@ -842,6 +921,7 @@ interface AppRouteChildren {
   AppInventoryBlendsRoute: typeof AppInventoryBlendsRoute
   AppInventoryBomRoute: typeof AppInventoryBomRoute
   AppInventoryCostsRoute: typeof AppInventoryCostsRoute
+  AppInventoryImportRoute: typeof AppInventoryImportRoute
   AppInventoryMaterialsRoute: typeof AppInventoryMaterialsRoute
   AppInventoryRoastedRoute: typeof AppInventoryRoastedRoute
   AppOrdersOrderIdRoute: typeof AppOrdersOrderIdRoute
@@ -870,7 +950,10 @@ interface AppRouteChildren {
   AppRoastingIndexRoute: typeof AppRoastingIndexRoute
   AppSamplesIndexRoute: typeof AppSamplesIndexRoute
   AppSettingsIndexRoute: typeof AppSettingsIndexRoute
+  AppInventoryBlendsBlendIdRoute: typeof AppInventoryBlendsBlendIdRoute
   AppInventoryBlendsNewRoute: typeof AppInventoryBlendsNewRoute
+  AppInventoryMaterialsMaterialIdRoute: typeof AppInventoryMaterialsMaterialIdRoute
+  AppInventoryRoastedRoastedLotIdRoute: typeof AppInventoryRoastedRoastedLotIdRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
@@ -883,6 +966,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppInventoryBlendsRoute: AppInventoryBlendsRoute,
   AppInventoryBomRoute: AppInventoryBomRoute,
   AppInventoryCostsRoute: AppInventoryCostsRoute,
+  AppInventoryImportRoute: AppInventoryImportRoute,
   AppInventoryMaterialsRoute: AppInventoryMaterialsRoute,
   AppInventoryRoastedRoute: AppInventoryRoastedRoute,
   AppOrdersOrderIdRoute: AppOrdersOrderIdRoute,
@@ -911,7 +995,10 @@ const AppRouteChildren: AppRouteChildren = {
   AppRoastingIndexRoute: AppRoastingIndexRoute,
   AppSamplesIndexRoute: AppSamplesIndexRoute,
   AppSettingsIndexRoute: AppSettingsIndexRoute,
+  AppInventoryBlendsBlendIdRoute: AppInventoryBlendsBlendIdRoute,
   AppInventoryBlendsNewRoute: AppInventoryBlendsNewRoute,
+  AppInventoryMaterialsMaterialIdRoute: AppInventoryMaterialsMaterialIdRoute,
+  AppInventoryRoastedRoastedLotIdRoute: AppInventoryRoastedRoastedLotIdRoute,
 }
 
 const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)

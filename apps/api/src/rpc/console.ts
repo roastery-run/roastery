@@ -537,8 +537,20 @@ registerRpc(
       }
     }
 
+    // unscoped-ok: organizations is TENANT_GLOBAL, and this reads exactly the
+    // caller's own organization — the id orgScope already resolved and
+    // verified membership for.
+    const [org] = await ctx.db.query(async (t) =>
+      t
+        .select({ baseCurrency: organizations.baseCurrency })
+        .from(organizations)
+        .where(eq(organizations.id, ctx.orgId))
+        .limit(1),
+    );
+
     return {
       orgId: ctx.orgId,
+      baseCurrency: org?.baseCurrency ?? "USD",
       permissions: [...ctx.permissions],
       entitlements: { planSlug: ctx.entitlements.planSlug, modules, limits },
     };

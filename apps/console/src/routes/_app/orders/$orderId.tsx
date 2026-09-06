@@ -101,24 +101,25 @@ function OrderDetail() {
     {
       accessorKey: "weightKg",
       header: "Ordered",
-      meta: { label: "Ordered", align: "end" },
-      cell: ({ row }) => formatWeight(row.original.weightKg),
+      meta: { label: "Ordered", align: "end", unit: "kg" },
+      cell: ({ row }) => formatWeight(row.original.weightKg, { unit: "kg", withUnit: false }),
     },
     {
       accessorKey: "allocatedWeightKg",
       header: "Allocated",
-      meta: { label: "Allocated", align: "end" },
-      cell: ({ row }) => formatWeight(row.original.allocatedWeightKg),
+      meta: { label: "Allocated", align: "end", unit: "kg" },
+      cell: ({ row }) =>
+        formatWeight(row.original.allocatedWeightKg, { unit: "kg", withUnit: false }),
     },
     {
       accessorKey: "outstandingWeightKg",
       header: "Outstanding",
-      meta: { label: "Outstanding", align: "end" },
+      meta: { label: "Outstanding", align: "end", unit: "kg" },
       cell: ({ row }) => {
         const outstanding = Number.parseFloat(row.original.outstandingWeightKg);
         return (
           <span className={outstanding > 0 ? "text-warning" : "text-muted-foreground"}>
-            {formatWeight(row.original.outstandingWeightKg)}
+            {formatWeight(row.original.outstandingWeightKg, { unit: "kg", withUnit: false })}
           </span>
         );
       },
@@ -167,10 +168,11 @@ function OrderDetail() {
       }
       facts={[
         { label: "Channel", value: data ? humanize(data.channel) : "—" },
-        { label: "Requested ship", value: formatDate(data?.requestedShipAt) },
-        { label: "Lines", value: data?.lines.length ?? "—" },
+        { label: "Requested ship", mono: true, value: formatDate(data?.requestedShipAt) },
+        { label: "Lines", mono: true, value: data?.lines.length ?? "—" },
         {
           label: "Total",
+          mono: true,
           value: data ? formatMoney(data.total, data.currency) : "—",
         },
       ]}

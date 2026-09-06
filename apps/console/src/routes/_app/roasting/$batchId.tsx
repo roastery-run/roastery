@@ -113,12 +113,16 @@ function RoastBatchDetail() {
         ) : null
       }
       facts={[
-        { label: "Charge", value: formatWeight(data?.chargeWeightKg) },
-        { label: "Drop", value: formatWeight(data?.dropWeightKg) },
-        { label: "Weight loss", value: formatPercent(data?.weightLossPct, 2) },
-        { label: "Development ratio", value: formatPercent(data?.dtrPct, 2) },
-        { label: "Drop temperature", value: data?.dropTempC ? `${data.dropTempC} °C` : "—" },
-        { label: "Total time", value: formatElapsed(data?.totalTimeS) },
+        { label: "Charge", mono: true, value: formatWeight(data?.chargeWeightKg, { unit: "kg" }) },
+        { label: "Drop", mono: true, value: formatWeight(data?.dropWeightKg, { unit: "kg" }) },
+        { label: "Weight loss", mono: true, value: formatPercent(data?.weightLossPct, 2) },
+        { label: "Development ratio", mono: true, value: formatPercent(data?.dtrPct, 2) },
+        {
+          label: "Drop temperature",
+          mono: true,
+          value: data?.dropTempC ? `${data.dropTempC} °C` : "—",
+        },
+        { label: "Total time", mono: true, value: formatElapsed(data?.totalTimeS) },
       ]}
     >
       <Card>

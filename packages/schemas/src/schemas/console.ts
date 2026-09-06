@@ -126,6 +126,17 @@ export const getAccessInput = z.object({});
 
 export const getAccessOutput = z.object({
   orgId: uuidSchema,
+  /**
+   * The currency the books are kept in.
+   *
+   * Every `*Base` money figure the API returns is converted into this at the
+   * rate recorded when the cost was entered. Without it the console has no
+   * honest way to label those figures, and the landed-cost screen labelled
+   * them with the LOT's purchase currency instead — so a EUR-bought lot and a
+   * USD-bought one rendered in different, wrong currencies while the page
+   * invited the reader to compare them.
+   */
+  baseCurrency: z.string().length(3),
   /** Resolved, wildcards included — the client matches them the same way. */
   permissions: z.array(z.string()),
   entitlements: z.object({

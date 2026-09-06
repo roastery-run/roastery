@@ -44,9 +44,11 @@ const columns: ColumnDef<Sample>[] = [
   {
     accessorKey: "weightKg",
     header: "Weight",
-    meta: { label: "Weight", align: "end" },
-    // Samples are hundreds of grams, so the formatter picks grams here.
-    cell: ({ row }) => formatWeight(row.original.weightKg),
+    // Samples are hundreds of grams, so the column is pinned to grams rather
+    // than left to the formatter: a single two-kilogram sample would otherwise
+    // rescale one row and read as smaller than the grams above it.
+    meta: { label: "Weight", align: "end", unit: "g" },
+    cell: ({ row }) => formatWeight(row.original.weightKg, { unit: "g", withUnit: false }),
   },
   {
     accessorKey: "createdAt",
@@ -68,11 +70,9 @@ function Samples() {
       description="Offers, pre-shipments and arrivals, and how long each has been waiting on a decision."
       searchPlaceholder="Search samples"
       search={search}
-      nextCursor={query.data?.page.nextCursor}
+      query={query}
       table={{
-        data: query.data?.items ?? [],
         columns,
-        isLoading: query.isLoading,
         rowKey: (row) => row.id,
         empty: "No samples logged.",
       }}

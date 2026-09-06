@@ -7,9 +7,18 @@
  * list screen is a column definition rather than a component.
  */
 import { rpc, type TableSearch } from "@roastery/ui";
-import { useQuery } from "@tanstack/react-query";
+import { type UseQueryResult, useQuery } from "@tanstack/react-query";
 
 export type ListResult<T> = { items: T[]; page: { nextCursor: string | null; hasMore: boolean } };
+
+/**
+ * What `ListPage` is handed, whole.
+ *
+ * The result goes in rather than the three fields a screen happens to need,
+ * because the fourth field is the error — and a prop a caller can forget is a
+ * screen that renders an empty table when the API returned a 500.
+ */
+export type ListQuery<T> = UseQueryResult<ListResult<T>, unknown>;
 
 export function useListQuery<T>(
   operation: string,

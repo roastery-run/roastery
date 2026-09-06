@@ -71,11 +71,9 @@ function Sites() {
       description="Every bar, and the equipment reporting from it."
       searchPlaceholder="Search sites"
       search={search}
-      nextCursor={query.data?.page.nextCursor}
+      query={query}
       table={{
-        data: query.data?.items ?? [],
         columns,
-        isLoading: query.isLoading,
         rowKey: (row) => row.id,
         empty: "No café sites yet.",
       }}

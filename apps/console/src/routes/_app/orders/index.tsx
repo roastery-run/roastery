@@ -82,7 +82,7 @@ function Orders() {
       description="What has been sold, and what production still has to cover."
       searchPlaceholder="Search orders"
       search={search}
-      nextCursor={query.data?.page.nextCursor}
+      query={query}
       actions={
         <Button size="sm">
           <Plus className="size-3.5" aria-hidden="true" />
@@ -90,9 +90,7 @@ function Orders() {
         </Button>
       }
       table={{
-        data: query.data?.items ?? [],
         columns,
-        isLoading: query.isLoading,
         rowKey: (row) => row.id,
         empty: "No orders yet.",
       }}

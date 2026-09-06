@@ -52,7 +52,12 @@ export function formatWeight(
   // by 17%.
   if (converted === null) return formatWeight(kg, { ...options, unit: "kg" });
 
-  const digits = options.digits ?? (unit === "g" ? 1 : unit === "bag" ? 0 : 2);
+  // Bags get a decimal. A lot holding 14.49 bags rendered as "14", which
+  // silently loses a third of a 69 kg bag on a screen whose whole argument is
+  // that a stock figure is auditable. A partial bag is a real thing on a
+  // pallet, and rounding it away is the same class of error as inventing a
+  // bag weight — which this file refuses to do two lines below.
+  const digits = options.digits ?? (unit === "g" ? 1 : unit === "bag" ? 1 : 2);
   const formatted = formatNumber(converted, { digits });
   return options.withUnit === false ? formatted : `${formatted} ${WEIGHT_UNIT_LABEL[unit]}`;
 }
@@ -129,9 +134,24 @@ const ACRONYMS: Record<string, string> = {
   pct: "%",
 };
 
+/**
+ * Enum values whose underscore is a HYPHEN, not a space.
+ *
+ * `pre_roast` is one adjective, so "Pre roast" reads as a typo where
+ * "Pre-roast" reads as the term. Kept as whole values rather than a
+ * hyphenation rule, because the same underscore is a space in `write_off` and
+ * `roast_consume` and there is no way to tell them apart from the shape.
+ */
+const PHRASES: Record<string, string> = {
+  pre_roast: "Pre-roast",
+  post_roast: "Post-roast",
+};
+
 /** Turns an enum value into a label: `in_progress` → `In progress`. */
 export function humanize(value: string | null | undefined): string {
   if (!value) return EM_DASH;
+  const phrase = PHRASES[value.toLowerCase()];
+  if (phrase) return phrase;
   const words = value.replace(/[_-]+/g, " ").trim().split(/\s+/);
   return words
     .map((word, index) => {

@@ -163,7 +163,9 @@ function ScheduleBoard() {
       <div className="grid gap-3 sm:grid-cols-3">
         <Metric
           label="Outstanding demand"
-          value={demand.isLoading ? "—" : formatWeight(demand.data?.totalRoastedKg)}
+          value={
+            demand.isLoading ? "—" : formatWeight(demand.data?.totalRoastedKg, { unit: "auto" })
+          }
           hint="Confirmed orders, less what stock already covers"
         />
         <Metric
@@ -202,7 +204,9 @@ function ScheduleBoard() {
                       {item.dueAt ? ` · earliest ${formatDate(item.dueAt)}` : null}
                     </div>
                   </div>
-                  <div className="font-mono tabular-nums">{formatWeight(item.roastedKg)}</div>
+                  <div className="font-mono tabular-nums">
+                    {formatWeight(item.roastedKg, { unit: "kg" })}
+                  </div>
                 </li>
               ))}
             </ul>
@@ -281,7 +285,7 @@ function ScheduleBoard() {
                               <span>{blendById.get(batch.blendId)?.roastLevel}</span>
                             ) : null}
                             {batch.blendId && blendById.get(batch.blendId)?.isDecaf ? (
-                              <Badge variant="secondary" className="h-4 px-1 text-[10px]">
+                              <Badge variant="secondary" className="h-4 px-1 text-micro">
                                 decaf
                               </Badge>
                             ) : null}
@@ -292,9 +296,9 @@ function ScheduleBoard() {
                           </div>
                         </div>
                         <div className="text-right font-mono text-xs tabular-nums">
-                          <div>{formatWeight(batch.plannedChargeKg)}</div>
+                          <div>{formatWeight(batch.plannedChargeKg, { unit: "kg" })}</div>
                           <div className="text-muted-foreground">
-                            → {formatWeight(batch.plannedYieldKg)}
+                            → {formatWeight(batch.plannedYieldKg, { unit: "kg" })}
                           </div>
                         </div>
                       </li>

@@ -46,22 +46,24 @@ const columns: ColumnDef<Position>[] = [
   {
     accessorKey: "contractedKg",
     header: "Contracted",
-    meta: { label: "Contracted", align: "end" },
-    cell: ({ row }) => formatWeight(row.original.contractedKg),
+    meta: { label: "Contracted", align: "end", unit: "kg" },
+    cell: ({ row }) => formatWeight(row.original.contractedKg, { unit: "kg", withUnit: false }),
   },
   {
     accessorKey: "receivedKg",
     header: "Received",
-    meta: { label: "Received", align: "end" },
-    cell: ({ row }) => formatWeight(row.original.receivedKg),
+    meta: { label: "Received", align: "end", unit: "kg" },
+    cell: ({ row }) => formatWeight(row.original.receivedKg, { unit: "kg", withUnit: false }),
   },
   {
     accessorKey: "outstandingKg",
     header: "Outstanding",
-    meta: { label: "Outstanding", align: "end" },
+    meta: { label: "Outstanding", align: "end", unit: "kg" },
     // The number the page exists for, so it carries the emphasis.
     cell: ({ row }) => (
-      <span className="font-medium">{formatWeight(row.original.outstandingKg)}</span>
+      <span className="font-medium">
+        {formatWeight(row.original.outstandingKg, { unit: "kg", withUnit: false })}
+      </span>
     ),
   },
   {
@@ -97,7 +99,9 @@ function Positions() {
       <div className="grid gap-3 sm:grid-cols-3">
         <Metric
           label="Outstanding"
-          value={query.isLoading ? "—" : formatWeight(query.data?.totalOutstandingKg)}
+          value={
+            query.isLoading ? "—" : formatWeight(query.data?.totalOutstandingKg, { unit: "auto" })
+          }
           hint="Across every open contract line"
         />
         <Metric label="Open lines" value={query.isLoading ? "—" : items.length} />

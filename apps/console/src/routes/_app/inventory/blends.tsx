@@ -3,6 +3,7 @@ import { formatPercent, humanize } from "@roastery/units";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import type { ColumnDef } from "@tanstack/react-table";
 import { Plus } from "lucide-react";
+import { ListFilter } from "@/components/list-filter";
 import { ListPage } from "@/components/list-page";
 import { useListQuery } from "@/lib/list-route";
 
@@ -23,7 +24,20 @@ type Blend = {
 };
 
 const columns: ColumnDef<Blend>[] = [
-  { accessorKey: "name", header: "Blend", meta: { label: "Blend" } },
+  {
+    accessorKey: "name",
+    header: "Blend",
+    meta: { label: "Blend" },
+    cell: ({ row }) => (
+      <Link
+        to="/inventory/blends/$blendId"
+        params={{ blendId: row.original.id }}
+        className="font-medium hover:underline"
+      >
+        {row.original.name}
+      </Link>
+    ),
+  },
   {
     accessorKey: "code",
     header: "Code",
@@ -68,7 +82,9 @@ const columns: ColumnDef<Blend>[] = [
 
 function Blends() {
   const search = withSearchDefaults(Route.useSearch());
-  const query = useListQuery<Blend>("inventory.blend.listBlends", search);
+  const query = useListQuery<Blend>("inventory.blend.listBlends", search, {
+    blendType: search.status || undefined,
+  });
 
   return (
     <ListPage
@@ -76,7 +92,22 @@ function Blends() {
       description="Recipes, and the roast order they imply."
       searchPlaceholder="Search blends"
       search={search}
-      nextCursor={query.data?.page.nextCursor}
+      query={query}
+      filters={(update) => (
+        // Pre-roast and post-roast are the most consequential distinction on
+        // this page, and the difference was explained only in a code comment.
+        <ListFilter
+          id="blend-type"
+          label="Filter by blend type"
+          value={search.status}
+          options={[
+            { value: "pre_roast", label: "Pre-roast" },
+            { value: "post_roast", label: "Post-roast" },
+          ]}
+          allLabel="Any type"
+          onChange={(blendType) => update({ status: blendType, cursor: "" })}
+        />
+      )}
       actions={
         <Button size="sm" asChild>
           <Link to="/inventory/blends/new">
@@ -86,9 +117,7 @@ function Blends() {
         </Button>
       }
       table={{
-        data: query.data?.items ?? [],
         columns,
-        isLoading: query.isLoading,
         rowKey: (row) => row.id,
         empty: "No blends yet.",
       }}

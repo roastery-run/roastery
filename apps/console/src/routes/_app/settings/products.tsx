@@ -40,8 +40,10 @@ const columns: ColumnDef<Product>[] = [
     header: "Net weight",
     meta: { label: "Net weight", align: "end" },
     // A 250 g bag formats as grams, a 5 kg sack as kilograms — the formatter
-    // picks, so the column reads naturally either way.
-    cell: ({ row }) => formatWeight(row.original.netWeightKg),
+    // picks, so the column reads naturally either way. Stated rather than
+    // inferred, and the unit stays in the CELL: a fixed column suffix over a
+    // rescaling figure is what reports four tonnes as four kilograms.
+    cell: ({ row }) => formatWeight(row.original.netWeightKg, { unit: "auto" }),
   },
   {
     accessorKey: "listPrice",
@@ -67,11 +69,9 @@ function Products() {
       description="The finished goods an order line can reference."
       searchPlaceholder="Search products"
       search={search}
-      nextCursor={query.data?.page.nextCursor}
+      query={query}
       table={{
-        data: query.data?.items ?? [],
         columns,
-        isLoading: query.isLoading,
         rowKey: (row) => row.id,
         empty: "No products yet.",
       }}

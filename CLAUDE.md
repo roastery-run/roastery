@@ -305,3 +305,26 @@ implementing it is worse for a screen-reader user than plain buttons.
   reference/` and `.astro/` are produced by a build step. Anything generated
   gets a test asserting it matches its source — see `partitioning.test.ts` and
   `pricing.test.ts`.
+
+---
+
+# Design Context
+
+Two root files carry the design intent that this document does not. Read them
+before designing a screen; they are what keeps a new surface on-brand.
+
+- **`PRODUCT.md`** — strategic. Register (`product`, meaning the console;
+  `apps/web` is a **brand** surface and design work aimed at it should say so),
+  the four users and where they are standing, the three-word personality
+  (**precise, calm, unshowy**), the four anti-references, and five design
+  principles: show the arithmetic not just the answer; earned familiarity; say
+  the coffee-specific thing; partial success is reported as partial; designed
+  to be read standing up.
+- **`DESIGN.md`** — visual. The Kiln system in the Stitch DESIGN.md format:
+  token frontmatter, the palette by role, the type hierarchy, the flat
+  elevation doctrine, component specs and the do's and don'ts. `styles.css`
+  and `tokens.test.ts` remain the source of truth for values; DESIGN.md is what
+  explains them.
+
+`.impeccable/` holds local design-tooling state and is gitignored. The two
+markdown files above are committed.

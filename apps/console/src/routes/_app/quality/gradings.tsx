@@ -90,11 +90,9 @@ function Gradings() {
       description="Physical assessments, and which lots they stopped."
       searchPlaceholder="Search gradings"
       search={search}
-      nextCursor={query.data?.page.nextCursor}
+      query={query}
       table={{
-        data: query.data?.items ?? [],
         columns,
-        isLoading: query.isLoading,
         rowKey: (row) => row.id,
         empty: "No gradings recorded.",
       }}

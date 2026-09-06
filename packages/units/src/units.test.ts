@@ -150,7 +150,15 @@ describe("formatting", () => {
 
   it("falls back to kilograms rather than inventing a bag weight", () => {
     expect(formatWeight("18975", { unit: "bag" })).toBe("18,975.00 kg");
-    expect(formatWeight("18975", { unit: "bag", context: { bagWeightKg: "69" } })).toBe("275 bags");
+    expect(formatWeight("18975", { unit: "bag", context: { bagWeightKg: "69" } })).toBe(
+      "275.0 bags",
+    );
+  });
+
+  it("shows a partial bag rather than rounding it away", () => {
+    // 1,000 kg at 69 kg a bag is 14.49 bags. Rendered as "14" it loses a third
+    // of a bag — 34 kg — on the column somebody counts a pallet against.
+    expect(formatWeight("1000", { unit: "bag", context: { bagWeightKg: "69" } })).toBe("14.5 bags");
   });
 
   it("renders a missing value as an em dash, not as zero", () => {
@@ -204,5 +212,26 @@ describe("humanize acronyms", () => {
     // Title Case On Every Word reads as a different product.
     expect(humanize("green_contracts")).toBe("Green contracts");
     expect(humanize("in_progress")).toBe("In progress");
+  });
+});
+
+describe("humanize", () => {
+  it("hyphenates the compounds whose underscore is not a space", () => {
+    // A blend is pre-roast or post-roast: one adjective, not two words.
+    expect(humanize("pre_roast")).toBe("Pre-roast");
+    expect(humanize("post_roast")).toBe("Post-roast");
+  });
+
+  it("still spaces the ones that are two words", () => {
+    // Same underscore, different job. This is why the compounds are listed
+    // rather than derived from the shape.
+    expect(humanize("write_off")).toBe("Write off");
+    expect(humanize("roast_consume")).toBe("Roast consume");
+    expect(humanize("in_progress")).toBe("In progress");
+  });
+
+  it("keeps acronyms as acronyms", () => {
+    expect(humanize("sca")).toBe("SCA");
+    expect(humanize("dtr_pct")).toBe("DTR %");
   });
 });

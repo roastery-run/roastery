@@ -109,7 +109,7 @@ export function StatusBadge({
   const resolved = tone ?? toneFor(status);
   return (
     <Badge variant={TONE_VARIANT[resolved]} className={cn("gap-1.5", className)}>
-      <span aria-hidden="true" className="text-[0.6rem] leading-none">
+      <span aria-hidden="true" className="text-micro leading-none">
         {TONE_GLYPH[resolved]}
       </span>
       {label ?? humanize(status)}

@@ -1,4 +1,7 @@
 import {
+  Alert,
+  AlertDescription,
+  AlertTitle,
   Card,
   CardContent,
   CardHeader,
@@ -9,11 +12,17 @@ import {
   rpc,
   StatusBadge,
 } from "@roastery/ui";
-import { formatDate, formatNumber, formatWeight, humanize } from "@roastery/units";
+import { formatDate, formatDateTime, formatNumber, formatWeight, humanize } from "@roastery/units";
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import type { ColumnDef } from "@tanstack/react-table";
+import { AlertTriangle } from "lucide-react";
 import { DetailLayout } from "@/components/detail-layout";
+import { LotActions } from "@/components/inventory/lot-actions";
+import { QuarantinePanel } from "@/components/inventory/quarantine-panel";
+import { describeApiFailure, retryLabelFor } from "@/lib/api-failure";
+import { detectLedgerDrift } from "@/lib/ledger-drift";
+import { useWorkspace } from "@/lib/workspace";
 
 export const Route = createFileRoute("/_app/inventory/$lotId")({ component: GreenLotDetail });
 
@@ -48,7 +57,9 @@ type Transaction = {
 const txColumns: ColumnDef<Transaction>[] = [
   {
     accessorKey: "seq",
-    header: "#",
+    // The wire field is `seq`, and so is the word support uses on the phone.
+    // A bare "#" made the one column that orders the ledger unnameable.
+    header: "Seq",
     meta: { label: "Sequence", align: "end", width: "4rem" },
   },
   {
@@ -60,7 +71,7 @@ const txColumns: ColumnDef<Transaction>[] = [
   {
     accessorKey: "deltaKg",
     header: "Change",
-    meta: { label: "Change", align: "end" },
+    meta: { label: "Change", align: "end", unit: "kg" },
     cell: ({ row }) => {
       const negative = row.original.deltaKg.startsWith("-");
       return (
@@ -68,7 +79,7 @@ const txColumns: ColumnDef<Transaction>[] = [
           {/* The sign is explicit, not implied by colour — this table gets
               printed for stock counts. */}
           {negative ? "" : "+"}
-          {formatWeight(row.original.deltaKg)}
+          {formatWeight(row.original.deltaKg, { unit: "kg", withUnit: false })}
         </span>
       );
     },
@@ -76,8 +87,8 @@ const txColumns: ColumnDef<Transaction>[] = [
   {
     accessorKey: "weightAfterKg",
     header: "Balance",
-    meta: { label: "Balance", align: "end" },
-    cell: ({ row }) => formatWeight(row.original.weightAfterKg),
+    meta: { label: "Balance", align: "end", unit: "kg" },
+    cell: ({ row }) => formatWeight(row.original.weightAfterKg, { unit: "kg", withUnit: false }),
   },
   {
     accessorKey: "comment",
@@ -89,12 +100,16 @@ const txColumns: ColumnDef<Transaction>[] = [
     accessorKey: "occurredAt",
     header: "When",
     meta: { label: "When", align: "end" },
-    cell: ({ row }) => formatDate(row.original.occurredAt),
+    // With the date alone, two movements on one afternoon are distinguishable
+    // only by their sequence number — on the table whose whole job is saying
+    // what happened in what order.
+    cell: ({ row }) => formatDateTime(row.original.occurredAt),
   },
 ];
 
 function GreenLotDetail() {
   const { lotId } = Route.useParams();
+  const { can } = useWorkspace();
 
   const lot = useQuery({
     queryKey: ["inventory.green.getGreenLot", lotId],
@@ -104,18 +119,48 @@ function GreenLotDetail() {
   const transactions = useQuery({
     queryKey: ["inventory.green.listGreenLotTransactions", lotId],
     queryFn: () =>
-      rpc<{ items: Transaction[] }>("inventory.green.listGreenLotTransactions", {
-        filter: { greenLotId: lotId },
-        page: { limit: 100 },
-      }),
+      rpc<{ items: Transaction[]; page: { hasMore: boolean } }>(
+        "inventory.green.listGreenLotTransactions",
+        {
+          filter: { greenLotId: lotId },
+          // 200 is the API's ceiling. It also cannot page this list — the
+          // handler returns `nextCursor: null` and ignores an incoming cursor —
+          // so this is every movement the console can reach, and the notice
+          // below says so rather than letting a truncated ledger read complete.
+          page: { limit: 200 },
+        },
+      ),
   });
 
   if (lot.isError) {
-    return <ErrorState title="Could not load this lot" description={lot.error.message} />;
+    // Everything else routes through the shared mapping; a raw API message
+    // here means one screen speaks a different language on the one page where
+    // somebody is checking whether a number can be trusted.
+    const failure = describeApiFailure(lot.error, "this lot");
+    return (
+      <ErrorState
+        title={failure.title}
+        description={failure.description}
+        correlationId={failure.correlationId}
+        onRetry={() => void lot.refetch()}
+        retryLabel={retryLabelFor(failure.action)}
+      />
+    );
   }
 
   const data = lot.data;
   const bagContext = { bagWeightKg: data?.bagWeightKg ?? null };
+  const entries = transactions.data?.items ?? [];
+  // Only once both have actually arrived: comparing a loaded cache against an
+  // unloaded ledger would report drift on every first paint.
+  const drift =
+    lot.isSuccess && transactions.isSuccess
+      ? detectLedgerDrift({
+          cachedKg: data?.currentWeightKg,
+          newestBalanceKg: entries[0]?.weightAfterKg,
+          hasEntries: entries.length > 0,
+        })
+      : null;
 
   return (
     <DetailLayout
@@ -123,43 +168,100 @@ function GreenLotDetail() {
       title={data?.name ?? ""}
       subtitle={data ? `Registered ${formatDate(data.registeredAt)}` : undefined}
       status={data ? <StatusBadge status={data.status} /> : null}
+      actions={data ? <LotActions lot={data} canWrite={can("inventory.green.write")} /> : null}
       facts={[
-        { label: "Lot code", value: data?.lotCode ?? "—" },
+        { label: "Lot code", mono: true, value: data?.lotCode ?? "—" },
         { label: "Process", value: data?.processMethod ? humanize(data.processMethod) : "—" },
-        { label: "Harvest", value: data?.harvestYear ?? "—" },
+        { label: "Harvest", mono: true, value: data?.harvestYear ?? "—" },
         { label: "Varieties", value: data?.varieties?.join(", ") || "—" },
-        { label: "Opening weight", value: formatWeight(data?.initialWeightKg) },
-        { label: "On hand", value: formatWeight(data?.currentWeightKg) },
-        { label: "Reserved", value: formatWeight(data?.reservedWeightKg) },
+        {
+          label: "Opening weight",
+          mono: true,
+          value: formatWeight(data?.initialWeightKg, { unit: "kg" }),
+        },
+        {
+          label: "On hand",
+          mono: true,
+          primary: true,
+          value: formatWeight(data?.currentWeightKg, { unit: "kg" }),
+        },
+        {
+          label: "Reserved",
+          mono: true,
+          primary: true,
+          value: formatWeight(data?.reservedWeightKg, { unit: "kg" }),
+        },
         {
           // Only when the lot carries its own bag weight. A 69 kg Colombian and
           // a 60 kg Brazilian bag are both "bags"; assuming either is a 15%
           // error on somebody's stock count.
           label: "Bags",
+          mono: true,
           value: data?.bagWeightKg
             ? `${formatWeight(data.currentWeightKg, { unit: "bag", context: bagContext })} @ ${formatNumber(data.bagWeightKg, { digits: 0 })} kg`
             : "—",
         },
       ]}
     >
+      {data?.status === "quarantined" ? (
+        <QuarantinePanel lotId={lotId} canRelease={can("quality.grading.write")} />
+      ) : null}
+
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-sm">Ledger</CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-3">
           {/* The ledger is the truth; the balance above is a cache of it. Every
               movement is here, in order, with the balance it produced — which
               is what makes a stock figure auditable rather than merely
               plausible. */}
+          {drift ? (
+            <Alert variant="destructive">
+              <AlertTriangle className="size-4" aria-hidden="true" />
+              <AlertTitle>The balance above does not match this ledger</AlertTitle>
+              <AlertDescription>
+                {/* Named, not corrected: writing the ledger's figure over the
+                    cache would hide whatever caused them to diverge, and every
+                    other screen in the product reads the cache. */}
+                {/* Mono on the three figures and nowhere else in the sentence:
+                    these are the numbers somebody reads back to support, and
+                    the prose around them is prose. */}
+                The lot record says{" "}
+                <span className="font-mono">{formatWeight(drift.cachedKg, { unit: "kg" })}</span>
+                {"; "}the newest entry here ends at{" "}
+                <span className="font-mono">{formatWeight(drift.ledgerKg, { unit: "kg" })}</span>, a
+                difference of{" "}
+                <span className="font-mono">
+                  {formatWeight(drift.differenceKg, { unit: "kg" })}
+                </span>
+                . Nothing has been changed. Send this lot code to support rather than adjusting the
+                difference away, because an adjustment would bury the cause.
+              </AlertDescription>
+            </Alert>
+          ) : null}
+
           {transactions.data?.items.length === 0 ? (
             <EmptyState title="No movements recorded." className="border-0" />
           ) : (
-            <DataTable
-              data={transactions.data?.items ?? []}
-              columns={txColumns}
-              isLoading={transactions.isLoading}
-              rowKey={(row) => row.id}
-            />
+            <>
+              <DataTable
+                data={transactions.data?.items ?? []}
+                columns={txColumns}
+                isLoading={transactions.isLoading}
+                rowKey={(row) => row.id}
+              />
+              {transactions.data?.page.hasMore ? (
+                <p className="text-muted-foreground text-xs">
+                  {/* A partial audit trail that looks complete is worse than
+                      one that says it is not — especially under a heading that
+                      calls this the truth. */}
+                  <span aria-hidden="true">▲</span> Showing the 200 most recent movements. This lot
+                  has older ones, and the API cannot page this list yet, so the balances above are
+                  derived from entries that are not all on screen.
+                </p>
+              ) : null}
+            </>
           )}
         </CardContent>
       </Card>

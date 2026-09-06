@@ -114,7 +114,7 @@ function Dashboard() {
             tonnes of coffee as four kilograms. */}
         <Metric
           label="Green on hand"
-          value={lots.isLoading ? "—" : formatWeight(String(greenTotal))}
+          value={lots.isLoading ? "—" : formatWeight(String(greenTotal), { unit: "auto" })}
           hint="Across the five most recent lots"
         />
         <Metric
@@ -152,7 +152,7 @@ function Dashboard() {
               key={lot.id}
               primary={lot.name}
               secondary={lot.lotCode}
-              value={formatWeight(lot.currentWeightKg)}
+              value={formatWeight(lot.currentWeightKg, { unit: "kg" })}
               badge={<StatusBadge status={lot.status} />}
             />
           ))}
@@ -171,7 +171,7 @@ function Dashboard() {
               key={batch.id}
               primary={batch.batchNumber}
               secondary={formatDate(batch.startedAt)}
-              value={batch.dropWeightKg ? formatWeight(batch.dropWeightKg) : "—"}
+              value={batch.dropWeightKg ? formatWeight(batch.dropWeightKg, { unit: "kg" }) : "—"}
               badge={<StatusBadge status={batch.status} />}
             />
           ))}
