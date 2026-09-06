@@ -2,6 +2,7 @@ import {
   Alert,
   AlertDescription,
   AlertTitle,
+  Button,
   Card,
   CardContent,
   CardHeader,
@@ -13,7 +14,7 @@ import {
   StatusBadge,
 } from "@roastery/ui";
 import { formatDate, formatDateTime, formatNumber, formatWeight, humanize } from "@roastery/units";
-import { useQuery } from "@tanstack/react-query";
+import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import type { ColumnDef } from "@tanstack/react-table";
 import { AlertTriangle } from "lucide-react";
@@ -116,20 +117,22 @@ function GreenLotDetail() {
     queryFn: () => rpc<GreenLot>("inventory.green.getGreenLot", { id: lotId }),
   });
 
-  const transactions = useQuery({
+  // Paged, not capped. The ledger is what makes a balance auditable, so a
+  // ledger the screen cannot finish showing is an argument it cannot finish
+  // making. Walked backwards a page at a time rather than with Previous/Next:
+  // this is a history, and the reader is going further back, not to "page 4".
+  const transactions = useInfiniteQuery({
     queryKey: ["inventory.green.listGreenLotTransactions", lotId],
-    queryFn: () =>
-      rpc<{ items: Transaction[]; page: { hasMore: boolean } }>(
+    queryFn: ({ pageParam }) =>
+      rpc<{ items: Transaction[]; page: { nextCursor: string | null; hasMore: boolean } }>(
         "inventory.green.listGreenLotTransactions",
         {
           filter: { greenLotId: lotId },
-          // 200 is the API's ceiling. It also cannot page this list — the
-          // handler returns `nextCursor: null` and ignores an incoming cursor —
-          // so this is every movement the console can reach, and the notice
-          // below says so rather than letting a truncated ledger read complete.
-          page: { limit: 200 },
+          page: { limit: 50, ...(pageParam ? { cursor: pageParam } : {}) },
         },
       ),
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (last) => last.page.nextCursor ?? undefined,
   });
 
   if (lot.isError) {
@@ -150,7 +153,7 @@ function GreenLotDetail() {
 
   const data = lot.data;
   const bagContext = { bagWeightKg: data?.bagWeightKg ?? null };
-  const entries = transactions.data?.items ?? [];
+  const entries = transactions.data?.pages.flatMap((page) => page.items) ?? [];
   // Only once both have actually arrived: comparing a loaded cache against an
   // unloaded ledger would report drift on every first paint.
   const drift =
@@ -241,26 +244,33 @@ function GreenLotDetail() {
             </Alert>
           ) : null}
 
-          {transactions.data?.items.length === 0 ? (
+          {transactions.isSuccess && entries.length === 0 ? (
             <EmptyState title="No movements recorded." className="border-0" />
           ) : (
             <>
               <DataTable
-                data={transactions.data?.items ?? []}
+                data={entries}
                 columns={txColumns}
                 isLoading={transactions.isLoading}
                 rowKey={(row) => row.id}
               />
-              {transactions.data?.page.hasMore ? (
+              <div className="flex items-center justify-between gap-3">
                 <p className="text-muted-foreground text-xs">
-                  {/* A partial audit trail that looks complete is worse than
-                      one that says it is not — especially under a heading that
-                      calls this the truth. */}
-                  <span aria-hidden="true">▲</span> Showing the 200 most recent movements. This lot
-                  has older ones, and the API cannot page this list yet, so the balances above are
-                  derived from entries that are not all on screen.
+                  <span className="font-mono">{entries.length}</span>{" "}
+                  {entries.length === 1 ? "movement" : "movements"}
+                  {transactions.hasNextPage ? ", and older ones below" : " — the whole history"}
                 </p>
-              ) : null}
+                {transactions.hasNextPage ? (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={transactions.isFetchingNextPage}
+                    onClick={() => void transactions.fetchNextPage()}
+                  >
+                    {transactions.isFetchingNextPage ? "Loading" : "Load older movements"}
+                  </Button>
+                ) : null}
+              </div>
             </>
           )}
         </CardContent>

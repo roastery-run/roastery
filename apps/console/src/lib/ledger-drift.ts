@@ -29,9 +29,10 @@ export function detectLedgerDrift(input: {
   /**
    * Whether the newest entry on screen is genuinely the newest.
    *
-   * The API caps this list and cannot page it, so a truncated ledger is
-   * showing the most recent entries — which is exactly the case where the
-   * comparison IS valid. It stops being valid only if the list is empty.
+   * The ledger is ordered newest-first and paged backwards, so the first entry
+   * on the first page is the newest movement whether or not older pages have
+   * been loaded — which is exactly the entry the cached balance should equal.
+   * The comparison stops being valid only if the list is empty.
    */
   hasEntries: boolean;
 }): LedgerDrift | null {
