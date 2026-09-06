@@ -1,7 +1,13 @@
 import { OpenAPIHono } from "@hono/zod-openapi";
 import { costComponents, greenLots, landedCosts, organizations } from "@roastery/db/schema";
-import { getLandedCostInput, landedCostSchema, setCostComponentsInput } from "@roastery/schemas";
-import { and, eq } from "drizzle-orm";
+import {
+  getLandedCostInput,
+  landedCostSchema,
+  listCostComponentsInput,
+  listCostComponentsOutput,
+  setCostComponentsInput,
+} from "@roastery/schemas";
+import { and, asc, eq, isNull, type SQL } from "drizzle-orm";
 import { NotFound } from "../../lib/api/errors";
 import { type RpcAppEnv, registerRpc } from "../../lib/api/rpc";
 import { recomputeLandedCost } from "../../lib/domain/costing";
@@ -40,10 +46,19 @@ registerRpc(
     const baseCurrency = org?.baseCurrency ?? "USD";
 
     await ctx.db.transaction(async (tx) => {
-      // Replace wholesale rather than merge: a component that was deleted
-      // upstream must disappear from the rollup, and diffing by kind would
-      // silently keep it.
-      await tx.delete(costComponents, eq(costComponents.greenLotId, input.greenLotId));
+      // Replace wholesale rather than merge, so a component the caller dropped
+      // disappears from the rollup instead of lingering — but only the ones
+      // this caller owns. A `contractLineId` means the row came from a contract
+      // receipt: the price a coffee was bought at is a fact of the purchase,
+      // and deleting it here would destroy both the figure and the link back to
+      // the line it came from, which is what makes a landed cost traceable.
+      await tx.delete(
+        costComponents,
+        and(
+          eq(costComponents.greenLotId, input.greenLotId),
+          isNull(costComponents.contractLineId),
+        ) as SQL,
+      );
 
       if (input.components.length) {
         await tx.insert(
@@ -67,6 +82,49 @@ registerRpc(
     });
 
     return recomputeLandedCost(ctx.db, input.greenLotId);
+  },
+);
+
+registerRpc(
+  inventoryCosting,
+  {
+    namespace: "inventory.green",
+    operation: "listGreenLotCostComponents",
+    summary: "The lines behind a lot's landed cost",
+    description:
+      "The rollup answers what a lot cost; this answers why. Components that came from a " +
+      "contract receipt carry the line they came from, so a screen can show them without " +
+      "offering to edit what the contract owns.",
+    input: listCostComponentsInput,
+    output: listCostComponentsOutput,
+    permission: "inventory.green.read",
+    module: "inventory",
+    cacheable: { maxAgeSeconds: 30 },
+  },
+  async (input, ctx) => {
+    const rows = await ctx.db.query(async (t, scope) =>
+      t
+        .select()
+        .from(costComponents)
+        .where(and(scope(costComponents), eq(costComponents.greenLotId, input.greenLotId)))
+        // Contract-derived first: they are the ones a reader cannot change, and
+        // reading them before the editable rows is the order the screen argues
+        // in — what the purchase cost, then what was added to it.
+        .orderBy(asc(costComponents.contractLineId), asc(costComponents.createdAt)),
+    );
+    return {
+      items: rows.map((r) => ({
+        id: r.id,
+        kind: r.kind,
+        label: r.label ?? null,
+        amount: r.amount,
+        currency: r.currency,
+        perUnit: r.perUnit,
+        amountBase: r.amountBase,
+        contractLineId: r.contractLineId ?? null,
+        incurredAt: r.incurredAt?.toISOString() ?? null,
+      })),
+    };
   },
 );
 

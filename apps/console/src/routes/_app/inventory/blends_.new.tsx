@@ -5,6 +5,7 @@ import {
   ApiError,
   Button,
   Card,
+  CardAction,
   CardContent,
   CardHeader,
   CardTitle,
@@ -235,25 +236,27 @@ function BlendBuilder() {
           </Card>
 
           <Card>
-            <CardHeader className="flex-row items-center justify-between space-y-0 pb-2">
+            <CardHeader className="pb-2">
               <CardTitle className="text-sm">Components</CardTitle>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() =>
-                  setComponents((previous) => [
-                    ...previous,
-                    { key: crypto.randomUUID(), greenLotId: "", ratio: "" },
-                  ])
-                }
-                disabled={components.length >= 20}
-                title={
-                  components.length >= 20 ? "A blend can have at most 20 components." : undefined
-                }
-              >
-                <Plus className="size-3.5" aria-hidden="true" />
-                Add
-              </Button>
+              <CardAction>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() =>
+                    setComponents((previous) => [
+                      ...previous,
+                      { key: crypto.randomUUID(), greenLotId: "", ratio: "" },
+                    ])
+                  }
+                  disabled={components.length >= 20}
+                  title={
+                    components.length >= 20 ? "A blend can have at most 20 components." : undefined
+                  }
+                >
+                  <Plus className="size-3.5" aria-hidden="true" />
+                  Add
+                </Button>
+              </CardAction>
             </CardHeader>
             <CardContent className="space-y-2">
               {components.map((component, index) => {

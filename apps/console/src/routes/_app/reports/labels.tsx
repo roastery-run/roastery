@@ -7,6 +7,7 @@ import {
   Badge,
   Button,
   Card,
+  CardAction,
   CardContent,
   CardHeader,
   CardTitle,
@@ -260,56 +261,58 @@ function LabelDesigner() {
           </Card>
 
           <Card>
-            <CardHeader className="flex-row items-center justify-between space-y-0 pb-2">
+            <CardHeader className="pb-2">
               <CardTitle className="text-sm">Blocks</CardTitle>
-              <div className="flex gap-2">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() =>
-                    update({
-                      blocks: [
-                        ...draft.blocks,
-                        {
-                          id: crypto.randomUUID(),
-                          kind: "field",
-                          binding: "coffee.lotCode",
-                          size: "sm",
-                          weight: "regular",
-                          align: "left",
-                        },
-                      ],
-                    })
-                  }
-                  disabled={draft.blocks.length >= 24}
-                >
-                  <Plus className="size-3.5" aria-hidden="true" />
-                  Field
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() =>
-                    update({
-                      blocks: [
-                        ...draft.blocks,
-                        {
-                          id: crypto.randomUUID(),
-                          kind: "text",
-                          text: "",
-                          size: "sm",
-                          weight: "regular",
-                          align: "left",
-                        },
-                      ],
-                    })
-                  }
-                  disabled={draft.blocks.length >= 24}
-                >
-                  <Plus className="size-3.5" aria-hidden="true" />
-                  Text
-                </Button>
-              </div>
+              <CardAction>
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() =>
+                      update({
+                        blocks: [
+                          ...draft.blocks,
+                          {
+                            id: crypto.randomUUID(),
+                            kind: "field",
+                            binding: "coffee.lotCode",
+                            size: "sm",
+                            weight: "regular",
+                            align: "left",
+                          },
+                        ],
+                      })
+                    }
+                    disabled={draft.blocks.length >= 24}
+                  >
+                    <Plus className="size-3.5" aria-hidden="true" />
+                    Field
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() =>
+                      update({
+                        blocks: [
+                          ...draft.blocks,
+                          {
+                            id: crypto.randomUUID(),
+                            kind: "text",
+                            text: "",
+                            size: "sm",
+                            weight: "regular",
+                            align: "left",
+                          },
+                        ],
+                      })
+                    }
+                    disabled={draft.blocks.length >= 24}
+                  >
+                    <Plus className="size-3.5" aria-hidden="true" />
+                    Text
+                  </Button>
+                </div>
+              </CardAction>
             </CardHeader>
             <CardContent className="space-y-2">
               {draft.blocks.length === 0 ? (

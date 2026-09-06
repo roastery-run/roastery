@@ -149,9 +149,40 @@ export const costComponentKindSchema = z.enum([
   "other",
 ]);
 
+/** One line of what a lot cost to land. */
+export const costComponentSchema = z.object({
+  id: uuidSchema,
+  kind: costComponentKindSchema,
+  label: z.string().nullable(),
+  amount: z.string(),
+  currency: z.string(),
+  /** True when `amount` is per kilogram rather than a flat charge. */
+  perUnit: z.boolean(),
+  amountBase: z.string(),
+  /**
+   * Set when the component arrived with a contract receipt.
+   *
+   * These are owned by the contract, not by whoever is editing costs: the
+   * price a coffee was bought at is a fact of the purchase. Exposed so a
+   * screen can show them without offering to edit them, and so the setter's
+   * refusal to delete them is visible rather than mysterious.
+   */
+  contractLineId: uuidSchema.nullable(),
+  incurredAt: z.string().nullable(),
+});
+
+export const listCostComponentsInput = z.object({ greenLotId: uuidSchema });
+export const listCostComponentsOutput = z.object({ items: z.array(costComponentSchema) });
+
 export const setCostComponentsInput = z.object({
   greenLotId: uuidSchema,
-  /** Replaces the lot's components wholesale, so the rollup cannot drift. */
+  /**
+   * Replaces the lot's HAND-ENTERED components.
+   *
+   * Components carrying a `contractLineId` are left alone: they came from a
+   * contract receipt and belong to the contract. Sending a set that omits them
+   * does not delete them, because they were never this caller's to remove.
+   */
   components: z
     .array(
       z.object({

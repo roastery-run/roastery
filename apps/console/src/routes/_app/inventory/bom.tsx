@@ -5,6 +5,7 @@ import {
   ApiError,
   Button,
   Card,
+  CardAction,
   CardContent,
   CardHeader,
   CardTitle,
@@ -351,22 +352,24 @@ function BomEditor() {
             </Card>
 
             <Card>
-              <CardHeader className="flex-row items-center justify-between space-y-0 pb-2">
+              <CardHeader className="pb-2">
                 <CardTitle className="text-sm">Materials</CardTitle>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() =>
-                    setLines((previous) => [
-                      ...previous,
-                      { key: crypto.randomUUID(), materialId: "", quantity: "", scrapPct: "0" },
-                    ])
-                  }
-                  disabled={lines.length >= 100}
-                >
-                  <Plus className="size-3.5" aria-hidden="true" />
-                  Add
-                </Button>
+                <CardAction>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() =>
+                      setLines((previous) => [
+                        ...previous,
+                        { key: crypto.randomUUID(), materialId: "", quantity: "", scrapPct: "0" },
+                      ])
+                    }
+                    disabled={lines.length >= 100}
+                  >
+                    <Plus className="size-3.5" aria-hidden="true" />
+                    Add
+                  </Button>
+                </CardAction>
               </CardHeader>
               <CardContent>
                 {!isDraftLoaded ? (

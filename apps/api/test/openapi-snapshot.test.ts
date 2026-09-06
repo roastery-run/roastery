@@ -46,6 +46,36 @@ describe("the published OpenAPI snapshot", () => {
     ).toEqual({ missing: [], extra: [] });
   });
 
+  /**
+   * Path names were the whole check, and that is not enough.
+   *
+   * Adding `q` to two list filters changed what those endpoints accept and
+   * added no path, so the reference went stale and this test stayed green.
+   * Five paths had drifted by the time anybody looked. An integrator reading
+   * a reference that omits a filter concludes it does not exist, which is the
+   * same failure as omitting an endpoint, arriving more quietly.
+   *
+   * Safe to compare byte-for-byte: the emitted document is deterministic —
+   * two runs of the generator produce identical output.
+   */
+  it("describes each operation exactly as the API does", async () => {
+    const live = (await publicSpec()).paths;
+    const snapshot = (
+      JSON.parse(readFileSync(SNAPSHOT, "utf8")) as { paths: Record<string, unknown> }
+    ).paths;
+
+    const drifted = Object.keys(live)
+      .filter((path) => path in snapshot)
+      .filter((path) => JSON.stringify(live[path]) !== JSON.stringify(snapshot[path]));
+
+    expect(
+      drifted,
+      "These operations changed shape without the reference being regenerated:\n" +
+        "  pnpm --filter @roastery/api dev   # in another terminal\n" +
+        "  pnpm --filter @roastery/docs reference",
+    ).toEqual([]);
+  });
+
   it("excludes every internal operation", async () => {
     // `console.*` operations are in the full document so the console's client
     // is typed and the authorization test can enumerate them. Publishing them
