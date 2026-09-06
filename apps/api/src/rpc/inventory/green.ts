@@ -24,10 +24,11 @@ import {
   transferGreenLotInput,
   transferGreenLotOutput,
 } from "@roastery/schemas";
-import { and, desc, eq, ilike, type SQL, sql } from "drizzle-orm";
+import { and, desc, eq, ilike, lt, type SQL, sql } from "drizzle-orm";
 import { BadRequest, Conflict, NotFound } from "../../lib/api/errors";
 import { type RpcAppEnv, type RpcContext, registerRpc } from "../../lib/api/rpc";
 import { isUniqueViolation } from "../../lib/db/db";
+import { decodeSeqCursor, encodeSeqCursor } from "../../lib/db/seq-cursor";
 import {
   adjustReservation,
   applyInventoryTransaction,
@@ -541,20 +542,35 @@ registerRpc(
   },
   async (input, ctx) => {
     const limit = Math.min(input.page?.limit ?? 50, 200);
+    // Keyset on `seq`, not on the usual `(created_at, id)`: this list is
+    // ordered by seq, and a cursor has to key on the column the query sorts by
+    // or the boundary between pages is not where the reader saw it.
+    const after = decodeSeqCursor(input.page?.cursor);
     const rows = await ctx.db.query(async (t, scope) =>
       t
         .select()
         .from(inventoryTransactions)
         .where(
-          and(scope(inventoryTransactions), eq(inventoryTransactions.greenLotId, input.greenLotId)),
+          and(
+            scope(inventoryTransactions),
+            eq(inventoryTransactions.greenLotId, input.greenLotId),
+            after === null ? undefined : lt(inventoryTransactions.seq, after),
+          ),
         )
         // Newest first, by sequence: occurredAt can be backdated, seq cannot.
         .orderBy(desc(inventoryTransactions.seq))
-        .limit(limit),
+        // One extra row answers hasMore without a second COUNT, and without the
+        // old `rows.length === limit` guess — which claimed another page every
+        // time a lot's history happened to be an exact multiple of the limit.
+        .limit(limit + 1),
     );
 
+    const hasMore = rows.length > limit;
+    const page = hasMore ? rows.slice(0, limit) : rows;
+    const last = page[page.length - 1];
+
     return {
-      items: rows.map((r) => ({
+      items: page.map((r) => ({
         id: r.id,
         seq: r.seq,
         eventType: r.eventType,
@@ -566,7 +582,7 @@ registerRpc(
         comment: r.comment ?? null,
         occurredAt: r.occurredAt.toISOString(),
       })),
-      page: { nextCursor: null, hasMore: rows.length === limit },
+      page: { nextCursor: hasMore && last ? encodeSeqCursor(last.seq) : null, hasMore },
     };
   },
 );
