@@ -36,8 +36,8 @@ const columns: ColumnDef<Shipment>[] = [
   {
     accessorKey: "weightKg",
     header: "Weight",
-    meta: { label: "Weight", align: "end" },
-    cell: ({ row }) => formatWeight(row.original.weightKg),
+    meta: { label: "Weight", align: "end", unit: "kg" },
+    cell: ({ row }) => formatWeight(row.original.weightKg, { unit: "kg", withUnit: false }),
   },
   {
     accessorKey: "vesselName",
@@ -71,11 +71,9 @@ function Shipments() {
       description="Coffee in transit, and what has landed."
       searchPlaceholder="Search shipments"
       search={search}
-      nextCursor={query.data?.page.nextCursor}
+      query={query}
       table={{
-        data: query.data?.items ?? [],
         columns,
-        isLoading: query.isLoading,
         rowKey: (row) => row.id,
         empty: "No shipments yet.",
       }}

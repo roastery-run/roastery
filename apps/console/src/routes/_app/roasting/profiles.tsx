@@ -41,8 +41,8 @@ const columns: ColumnDef<Profile>[] = [
   {
     accessorKey: "targetChargeKg",
     header: "Charge",
-    meta: { label: "Target charge", align: "end" },
-    cell: ({ row }) => formatWeight(row.original.targetChargeKg),
+    meta: { label: "Target charge", align: "end", unit: "kg" },
+    cell: ({ row }) => formatWeight(row.original.targetChargeKg, { unit: "kg", withUnit: false }),
   },
   {
     accessorKey: "targetDropTempC",
@@ -80,11 +80,9 @@ function Profiles() {
       description="The targets a batch is judged against."
       searchPlaceholder="Search profiles"
       search={search}
-      nextCursor={query.data?.page.nextCursor}
+      query={query}
       table={{
-        data: query.data?.items ?? [],
         columns,
-        isLoading: query.isLoading,
         rowKey: (row) => row.id,
         empty: "No profiles yet.",
       }}

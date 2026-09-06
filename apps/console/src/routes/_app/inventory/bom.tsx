@@ -10,6 +10,7 @@ import {
   CardTitle,
   cn,
   EmptyState,
+  ErrorState,
   Field,
   FieldDescription,
   FieldLabel,
@@ -17,11 +18,6 @@ import {
   PageHeader,
   rpc,
   rpcMutate,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
   Skeleton,
 } from "@roastery/ui";
 import { formatNumber, parseDecimal } from "@roastery/units";
@@ -31,6 +27,9 @@ import { AlertTriangle, Layers, Plus, Trash2 } from "lucide-react";
 import * as React from "react";
 import { toast } from "sonner";
 import { z } from "zod";
+import { SearchPicker } from "@/components/search-picker";
+import { describeApiFailure, isNotFound, retryLabelFor } from "@/lib/api-failure";
+import { useDebounced } from "@/lib/use-debounced";
 import { useWorkspace } from "@/lib/workspace";
 
 /**
@@ -77,7 +76,21 @@ type Requirement = {
   leadTimeDays: number | null;
 };
 
-type Draft = { key: string; materialId: string; quantity: string; scrapPct: string };
+type Draft = {
+  key: string;
+  materialId: string;
+  quantity: string;
+  scrapPct: string;
+  /**
+   * The material's name as the saved recipe reported it.
+   *
+   * `BomLine` already carries it, and carrying it forward is what lets a row
+   * name its own material without a catalogue lookup — which was capped, so a
+   * recipe referencing the two-hundred-and-first material rendered a row that
+   * looked empty.
+   */
+  materialName?: string;
+};
 
 function BomEditor() {
   const { productId } = Route.useSearch();
@@ -96,12 +109,6 @@ function BomEditor() {
       rpc<{ items: Product[] }>("catalog.product.listProducts", { page: { limit: 200 } }),
   });
 
-  const materials = useQuery({
-    queryKey: ["inventory.material", "list"],
-    queryFn: () =>
-      rpc<{ items: Material[] }>("inventory.material.listMaterials", { page: { limit: 200 } }),
-  });
-
   const selected = productId ?? products.data?.items[0]?.id;
 
   const bom = useQuery({
@@ -112,29 +119,76 @@ function BomEditor() {
     retry: false,
   });
 
-  // Loaded into the draft when the product changes, not merged into it: a
-  // half-edited recipe silently inheriting rows from the previous product is
-  // how somebody ships the wrong packaging.
-  React.useEffect(() => {
-    const loaded = bom.data;
+  // A product with no recipe yet is a 404, not an empty body — `loadBom` throws
+  // NotFound rather than returning null. So the ordinary "write the first
+  // recipe" state and a failed read arrive as the same rejected promise, and
+  // telling them apart is the whole safety of this screen: one opens an empty
+  // editor you may save, the other must never seed a draft at all.
+  const missingRecipe = bom.isError && isNotFound(bom.error);
+  const loadFailure = products.isError
+    ? { error: products.error, what: "the product list", retry: () => void products.refetch() }
+    : bom.isError && !missingRecipe
+      ? { error: bom.error, what: "this bill of materials", retry: () => void bom.refetch() }
+      : null;
+
+  // The draft belongs to exactly one product, and it is seeded ONLY from a read
+  // that resolved. Before, the effect below ran on `bom.data` — undefined on
+  // failure — so a 500 emptied the editor, the screen said "No materials in
+  // this bill yet", and the next save wrote that emptiness over a real recipe
+  // as a new version. Seeding during render rather than in an effect also
+  // avoids painting the previous product's rows for a frame under the new
+  // product's name.
+  const [draftFor, setDraftFor] = React.useState<string>();
+  const readSettled = bom.isSuccess || missingRecipe;
+  if (selected && readSettled && draftFor !== selected) {
+    const loaded = bom.isSuccess ? bom.data : null;
+    setDraftFor(selected);
     setName(loaded?.name ?? "");
     setYieldQty(String(loaded?.yieldQty ?? 1));
     setLines(
       (loaded?.lines ?? []).map((line) => ({
         key: line.id,
         materialId: line.materialId,
+        materialName: line.materialName,
         quantity: line.quantity,
         scrapPct: line.scrapPct,
       })),
     );
-  }, [bom.data]);
+  }
+
+  // Nothing may be written from a draft that was never read into.
+  const isDraftLoaded = draftFor === selected && loadFailure === null;
+
+  // Compared against what was loaded rather than tracked with a flag, so
+  // typing a character and deleting it does not count as an edit and the
+  // guard below cannot get stuck on.
+  const loaded = bom.isSuccess ? bom.data : null;
+  const isDirty =
+    isDraftLoaded &&
+    (name !== (loaded?.name ?? "") ||
+      yieldQty !== String(loaded?.yieldQty ?? 1) ||
+      lines.length !== (loaded?.lines.length ?? 0) ||
+      lines.some((line, index) => {
+        const original = loaded?.lines[index];
+        return (
+          !original ||
+          line.materialId !== original.materialId ||
+          line.quantity !== original.quantity ||
+          line.scrapPct !== original.scrapPct
+        );
+      }));
+
+  // Debounced: the query key was the raw input, so typing "1000" fired four
+  // explosions. ListPage debounces its search for the same reason and calls the
+  // alternative a denial-of-service against your own API.
+  const plannedQuery = useDebounced(planned, 300);
 
   const requirements = useQuery({
-    queryKey: ["inventory.material", "requirements", selected, planned],
+    queryKey: ["inventory.material", "requirements", selected, plannedQuery],
     queryFn: () =>
       rpc<{ runs: number; items: Requirement[] }>(
         "inventory.material.explodeMaterialRequirements",
-        { productId: selected, quantity: Number(planned) || 1 },
+        { productId: selected, quantity: Number(plannedQuery) || 1 },
       ),
     enabled: Boolean(selected) && Boolean(bom.data),
   });
@@ -168,19 +222,21 @@ function BomEditor() {
     },
   });
 
-  const materialById = new Map((materials.data?.items ?? []).map((m) => [m.id, m]));
+  const selectedProduct = products.data?.items.find((product) => product.id === selected);
   const filled = lines.filter((line) => line.materialId && line.quantity.trim());
   const duplicated = new Set(filled.map((l) => l.materialId)).size !== filled.length;
 
-  const blockedBecause = !name.trim()
-    ? "The bill needs a name."
-    : lines.length === 0
-      ? "Add at least one material."
-      : filled.length !== lines.length
-        ? "Every row needs a material and a quantity."
-        : duplicated
-          ? "The same material appears in more than one row."
-          : null;
+  const blockedBecause = !isDraftLoaded
+    ? "This recipe has not loaded, so there is nothing safe to save."
+    : !name.trim()
+      ? "The bill needs a name."
+      : lines.length === 0
+        ? "Add at least one material."
+        : filled.length !== lines.length
+          ? "Every row needs a material and a quantity."
+          : duplicated
+            ? "The same material appears in more than one row."
+            : null;
 
   const shortfalls = (requirements.data?.items ?? []).filter(
     (item) => Number.parseFloat(item.shortfallQty) > 0,
@@ -192,27 +248,58 @@ function BomEditor() {
         title="Bills of materials"
         description="What a finished bag consumes, and whether you have enough of it."
         actions={
-          <Select
+          <SearchPicker<Product>
+            id="bom-product"
+            label="Product this bill of materials is for"
+            className="w-72"
             value={selected}
-            onValueChange={(value) =>
-              void navigate({ to: "/inventory/bom", search: { productId: value } })
+            operation="catalog.product.listProducts"
+            toItem={(product) => ({ id: product.id, label: product.name, code: product.sku })}
+            initialItem={
+              selectedProduct
+                ? { id: selectedProduct.id, label: selectedProduct.name, code: selectedProduct.sku }
+                : undefined
             }
-          >
-            <SelectTrigger className="w-72">
-              <SelectValue placeholder="Choose a product" />
-            </SelectTrigger>
-            <SelectContent>
-              {(products.data?.items ?? []).map((product) => (
-                <SelectItem key={product.id} value={product.id}>
-                  {product.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+            placeholder="Choose a product"
+            searchPlaceholder="Search products"
+            emptyLabel="No product matches that."
+            onSelect={(item) => {
+              // Switching product reseeds the draft from the new product's
+              // recipe, which silently threw away an edited one. The guard is
+              // here rather than on save because this is the only place the
+              // loss happens, and it happens without the person acting on the
+              // recipe at all.
+              if (
+                isDirty &&
+                !window.confirm(
+                  "This bill has unsaved changes. Switching product will discard them.",
+                )
+              ) {
+                return;
+              }
+              void navigate({ to: "/inventory/bom", search: { productId: item.id } });
+            }}
+          />
         }
       />
 
-      {products.data?.items.length === 0 ? (
+      {loadFailure ? (
+        <ErrorState
+          title={describeApiFailure(loadFailure.error).title}
+          description={
+            <>
+              <p>{describeApiFailure(loadFailure.error).description}</p>
+              <p className="mt-2">
+                The editor stays closed until {loadFailure.what} loads. Saving from a recipe nobody
+                could read is how a good bill gets replaced by an empty one.
+              </p>
+            </>
+          }
+          correlationId={describeApiFailure(loadFailure.error).correlationId}
+          onRetry={loadFailure.retry}
+          retryLabel={retryLabelFor(describeApiFailure(loadFailure.error).action)}
+        />
+      ) : products.data?.items.length === 0 ? (
         <EmptyState
           icon={Layers}
           title="No products yet"
@@ -282,7 +369,7 @@ function BomEditor() {
                 </Button>
               </CardHeader>
               <CardContent>
-                {bom.isLoading ? (
+                {!isDraftLoaded ? (
                   <Skeleton className="h-24 w-full" />
                 ) : lines.length === 0 ? (
                   <EmptyState
@@ -298,30 +385,37 @@ function BomEditor() {
                       <span className="w-24 text-right">Scrap %</span>
                       <span className="w-9" />
                     </div>
-                    {lines.map((line) => (
+                    {lines.map((line, index) => (
                       <div key={line.key} className="flex flex-wrap items-center gap-2">
                         <div className="min-w-56 flex-1">
-                          <Select
+                          <SearchPicker<Material>
+                            id={`bom-material-${line.key}`}
+                            label={`Material for row ${index + 1}`}
                             value={line.materialId}
-                            onValueChange={(value) =>
+                            operation="inventory.material.listMaterials"
+                            toItem={(material) => ({
+                              id: material.id,
+                              label: material.name,
+                              code: material.sku,
+                            })}
+                            initialItem={
+                              line.materialName
+                                ? { id: line.materialId, label: line.materialName }
+                                : undefined
+                            }
+                            placeholder="Choose a material"
+                            searchPlaceholder="Search materials"
+                            emptyLabel="No material matches that."
+                            onSelect={(item) =>
                               setLines((previous) =>
                                 previous.map((l) =>
-                                  l.key === line.key ? { ...l, materialId: value } : l,
+                                  l.key === line.key
+                                    ? { ...l, materialId: item.id, materialName: item.label }
+                                    : l,
                                 ),
                               )
                             }
-                          >
-                            <SelectTrigger>
-                              <SelectValue placeholder="Choose a material" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {(materials.data?.items ?? []).map((material) => (
-                                <SelectItem key={material.id} value={material.id}>
-                                  {material.name}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                          />
                         </div>
                         <Input
                           value={line.quantity}
@@ -436,6 +530,17 @@ function BomEditor() {
                       </Alert>
                     ) : null}
 
+                    {/* The pair is labelled above it, not explained below it.
+                        "412 / 900" is only two numbers until something says
+                        which is which. Outside the `dl`, because a row of bare
+                        spans is not a valid child of one. */}
+                    <div
+                      aria-hidden="true"
+                      className="flex items-center justify-between gap-2 pb-1.5 text-muted-foreground text-xs"
+                    >
+                      <span>Material</span>
+                      <span className="shrink-0">Needs / on hand</span>
+                    </div>
                     <dl className="divide-y divide-border text-sm">
                       {(requirements.data.items ?? []).map((item) => {
                         const short = Number.parseFloat(item.shortfallQty) > 0;
@@ -444,7 +549,17 @@ function BomEditor() {
                             key={item.materialId}
                             className="flex items-center justify-between gap-2 py-1.5"
                           >
-                            <dt className="min-w-0 truncate">{item.materialName}</dt>
+                            <dt className="min-w-0 truncate">
+                              {short ? (
+                                <>
+                                  <span aria-hidden="true" className="mr-1 text-micro text-warning">
+                                    ▲
+                                  </span>
+                                  <span className="sr-only">Short: </span>
+                                </>
+                              ) : null}
+                              {item.materialName}
+                            </dt>
                             <dd
                               className={cn(
                                 "shrink-0 text-right font-mono text-xs tabular-nums",
@@ -459,7 +574,7 @@ function BomEditor() {
                       })}
                     </dl>
                     <p className="text-muted-foreground text-xs">
-                      Required / on hand, across {requirements.data.runs} run
+                      Across {requirements.data.runs} run
                       {requirements.data.runs === 1 ? "" : "s"}.
                     </p>
                   </>

@@ -21,3 +21,7 @@ apps/web/.output/
 # Deployed-environment secrets
 *.staging.vars
 .staging.vars
+
+# Impeccable's local design-tooling state (live-mode config, design sidecar).
+# PRODUCT.md and DESIGN.md at the root ARE committed; this directory is not.
+.impeccable/

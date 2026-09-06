@@ -15,6 +15,8 @@
       "!**/node_modules",
       "!**/routeTree.gen.ts",
       "!**/packages/db/drizzle",
+      "!**/.claude/skills",
+      "!**/.github/skills",
       "!**/coverage",
       "!**/*.tsbuildinfo",
       "!**/.astro",

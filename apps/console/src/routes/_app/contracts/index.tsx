@@ -46,8 +46,8 @@ const columns: ColumnDef<Contract>[] = [
   {
     accessorKey: "totalWeightKg",
     header: "Weight",
-    meta: { label: "Weight", align: "end" },
-    cell: ({ row }) => formatWeight(row.original.totalWeightKg),
+    meta: { label: "Weight", align: "end", unit: "kg" },
+    cell: ({ row }) => formatWeight(row.original.totalWeightKg, { unit: "kg", withUnit: false }),
   },
   {
     accessorKey: "totalValue",
@@ -75,11 +75,9 @@ function Contracts() {
       description="What has been bought, and what is still to arrive."
       searchPlaceholder="Search contracts"
       search={search}
-      nextCursor={query.data?.page.nextCursor}
+      query={query}
       table={{
-        data: query.data?.items ?? [],
         columns,
-        isLoading: query.isLoading,
         rowKey: (row) => row.id,
         empty: "No contracts yet.",
       }}

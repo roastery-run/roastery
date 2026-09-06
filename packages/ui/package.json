@@ -7,7 +7,8 @@
     ".": "./src/index.ts",
     "./styles.css": "./src/styles.css",
     "./charts": "./src/components/charts/index.ts",
-    "./query-cache": "./src/lib/query-cache.ts"
+    "./query-cache": "./src/lib/query-cache.ts",
+    "./api": "./src/lib/api.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

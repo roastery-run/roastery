@@ -15,7 +15,6 @@ import {
   Input,
   Label,
   PageHeader,
-  rpc,
   rpcMutate,
   Select,
   SelectContent,
@@ -24,12 +23,21 @@ import {
   SelectValue,
   Switch,
 } from "@roastery/ui";
-import { add, formatWeight, grossUpForLoss, parseDecimal, subtract } from "@roastery/units";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import {
+  add,
+  divide,
+  formatWeight,
+  grossUpForLoss,
+  multiply,
+  parseDecimal,
+  subtract,
+} from "@roastery/units";
+import { useMutation } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { AlertTriangle, Plus, Trash2 } from "lucide-react";
 import * as React from "react";
 import { toast } from "sonner";
+import { type PickerItem, SearchPicker } from "@/components/search-picker";
 import { useWorkspace } from "@/lib/workspace";
 
 /**
@@ -56,7 +64,20 @@ export const Route = createFileRoute("/_app/inventory/blends_/new")({
 
 type GreenLot = { id: string; name: string; lotCode: string; currentWeightKg: string };
 
-type Component = { key: string; greenLotId: string; ratio: string };
+type Component = {
+  key: string;
+  greenLotId: string;
+  ratio: string;
+  /**
+   * The lot as it was chosen, carried rather than looked up.
+   *
+   * This is a create form, so every lot on it came out of the picker moments
+   * ago. Resolving the name back out of a capped list meant a lot outside that
+   * cap had no label and no weight — on a tenant large enough for the cap to
+   * matter, which is the only tenant where it does.
+   */
+  lot?: PickerItem;
+};
 
 const ROAST_LEVELS = ["light", "medium", "dark"] as const;
 
@@ -72,17 +93,6 @@ function BlendBuilder() {
   const [components, setComponents] = React.useState<Component[]>([
     { key: crypto.randomUUID(), greenLotId: "", ratio: "" },
   ]);
-
-  const lots = useQuery({
-    queryKey: ["inventory.green.listGreenLots", "blend-builder"],
-    queryFn: () =>
-      rpc<{ items: GreenLot[] }>("inventory.green.listGreenLots", {
-        filter: { status: "available" },
-        page: { limit: 200 },
-      }),
-  });
-
-  const lotById = new Map((lots.data?.items ?? []).map((lot) => [lot.id, lot]));
 
   // Summed with exact decimals, not floats. Three components of 33.33 must
   // total 99.99 and be REJECTED, not silently pass because 0.1 + 0.2 rounded
@@ -211,7 +221,7 @@ function BlendBuilder() {
                   className="font-mono"
                 />
                 <FieldDescription id="loss-description" className="text-xs">
-                  100 kg roasted needs {formatWeight(greenFor100)} of green.
+                  100 kg roasted needs {formatWeight(greenFor100, { unit: "kg" })} of green.
                 </FieldDescription>
               </Field>
               <div className="flex items-center gap-2 sm:col-span-2">
@@ -237,39 +247,53 @@ function BlendBuilder() {
                   ])
                 }
                 disabled={components.length >= 20}
+                title={
+                  components.length >= 20 ? "A blend can have at most 20 components." : undefined
+                }
               >
                 <Plus className="size-3.5" aria-hidden="true" />
                 Add
               </Button>
             </CardHeader>
             <CardContent className="space-y-2">
-              {components.map((component) => {
-                const lot = lotById.get(component.greenLotId);
+              {components.map((component, index) => {
+                const lot = component.lot;
                 const ratio = parseDecimal(component.ratio);
                 return (
                   <div key={component.key} className="flex flex-wrap items-end gap-2">
                     <div className="min-w-56 flex-1 space-y-1.5">
-                      <Label className="sr-only">Green lot</Label>
-                      <Select
+                      {/* The picker carries its own accessible name; the row
+                          index is what distinguishes twenty identical ones. */}
+                      <SearchPicker<GreenLot>
+                        id={`component-lot-${component.key}`}
+                        label={`Green lot for component ${index + 1}`}
                         value={component.greenLotId}
-                        onValueChange={(value) => update(component.key, { greenLotId: value })}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Choose a green lot" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {(lots.data?.items ?? []).map((item) => (
-                            <SelectItem key={item.id} value={item.id}>
-                              {item.name} — {formatWeight(item.currentWeightKg)}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                        operation="inventory.green.listGreenLots"
+                        filter={{ status: "available" }}
+                        toItem={(item) => ({
+                          id: item.id,
+                          label: item.name,
+                          code: item.lotCode,
+                          // The weight decides whether this lot can carry the
+                          // ratio, so it belongs in the choosing, not after it.
+                          trailing: formatWeight(item.currentWeightKg, { unit: "kg" }),
+                        })}
+                        initialItem={lot}
+                        placeholder="Choose a green lot"
+                        searchPlaceholder="Search lots"
+                        emptyLabel="No available lot matches that."
+                        onSelect={(item) =>
+                          update(component.key, { greenLotId: item.id, lot: item })
+                        }
+                      />
                     </div>
 
                     <div className="w-28 space-y-1.5">
-                      <Label className="sr-only">Ratio</Label>
+                      <Label htmlFor={`component-ratio-${component.key}`} className="sr-only">
+                        Ratio for component {index + 1}
+                      </Label>
                       <Input
+                        id={`component-ratio-${component.key}`}
                         value={component.ratio}
                         onChange={(event) => update(component.key, { ratio: event.target.value })}
                         placeholder="0.00"
@@ -285,13 +309,13 @@ function BlendBuilder() {
                     <div className="w-32 pb-2 text-right font-mono text-muted-foreground text-xs tabular-nums">
                       {/* What this component contributes to a 100 kg batch,
                           in GREEN — which is what a roaster weighs out. */}
+                      {/* Exact: this is the weight a roaster actually scoops
+                          out, and the same file refuses float arithmetic three
+                          components above this line. */}
                       {ratio && lot
-                        ? formatWeight(
-                            (
-                              (Number.parseFloat(greenFor100) * Number.parseFloat(ratio)) /
-                              100
-                            ).toFixed(4),
-                          )
+                        ? formatWeight(divide(multiply(greenFor100, ratio), "100") ?? "0", {
+                            unit: "kg",
+                          })
                         : "—"}
                     </div>
 
@@ -318,7 +342,9 @@ function BlendBuilder() {
             <div className="text-muted-foreground text-xs">Total ratio</div>
             <div
               className={cn(
-                "mt-1 font-mono font-semibold text-3xl tabular-nums",
+                // The Figure step. A validation total was the largest number in the
+                // section, louder than any stock figure on any screen.
+                "mt-1 font-mono font-semibold text-2xl tabular-nums",
                 balanced ? "text-success" : "text-warning",
               )}
             >

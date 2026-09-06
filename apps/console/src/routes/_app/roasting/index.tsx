@@ -63,14 +63,14 @@ const columns: ColumnDef<RoastBatch>[] = [
   {
     accessorKey: "chargeWeightKg",
     header: "Charge",
-    meta: { label: "Charge", align: "end" },
-    cell: ({ row }) => formatWeight(row.original.chargeWeightKg),
+    meta: { label: "Charge", align: "end", unit: "kg" },
+    cell: ({ row }) => formatWeight(row.original.chargeWeightKg, { unit: "kg", withUnit: false }),
   },
   {
     accessorKey: "dropWeightKg",
     header: "Drop",
-    meta: { label: "Drop", align: "end" },
-    cell: ({ row }) => formatWeight(row.original.dropWeightKg),
+    meta: { label: "Drop", align: "end", unit: "kg" },
+    cell: ({ row }) => formatWeight(row.original.dropWeightKg, { unit: "kg", withUnit: false }),
   },
   {
     accessorKey: "weightLossPct",
@@ -114,7 +114,7 @@ function RoastBatches() {
       description="Every roast, with the two numbers that judge it: weight loss and development time ratio."
       searchPlaceholder="Search batches"
       search={search}
-      nextCursor={query.data?.page.nextCursor}
+      query={query}
       actions={
         <Button size="sm">
           <Plus className="size-3.5" aria-hidden="true" />
@@ -122,9 +122,7 @@ function RoastBatches() {
         </Button>
       }
       table={{
-        data: query.data?.items ?? [],
         columns,
-        isLoading: query.isLoading,
         rowKey: (row) => row.id,
         empty: "No roast batches yet.",
       }}

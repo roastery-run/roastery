@@ -64,11 +64,9 @@ function Locations() {
       description="Warehouses, roasteries and cafés. Inventory balances are tracked per location."
       searchPlaceholder="Search locations"
       search={search}
-      nextCursor={query.data?.page.nextCursor}
+      query={query}
       table={{
-        data: query.data?.items ?? [],
         columns,
-        isLoading: query.isLoading,
         rowKey: (row) => row.id,
         empty: "No locations yet.",
       }}

@@ -73,11 +73,9 @@ function Customers() {
       description="Who buys the coffee, and on what terms."
       searchPlaceholder="Search customers"
       search={search}
-      nextCursor={query.data?.page.nextCursor}
+      query={query}
       table={{
-        data: query.data?.items ?? [],
         columns,
-        isLoading: query.isLoading,
         rowKey: (row) => row.id,
         empty: "No customers yet.",
       }}

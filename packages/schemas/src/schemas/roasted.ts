@@ -34,6 +34,8 @@ export const listRoastedLotsInput = z.object({
       blendId: uuidSchema.optional(),
       /** Past, or close to, its best-before date. */
       expiringWithinDays: z.number().int().min(0).max(365).optional(),
+      /** Matches the lot name or its code. */
+      q: z.string().max(200).optional(),
     })
     .optional(),
   page: pageInputSchema,
@@ -74,7 +76,12 @@ export const blendSchema = z.object({
 
 export const listBlendsInput = z.object({
   filter: z
-    .object({ blendType: blendTypeSchema.optional(), isActive: z.boolean().optional() })
+    .object({
+      blendType: blendTypeSchema.optional(),
+      isActive: z.boolean().optional(),
+      /** Matches the blend name or its code. */
+      q: z.string().max(200).optional(),
+    })
     .optional(),
   page: pageInputSchema,
 });

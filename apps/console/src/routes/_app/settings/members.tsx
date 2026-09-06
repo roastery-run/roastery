@@ -51,11 +51,9 @@ function Members() {
       description="Who can act in this organization, and as what."
       searchPlaceholder="Search members"
       search={search}
-      nextCursor={query.data?.page.nextCursor}
+      query={query}
       table={{
-        data: query.data?.items ?? [],
         columns,
-        isLoading: query.isLoading,
         rowKey: (row) => row.userId,
         empty: "No members.",
       }}

@@ -32,9 +32,24 @@ function CardHeader({ className, ...props }: React.ComponentProps<"div">) {
   );
 }
 
-function CardTitle({ className, ...props }: React.ComponentProps<"div">) {
+/**
+ * A card's title is a HEADING, not a styled div.
+ *
+ * It shipped as a div, which meant a screen-reader user navigating a dense
+ * detail page by heading found exactly one: the page `h1`. Every section on it
+ * — the ledger, the quarantine notice, the provenance chain — was invisible to
+ * the primary way that user skims.
+ *
+ * `h2` by default, because a card is a top-level section under the page title.
+ * `as` is there for the rarer nesting, not as an invitation to opt out.
+ */
+function CardTitle({
+  className,
+  as: Component = "h2",
+  ...props
+}: React.ComponentProps<"div"> & { as?: "h2" | "h3" | "h4" | "div" }) {
   return (
-    <div
+    <Component
       data-slot="card-title"
       className={cn("font-heading text-base font-medium", className)}
       {...props}

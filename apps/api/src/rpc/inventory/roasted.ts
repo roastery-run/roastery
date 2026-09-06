@@ -24,7 +24,7 @@ import {
   validateBlendInput,
   validateBlendOutput,
 } from "@roastery/schemas";
-import { and, asc, eq, inArray, type SQL, sql } from "drizzle-orm";
+import { and, asc, eq, ilike, inArray, or, type SQL, sql } from "drizzle-orm";
 import { BadRequest, Conflict, NotFound } from "../../lib/api/errors";
 import { type RpcAppEnv, registerRpc } from "../../lib/api/rpc";
 import { isUniqueViolation } from "../../lib/db/db";
@@ -82,6 +82,13 @@ registerRpc(
       const cutoff = new Date(Date.now() + f.expiringWithinDays * 86_400_000);
       clauses.push(sql`${roastedLots.bestBeforeAt} is not null
         and ${roastedLots.bestBeforeAt} <= ${cutoff}`);
+    }
+    // Name OR code, because a person searching a roasted lot has one or the
+    // other in front of them: the name off a bag, the code off a pick list.
+    if (f?.q) {
+      const q = `%${f.q}%`;
+      const match = or(ilike(roastedLots.name, q), ilike(roastedLots.lotCode, q));
+      if (match) clauses.push(match);
     }
     const { items, page } = await ctx.db.find(roastedLots, {
       where: clauses.length ? and(...clauses) : undefined,
@@ -202,6 +209,11 @@ registerRpc(
     if (input.filter?.blendType) clauses.push(eq(blends.blendType, input.filter.blendType));
     if (input.filter?.isActive !== undefined) {
       clauses.push(eq(blends.isActive, input.filter.isActive));
+    }
+    if (input.filter?.q) {
+      const q = `%${input.filter.q}%`;
+      const match = or(ilike(blends.name, q), ilike(blends.code, q));
+      if (match) clauses.push(match);
     }
     const { items, page } = await ctx.db.find(blends, {
       where: clauses.length ? and(...clauses) : undefined,

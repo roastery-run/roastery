@@ -39,16 +39,16 @@ const columns: ColumnDef<Machine>[] = [
   {
     accessorKey: "capacityKg",
     header: "Capacity",
-    meta: { label: "Capacity", align: "end" },
+    meta: { label: "Capacity", align: "end", unit: "kg" },
     // The scheduler sizes batches against this, so a wrong figure produces a
     // day the floor cannot run.
-    cell: ({ row }) => formatWeight(row.original.capacityKg),
+    cell: ({ row }) => formatWeight(row.original.capacityKg, { unit: "kg", withUnit: false }),
   },
   {
     accessorKey: "minBatchKg",
     header: "Min batch",
-    meta: { label: "Minimum batch", align: "end" },
-    cell: ({ row }) => formatWeight(row.original.minBatchKg),
+    meta: { label: "Minimum batch", align: "end", unit: "kg" },
+    cell: ({ row }) => formatWeight(row.original.minBatchKg, { unit: "kg", withUnit: false }),
   },
   {
     id: "status",
@@ -68,11 +68,9 @@ function Machines() {
       description="The drums a roast day is planned against."
       searchPlaceholder="Search machines"
       search={search}
-      nextCursor={query.data?.page.nextCursor}
+      query={query}
       table={{
-        data: query.data?.items ?? [],
         columns,
-        isLoading: query.isLoading,
         rowKey: (row) => row.id,
         empty: "No machines registered.",
       }}

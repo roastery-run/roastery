@@ -76,7 +76,7 @@ function CuppingSessions() {
       description="Panels, their protocol, and the scores each has collected."
       searchPlaceholder="Search sessions"
       search={search}
-      nextCursor={query.data?.page.nextCursor}
+      query={query}
       actions={
         <Button size="sm">
           <Plus className="size-3.5" aria-hidden="true" />
@@ -84,9 +84,7 @@ function CuppingSessions() {
         </Button>
       }
       table={{
-        data: query.data?.items ?? [],
         columns,
-        isLoading: query.isLoading,
         rowKey: (row) => row.id,
         empty: "No cupping sessions yet.",
       }}

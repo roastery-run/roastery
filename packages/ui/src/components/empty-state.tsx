@@ -69,12 +69,22 @@ export function ErrorState({
    * be copied into a support message rather than transcribed from a screenshot.
    */
   correlationId,
+  /**
+   * What the recovery actually does, when it is not another attempt.
+   *
+   * A 404 from an RPC operation wants "Reload the console" and a rejected
+   * filter wants "Clear filters". Labelling both "Try again" describes the
+   * gesture rather than the consequence, and a person cannot tell from it
+   * whether pressing it will lose what they typed.
+   */
+  retryLabel = "Try again",
   className,
 }: {
   title?: string;
   description?: React.ReactNode;
   onRetry?: () => void;
   correlationId?: string;
+  retryLabel?: string;
   className?: string;
 }) {
   return (
@@ -94,7 +104,7 @@ export function ErrorState({
       ) : null}
       {onRetry ? (
         <Button size="sm" variant="outline" onClick={onRetry}>
-          Try again
+          {retryLabel}
         </Button>
       ) : null}
     </div>

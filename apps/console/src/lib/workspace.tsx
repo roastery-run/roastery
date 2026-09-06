@@ -30,6 +30,8 @@ export type Entitlements = {
 
 export type Access = {
   orgId: string;
+  /** The currency every `*Base` money figure from the API is expressed in. */
+  baseCurrency: string;
   permissions: string[];
   entitlements: Entitlements;
 };
@@ -37,6 +39,7 @@ export type Access = {
 export type Session = Me & {
   permissions: string[];
   entitlements: Entitlements | null;
+  baseCurrency: string | null;
 };
 
 type WorkspaceValue = {
@@ -45,6 +48,8 @@ type WorkspaceValue = {
   org: Membership | null;
   locations: Location[];
   locationId: string | null;
+  /** The currency the books are kept in. Null until access resolves. */
+  baseCurrency: string | null;
   setOrg: (orgId: string) => void;
   setLocation: (locationId: string | null) => void;
   can: (permission: string) => boolean;
@@ -118,6 +123,10 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
         ...meQuery.data,
         permissions: accessQuery.data?.permissions ?? [],
         entitlements: accessQuery.data?.entitlements ?? null,
+        // Null until access resolves. A screen that formats money must wait
+        // rather than guess: a wrong symbol on a real figure is worse than no
+        // figure, because the reader has no way to tell it is wrong.
+        baseCurrency: accessQuery.data?.baseCurrency ?? null,
       }
     : null;
 
@@ -165,6 +174,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
       org,
       locations,
       locationId,
+      baseCurrency: session?.baseCurrency ?? null,
       setOrg: (next) => {
         setOrgId(next);
         write(ORG_KEY, next);

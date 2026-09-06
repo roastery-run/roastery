@@ -189,6 +189,13 @@
   --font-sans: "Inter Variable", sans-serif;
   --font-mono: "Geist Mono Variable", ui-monospace, monospace;
 
+  /* The smallest step, below `text-xs`. It exists for two things and nothing
+     else: the shape glyph inside a StatusBadge, which has to read as a marker
+     rather than as a character next to its label, and a micro-badge crammed
+     into a dense schedule row. Named rather than left as three separate
+     arbitrary literals, which is how a ramp quietly stops being one. */
+  --text-micro: 0.625rem;
+
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
@@ -267,6 +274,19 @@
       animation-iteration-count: 1 !important;
       /* biome-ignore lint/complexity/noImportantStyles: must beat inline and vendor styles. */
       transition-duration: 0.01ms !important;
+    }
+
+    /* A spinner is the exception, and the rule above got it exactly wrong.
+       `animation-iteration-count: 1` completed one rotation in 0.01ms and left
+       a FROZEN icon on screen — which reads as hung, the opposite of the state
+       a spinner exists to report. Reduced motion means less motion, not less
+       information, and a small slow rotation is not what the preference is
+       protecting against. */
+    [data-slot="spinner"] {
+      /* biome-ignore lint/complexity/noImportantStyles: overrides the blanket rule above. */
+      animation-duration: 1.8s !important;
+      /* biome-ignore lint/complexity/noImportantStyles: overrides the blanket rule above. */
+      animation-iteration-count: infinite !important;
     }
   }
 }
