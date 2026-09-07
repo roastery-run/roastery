@@ -1456,6 +1456,17 @@
                         "minimum": 1,
                         "maximum": 200,
                         "default": 50
+                      },
+                      "sort": {
+                        "type": "string",
+                        "maxLength": 60
+                      },
+                      "dir": {
+                        "type": "string",
+                        "enum": [
+                          "asc",
+                          "desc"
+                        ]
                       }
                     }
                   }
@@ -4252,6 +4263,17 @@
                         "minimum": 1,
                         "maximum": 200,
                         "default": 50
+                      },
+                      "sort": {
+                        "type": "string",
+                        "maxLength": 60
+                      },
+                      "dir": {
+                        "type": "string",
+                        "enum": [
+                          "asc",
+                          "desc"
+                        ]
                       }
                     }
                   }
@@ -5216,6 +5238,17 @@
                         "minimum": 1,
                         "maximum": 200,
                         "default": 50
+                      },
+                      "sort": {
+                        "type": "string",
+                        "maxLength": 60
+                      },
+                      "dir": {
+                        "type": "string",
+                        "enum": [
+                          "asc",
+                          "desc"
+                        ]
                       }
                     }
                   }
@@ -6260,6 +6293,17 @@
                         "minimum": 1,
                         "maximum": 200,
                         "default": 50
+                      },
+                      "sort": {
+                        "type": "string",
+                        "maxLength": 60
+                      },
+                      "dir": {
+                        "type": "string",
+                        "enum": [
+                          "asc",
+                          "desc"
+                        ]
                       }
                     }
                   }
@@ -8776,6 +8820,17 @@
                         "minimum": 1,
                         "maximum": 200,
                         "default": 50
+                      },
+                      "sort": {
+                        "type": "string",
+                        "maxLength": 60
+                      },
+                      "dir": {
+                        "type": "string",
+                        "enum": [
+                          "asc",
+                          "desc"
+                        ]
                       }
                     }
                   }
@@ -11128,6 +11183,17 @@
                         "minimum": 1,
                         "maximum": 200,
                         "default": 50
+                      },
+                      "sort": {
+                        "type": "string",
+                        "maxLength": 60
+                      },
+                      "dir": {
+                        "type": "string",
+                        "enum": [
+                          "asc",
+                          "desc"
+                        ]
                       }
                     }
                   }
@@ -13400,6 +13466,17 @@
                         "minimum": 1,
                         "maximum": 200,
                         "default": 50
+                      },
+                      "sort": {
+                        "type": "string",
+                        "maxLength": 60
+                      },
+                      "dir": {
+                        "type": "string",
+                        "enum": [
+                          "asc",
+                          "desc"
+                        ]
                       }
                     }
                   }
@@ -15833,6 +15910,17 @@
                         "minimum": 1,
                         "maximum": 200,
                         "default": 50
+                      },
+                      "sort": {
+                        "type": "string",
+                        "maxLength": 60
+                      },
+                      "dir": {
+                        "type": "string",
+                        "enum": [
+                          "asc",
+                          "desc"
+                        ]
                       }
                     }
                   }
@@ -19483,6 +19571,17 @@
                         "minimum": 1,
                         "maximum": 200,
                         "default": 50
+                      },
+                      "sort": {
+                        "type": "string",
+                        "maxLength": 60
+                      },
+                      "dir": {
+                        "type": "string",
+                        "enum": [
+                          "asc",
+                          "desc"
+                        ]
                       }
                     }
                   }
@@ -24597,6 +24696,17 @@
                         "minimum": 1,
                         "maximum": 200,
                         "default": 50
+                      },
+                      "sort": {
+                        "type": "string",
+                        "maxLength": 60
+                      },
+                      "dir": {
+                        "type": "string",
+                        "enum": [
+                          "asc",
+                          "desc"
+                        ]
                       }
                     }
                   }
@@ -25869,6 +25979,17 @@
                         "minimum": 1,
                         "maximum": 200,
                         "default": 50
+                      },
+                      "sort": {
+                        "type": "string",
+                        "maxLength": 60
+                      },
+                      "dir": {
+                        "type": "string",
+                        "enum": [
+                          "asc",
+                          "desc"
+                        ]
                       }
                     }
                   }
@@ -29696,6 +29817,17 @@
                         "minimum": 1,
                         "maximum": 200,
                         "default": 50
+                      },
+                      "sort": {
+                        "type": "string",
+                        "maxLength": 60
+                      },
+                      "dir": {
+                        "type": "string",
+                        "enum": [
+                          "asc",
+                          "desc"
+                        ]
                       }
                     }
                   }
@@ -31555,6 +31687,17 @@
                         "minimum": 1,
                         "maximum": 200,
                         "default": 50
+                      },
+                      "sort": {
+                        "type": "string",
+                        "maxLength": 60
+                      },
+                      "dir": {
+                        "type": "string",
+                        "enum": [
+                          "asc",
+                          "desc"
+                        ]
                       }
                     }
                   }
@@ -34222,6 +34365,17 @@
                         "minimum": 1,
                         "maximum": 200,
                         "default": 50
+                      },
+                      "sort": {
+                        "type": "string",
+                        "maxLength": 60
+                      },
+                      "dir": {
+                        "type": "string",
+                        "enum": [
+                          "asc",
+                          "desc"
+                        ]
                       }
                     }
                   }
@@ -35266,6 +35420,17 @@
                         "minimum": 1,
                         "maximum": 200,
                         "default": 50
+                      },
+                      "sort": {
+                        "type": "string",
+                        "maxLength": 60
+                      },
+                      "dir": {
+                        "type": "string",
+                        "enum": [
+                          "asc",
+                          "desc"
+                        ]
                       }
                     }
                   }
@@ -38173,6 +38338,17 @@
                         "minimum": 1,
                         "maximum": 200,
                         "default": 50
+                      },
+                      "sort": {
+                        "type": "string",
+                        "maxLength": 60
+                      },
+                      "dir": {
+                        "type": "string",
+                        "enum": [
+                          "asc",
+                          "desc"
+                        ]
                       }
                     }
                   }
@@ -40041,6 +40217,17 @@
                         "minimum": 1,
                         "maximum": 200,
                         "default": 50
+                      },
+                      "sort": {
+                        "type": "string",
+                        "maxLength": 60
+                      },
+                      "dir": {
+                        "type": "string",
+                        "enum": [
+                          "asc",
+                          "desc"
+                        ]
                       }
                     }
                   }
@@ -45966,6 +46153,17 @@
                         "minimum": 1,
                         "maximum": 200,
                         "default": 50
+                      },
+                      "sort": {
+                        "type": "string",
+                        "maxLength": 60
+                      },
+                      "dir": {
+                        "type": "string",
+                        "enum": [
+                          "asc",
+                          "desc"
+                        ]
                       }
                     }
                   }
@@ -48168,6 +48366,17 @@
                         "minimum": 1,
                         "maximum": 200,
                         "default": 50
+                      },
+                      "sort": {
+                        "type": "string",
+                        "maxLength": 60
+                      },
+                      "dir": {
+                        "type": "string",
+                        "enum": [
+                          "asc",
+                          "desc"
+                        ]
                       }
                     }
                   }
@@ -50864,6 +51073,17 @@
                         "minimum": 1,
                         "maximum": 200,
                         "default": 50
+                      },
+                      "sort": {
+                        "type": "string",
+                        "maxLength": 60
+                      },
+                      "dir": {
+                        "type": "string",
+                        "enum": [
+                          "asc",
+                          "desc"
+                        ]
                       }
                     }
                   }
@@ -52677,6 +52897,17 @@
                         "minimum": 1,
                         "maximum": 200,
                         "default": 50
+                      },
+                      "sort": {
+                        "type": "string",
+                        "maxLength": 60
+                      },
+                      "dir": {
+                        "type": "string",
+                        "enum": [
+                          "asc",
+                          "desc"
+                        ]
                       }
                     }
                   }
@@ -53644,6 +53875,17 @@
                         "minimum": 1,
                         "maximum": 200,
                         "default": 50
+                      },
+                      "sort": {
+                        "type": "string",
+                        "maxLength": 60
+                      },
+                      "dir": {
+                        "type": "string",
+                        "enum": [
+                          "asc",
+                          "desc"
+                        ]
                       }
                     }
                   }
@@ -56209,6 +56451,17 @@
                         "minimum": 1,
                         "maximum": 200,
                         "default": 50
+                      },
+                      "sort": {
+                        "type": "string",
+                        "maxLength": 60
+                      },
+                      "dir": {
+                        "type": "string",
+                        "enum": [
+                          "asc",
+                          "desc"
+                        ]
                       }
                     }
                   }
@@ -60257,6 +60510,17 @@
                         "minimum": 1,
                         "maximum": 200,
                         "default": 50
+                      },
+                      "sort": {
+                        "type": "string",
+                        "maxLength": 60
+                      },
+                      "dir": {
+                        "type": "string",
+                        "enum": [
+                          "asc",
+                          "desc"
+                        ]
                       }
                     }
                   }
@@ -62427,6 +62691,17 @@
                         "minimum": 1,
                         "maximum": 200,
                         "default": 50
+                      },
+                      "sort": {
+                        "type": "string",
+                        "maxLength": 60
+                      },
+                      "dir": {
+                        "type": "string",
+                        "enum": [
+                          "asc",
+                          "desc"
+                        ]
                       }
                     }
                   }
@@ -67368,6 +67643,17 @@
                         "minimum": 1,
                         "maximum": 200,
                         "default": 50
+                      },
+                      "sort": {
+                        "type": "string",
+                        "maxLength": 60
+                      },
+                      "dir": {
+                        "type": "string",
+                        "enum": [
+                          "asc",
+                          "desc"
+                        ]
                       }
                     }
                   }
@@ -68760,6 +69046,17 @@
                         "minimum": 1,
                         "maximum": 200,
                         "default": 50
+                      },
+                      "sort": {
+                        "type": "string",
+                        "maxLength": 60
+                      },
+                      "dir": {
+                        "type": "string",
+                        "enum": [
+                          "asc",
+                          "desc"
+                        ]
                       }
                     }
                   }
@@ -71483,6 +71780,17 @@
                         "minimum": 1,
                         "maximum": 200,
                         "default": 50
+                      },
+                      "sort": {
+                        "type": "string",
+                        "maxLength": 60
+                      },
+                      "dir": {
+                        "type": "string",
+                        "enum": [
+                          "asc",
+                          "desc"
+                        ]
                       }
                     }
                   }

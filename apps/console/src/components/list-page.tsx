@@ -117,7 +117,11 @@ export function ListPage<T>({
 
   const clearFilters = React.useCallback(() => {
     setText("");
-    update({ q: "", status: "", from: "", to: "", filter: "", cursor: "" });
+    // The sort goes too. This is the recovery the API's 400 points at, and the
+    // request it rejects is most often a sort key from a bookmark taken before
+    // that column was orderable — leaving the sort in place would hand back the
+    // same failure and a button that does nothing.
+    update({ q: "", status: "", from: "", to: "", filter: "", sort: "", cursor: "" });
   }, [update]);
 
   // A cursor with no chain behind it is a reloaded or pasted deep link. Without

@@ -71,7 +71,8 @@ const columns: ColumnDef<RoastedLot>[] = [
   {
     accessorKey: "bestBeforeAt",
     header: "Best before",
-    meta: { label: "Best before", align: "end" },
+    // The sort this screen was always about, and the one the API now indexes.
+    meta: { label: "Best before", align: "end", sortKey: "bestBeforeAt" },
     /**
      * Roasted coffee ships first-expiry-first-out, so this is the column the
      * screen is really about. It cannot be SORTED — no list operation takes a

@@ -1,5 +1,6 @@
 import { createRoute, type OpenAPIHono, z } from "@hono/zod-openapi";
 import type { ModuleKey } from "@roastery/schemas";
+import type { PgTable } from "drizzle-orm/pg-core";
 import type { Context } from "hono";
 import type { Env } from "../../env";
 import type { AuthContext } from "../auth/auth-middleware";
@@ -70,7 +71,37 @@ export type RpcDef = {
   idempotent?: boolean;
   /** Console-only. In the spec and typed, hidden from the public docs page. */
   internal?: boolean;
+  /**
+   * What this listing may be ordered by, beyond its default.
+   *
+   * An allowlist rather than a free-form key, for two reasons. A sort key
+   * reaches the database as an identifier, and an unindexed column turns a
+   * click into a sequential scan over every row a tenant owns — the slowest
+   * query in the product, triggered by a table header.
+   *
+   * The table is named alongside the columns so the claim is checkable:
+   * `sortable-indexes.test.ts` reads the table's indexes and fails if a
+   * declared column has none. Without that the list is good intentions, and
+   * the failure it prevents is invisible until a tenant is large enough to
+   * feel it.
+   */
+  sortable?: { table: PgTable; columns: readonly string[] };
 };
+
+/**
+ * Whether a request asked to order by something this operation allows.
+ *
+ * Rejected rather than ignored. Silently dropping an unknown sort key returns
+ * a list in the default order while the caller believes it is sorted, which is
+ * the failure mode this codebase keeps finding: a screen that looks like it
+ * did what was asked. The console's own error mapping turns this 400 into
+ * "This filter could not be read" with a one-click way back to the full list.
+ */
+export function unsupportedSort(def: RpcDef, input: unknown): string | null {
+  const sort = (input as { page?: { sort?: unknown } } | null)?.page?.sort;
+  if (typeof sort !== "string" || sort === "") return null;
+  return def.sortable?.columns.includes(sort) ? null : sort;
+}
 
 /**
  * The single source of truth for what this API exposes.
@@ -238,6 +269,23 @@ export function registerRpc<Req extends z.ZodTypeAny, Res extends z.ZodTypeAny>(
     }),
     (async (c: Context<RpcAppEnv>) => {
       const input = (c.req as unknown as { valid: (t: "json") => z.infer<Req> }).valid("json");
+
+      const badSort = unsupportedSort(def, input);
+      if (badSort) {
+        return c.json(
+          {
+            error: `Cannot order by \`${badSort}\`.`,
+            code: "bad_request",
+            fields: {
+              "page.sort": def.sortable
+                ? `Order by one of: ${def.sortable.columns.join(", ")}.`
+                : "This listing cannot be reordered.",
+            },
+          },
+          400,
+        );
+      }
+
       const idemKey = honoursIdempotency ? c.req.header("Idempotency-Key") : undefined;
 
       if (idemKey) {
@@ -362,6 +410,10 @@ export function registerRpc<Req extends z.ZodTypeAny, Res extends z.ZodTypeAny>(
         const parsed = def.input.safeParse(parsedInput);
         if (!parsed.success) {
           return c.json({ error: "Invalid input", code: "bad_request" }, 400);
+        }
+        const badSort = unsupportedSort(def, parsed.data);
+        if (badSort) {
+          return c.json({ error: `Cannot order by \`${badSort}\`.`, code: "bad_request" }, 400);
         }
         const result = await handler(parsed.data, buildRpcContext(c));
         return c.json(result as never, 200, {

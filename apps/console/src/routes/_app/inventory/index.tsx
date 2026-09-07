@@ -112,7 +112,7 @@ const columns: ColumnDef<GreenLot>[] = [
   {
     accessorKey: "registeredAt",
     header: "Registered",
-    meta: { label: "Registered", align: "end" },
+    meta: { label: "Registered", align: "end", sortKey: "registeredAt" },
     cell: ({ row }) => formatDate(row.original.registeredAt),
   },
 ];
