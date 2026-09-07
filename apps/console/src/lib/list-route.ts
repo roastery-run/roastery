@@ -30,6 +30,11 @@ export function useListQuery<T>(
     page: {
       limit: search.limit,
       ...(search.cursor ? { cursor: search.cursor } : {}),
+      // The sort has always been in the URL and in `ListPage`'s controls; it
+      // simply was not sent, so every table looked sortable and reordered
+      // nothing. The API rejects a key it does not allow, which is why the
+      // column has to declare `sortKey` rather than the screen guessing.
+      ...(search.sort ? { sort: search.sort, dir: search.dir } : {}),
     },
   };
 

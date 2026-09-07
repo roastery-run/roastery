@@ -71,6 +71,10 @@ registerRpc(
     permission: "inventory.roast.read",
     module: "inventory",
     cacheable: { maxAgeSeconds: 15 },
+    // `roasted_lots_org_best_before_idx` is (org_id, best_before_at), which is
+    // the ordering this screen is really about: roasted coffee ships
+    // first-expiry-first-out.
+    sortable: { table: roastedLots, columns: ["bestBeforeAt", "createdAt"] },
   },
   async (input, ctx) => {
     const clauses: SQL[] = [];
@@ -94,6 +98,10 @@ registerRpc(
       where: clauses.length ? and(...clauses) : undefined,
       cursor: input.page?.cursor,
       limit: input.page?.limit,
+      // Already checked against this operation's `sortable` list by the RPC
+      // wrapper, which rejects anything else with a 400.
+      sort: input.page?.sort,
+      direction: input.page?.dir,
     });
     return { items: items.map(toDto), page };
   },

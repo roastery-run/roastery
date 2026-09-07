@@ -91,6 +91,10 @@ registerRpc(
     permission: "inventory.green.read",
     module: "inventory",
     cacheable: { maxAgeSeconds: 15 },
+    // `green_lots_org_registered_idx` is (org_id, registered_at); the created
+    // index is (org_id, created_at, id). Weight is deliberately absent: its
+    // index leads (org_id, status, …), so a bare sort by weight would scan.
+    sortable: { table: greenLots, columns: ["registeredAt", "createdAt"] },
   },
   async (input, ctx) => {
     const clauses: SQL[] = [];
@@ -110,6 +114,10 @@ registerRpc(
       where: clauses.length ? and(...clauses) : undefined,
       cursor: input.page?.cursor,
       limit: input.page?.limit,
+      // Already checked against this operation's `sortable` list by the RPC
+      // wrapper, which rejects anything else with a 400.
+      sort: input.page?.sort,
+      direction: input.page?.dir,
     });
     return { items: items.map(toDto), page };
   },

@@ -31,6 +31,16 @@ export const pageInputSchema = z
   .object({
     cursor: cursorSchema.optional(),
     limit: z.number().int().min(1).max(200).default(50),
+    /**
+     * A column to order by, from the operation's declared `sortable` list.
+     *
+     * Checked against that list by the RPC wrapper, not here: what is
+     * orderable differs per operation, and a schema shared by forty listings
+     * cannot know which. An unknown key is rejected rather than ignored — a
+     * list that looks sorted and is not is worse than one that says no.
+     */
+    sort: z.string().max(60).optional(),
+    dir: z.enum(["asc", "desc"]).optional(),
   })
   .optional();
 

@@ -3,7 +3,7 @@ import type { ChangeRecord, EmittedEvent } from "../events/events";
 
 export type { EmittedEvent } from "../events/events";
 
-import { and, asc, desc, eq, inArray, type SQL, sql } from "drizzle-orm";
+import { and, eq, inArray, type SQL, sql } from "drizzle-orm";
 import type { PgTable } from "drizzle-orm/pg-core";
 import { recordChange } from "../events/events";
 import type { WorkerDb } from "./db";
@@ -32,6 +32,15 @@ export type FindOptions = {
   cursor?: string;
   /** Ascending order is only correct for a stable, non-user-facing listing. */
   direction?: "asc" | "desc";
+  /**
+   * A column on the table to order by, instead of the created/occurred
+   * timestamp.
+   *
+   * The caller is responsible for having checked it against the operation's
+   * declared `sortable` list — this function will happily order by any column,
+   * and an unindexed one is a sequential scan triggered by a click.
+   */
+  sort?: string;
 };
 
 /**
@@ -147,20 +156,35 @@ export function orgPredicate(table: ScopedTable, orgId: string, db: WorkerDb): S
 
 /* --------------------------------------------------------------- cursors */
 
-type CursorPayload = { t: string; id: string };
+/**
+ * @property k The sort key the cursor was made under. A cursor is only valid
+ *   for its own ordering: replaying a "newest first" cursor against a sort by
+ *   weight would return a page that is silently wrong rather than an error, so
+ *   a mismatch restarts from the beginning.
+ * @property v The sort column's value, as a string. Dates go out as ISO.
+ * @property n True when the sort value was NULL, which needs its own branch:
+ *   nulls sort last, and the boundary between the last dated row and the first
+ *   null one is otherwise undefined.
+ */
+type CursorPayload = { k: string; v: string; n?: true; id: string };
 
-function encodeCursor(row: Record<string, unknown>): string | null {
-  const createdAt = row.createdAt ?? row.occurredAt;
+export function encodeCursor(row: Record<string, unknown>, key: string): string | null {
   const id = row.id;
-  if (!(createdAt instanceof Date) || typeof id !== "string") return null;
-  const payload: CursorPayload = { t: createdAt.toISOString(), id };
-  return btoa(JSON.stringify(payload));
+  if (typeof id !== "string") return null;
+  const value = row[key];
+  if (value === null || value === undefined) {
+    return btoa(JSON.stringify({ k: key, v: "", n: true, id } satisfies CursorPayload));
+  }
+  const v = value instanceof Date ? value.toISOString() : String(value);
+  return btoa(JSON.stringify({ k: key, v, id } satisfies CursorPayload));
 }
 
-function decodeCursor(cursor: string): CursorPayload | null {
+export function decodeCursor(cursor: string, key: string): CursorPayload | null {
   try {
     const parsed = JSON.parse(atob(cursor)) as CursorPayload;
-    if (typeof parsed.t !== "string" || typeof parsed.id !== "string") return null;
+    if (typeof parsed.v !== "string" || typeof parsed.id !== "string") return null;
+    // A cursor from a different ordering is discarded rather than applied.
+    if (parsed.k !== key) return null;
     return parsed;
   } catch {
     return null;
@@ -178,20 +202,53 @@ function cursorPredicate(
   table: ScopedTable,
   cursor: string | undefined,
   direction: "asc" | "desc",
+  sort: string | undefined,
 ): SQL | undefined {
+  const key = sortKey(table, sort);
   if (!cursor) return undefined;
-  const decoded = decodeCursor(cursor);
+  const decoded = decodeCursor(cursor, key);
   if (!decoded) return undefined;
 
   const cols = columns(table);
-  const createdAt = sortColumn(table);
+  const column = sortColumn(table, sort);
   const id = cols.id;
-  if (!createdAt || !id) return undefined;
+  if (!column || !id) return undefined;
 
-  const ts = sql`${sql.raw("")}${new Date(decoded.t)}`;
-  return direction === "desc"
-    ? sql`(${createdAt}, ${id}) < (${ts}, ${decoded.id})`
-    : sql`(${createdAt}, ${id}) > (${ts}, ${decoded.id})`;
+  const before = direction === "desc";
+
+  // The ordering is `column <dir> NULLS LAST, id <dir>`, so the predicate has
+  // to walk the two halves of that separately.
+  if (decoded.n) {
+    // Already among the nulls: everything left is a null with a later id.
+    return before
+      ? sql`${column} is null and ${id} < ${decoded.id}`
+      : sql`${column} is null and ${id} > ${decoded.id}`;
+  }
+
+  const value = valueFor(column, decoded.v);
+  return before
+    ? sql`((${column} is not null and (${column}, ${id}) < (${value}, ${decoded.id})) or ${column} is null)`
+    : sql`((${column} is not null and (${column}, ${id}) > (${value}, ${decoded.id})) or ${column} is null)`;
+}
+
+/**
+ * The cursor value, typed the way the column expects.
+ *
+ * A timestamp compared against a bound string is a comparison Postgres may
+ * refuse or, worse, resolve by casting the column — so a date column gets a
+ * Date. Everything else binds as text and is inferred from the column it is
+ * compared against.
+ */
+function valueFor(column: unknown, raw: string): unknown {
+  const dataType = (column as { dataType?: string }).dataType;
+  return dataType === "date" ? new Date(raw) : raw;
+}
+
+/** The column name a listing is keyed on, for cursor validation. */
+function sortKey(table: ScopedTable, sort: string | undefined): string {
+  if (sort) return sort;
+  const cols = columns(table);
+  return cols.createdAt ? "createdAt" : "occurredAt";
 }
 
 /**
@@ -209,8 +266,18 @@ function cursorPredicate(
  * anywhere. Eleven classified tables have no timestamp; none is listed today,
  * and the first one to be would have shipped that.
  */
-function sortColumn(table: ScopedTable): unknown {
+function sortColumn(table: ScopedTable, sort?: string): unknown {
   const cols = columns(table);
+  if (sort) {
+    const chosen = cols[sort];
+    if (!chosen) {
+      throw new Error(
+        `${tableName(table)} has no column "${sort}" to sort by. The operation's ` +
+          "`sortable` list and the table have drifted apart.",
+      );
+    }
+    return chosen;
+  }
   const column = cols.createdAt ?? cols.occurredAt;
   if (!column) {
     throw new Error(
@@ -221,13 +288,16 @@ function sortColumn(table: ScopedTable): unknown {
   return column;
 }
 
-function orderClause(table: ScopedTable, direction: "asc" | "desc"): SQL[] {
+function orderClause(table: ScopedTable, direction: "asc" | "desc", sort?: string): SQL[] {
   const cols = columns(table);
-  const createdAt = sortColumn(table);
+  const column = sortColumn(table, sort);
   const id = cols.id;
-  const dir = direction === "desc" ? desc : asc;
-  const out: SQL[] = [dir(createdAt as never)];
-  if (id) out.push(dir(id as never));
+  // NULLS LAST in both directions, stated rather than inherited: Postgres
+  // defaults to NULLS FIRST on DESC, and the cursor predicate above assumes
+  // the nulls are at the end. The two have to agree or paging skips rows.
+  const dir = sql.raw(direction === "desc" ? "desc" : "asc");
+  const out: SQL[] = [sql`${column} ${dir} nulls last`];
+  if (id) out.push(sql`${id} ${dir}`);
   return out;
 }
 
@@ -244,14 +314,19 @@ export function createOrgDb(db: WorkerDb, orgId: string, actor: Actor, sink?: Ev
     async find(table, opts = {}) {
       const direction = opts.direction ?? "desc";
       const limit = Math.min(Math.max(opts.limit ?? DEFAULT_LIMIT, 1), MAX_LIMIT);
-      const where = and(scope(table), opts.where, cursorPredicate(table, opts.cursor, direction));
+      const key = sortKey(table, opts.sort);
+      const where = and(
+        scope(table),
+        opts.where,
+        cursorPredicate(table, opts.cursor, direction, opts.sort),
+      );
 
       // Fetch one extra row to answer hasMore without a second COUNT query.
       const rows = (await db
         .select()
         .from(table as PgTable)
         .where(where)
-        .orderBy(...orderClause(table, direction))
+        .orderBy(...orderClause(table, direction, opts.sort))
         .limit(limit + 1)) as Record<string, unknown>[];
 
       const hasMore = rows.length > limit;
@@ -259,7 +334,7 @@ export function createOrgDb(db: WorkerDb, orgId: string, actor: Actor, sink?: Ev
       const last = items[items.length - 1];
       return {
         items: items as never,
-        page: { nextCursor: hasMore && last ? encodeCursor(last) : null, hasMore },
+        page: { nextCursor: hasMore && last ? encodeCursor(last, key) : null, hasMore },
       };
     },
 
