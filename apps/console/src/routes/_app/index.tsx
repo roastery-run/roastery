@@ -1,5 +1,6 @@
 import {
   Card,
+  CardAction,
   CardContent,
   CardHeader,
   CardTitle,
@@ -255,16 +256,18 @@ function PanelCard({
 }) {
   return (
     <Card>
-      <CardHeader className="flex-row items-center justify-between space-y-0 pb-2">
+      <CardHeader className="pb-2">
         <CardTitle className="flex items-center gap-2 text-sm">
           <Icon className="size-4 text-muted-foreground" aria-hidden="true" />
           {title}
         </CardTitle>
-        {to ? (
-          <Link to={to} className="text-muted-foreground text-xs hover:text-foreground">
-            View all
-          </Link>
-        ) : null}
+        <CardAction>
+          {to ? (
+            <Link to={to} className="text-muted-foreground text-xs hover:text-foreground">
+              View all
+            </Link>
+          ) : null}
+        </CardAction>
       </CardHeader>
       <CardContent className="pt-0">
         {isLoading ? (

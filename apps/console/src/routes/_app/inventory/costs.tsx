@@ -16,6 +16,7 @@ import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { Coins } from "lucide-react";
 import { z } from "zod";
+import { CostComponents } from "@/components/inventory/cost-components";
 import { describeApiFailure, retryLabelFor } from "@/lib/api-failure";
 import { useWorkspace } from "@/lib/workspace";
 
@@ -80,7 +81,7 @@ const BUCKETS = [
 function LandedCosts() {
   const { lotId } = Route.useSearch();
   const navigate = useNavigate();
-  const { baseCurrency } = useWorkspace();
+  const { baseCurrency, can } = useWorkspace();
 
   const lots = useQuery({
     queryKey: ["inventory.green.listGreenLots", "costs"],
@@ -246,6 +247,14 @@ function LandedCosts() {
                   </p>
                 </CardContent>
               </Card>
+
+              {baseCurrency ? (
+                <CostComponents
+                  lotId={selected}
+                  baseCurrency={baseCurrency}
+                  canWrite={can("inventory.green.write")}
+                />
+              ) : null}
             </>
           ) : null}
         </div>

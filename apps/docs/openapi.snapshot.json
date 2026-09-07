@@ -18199,6 +18199,649 @@
         }
       }
     },
+    "/rpc/v1/inventory.green.listGreenLotCostComponents": {
+      "post": {
+        "tags": [
+          "inventory.green"
+        ],
+        "operationId": "inventory_green_listGreenLotCostComponents",
+        "summary": "The lines behind a lot's landed cost",
+        "description": "The rollup answers what a lot cost; this answers why. Components that came from a contract receipt carry the line they came from, so a screen can show them without offering to edit what the contract owns.\n\nRequires permission `inventory.green.read` and the `inventory` module on the organization's plan.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "description": "Target organization. Required for session callers. Ignored for machine credentials, which are permanently bound to one organization."
+            },
+            "required": false,
+            "description": "Target organization. Required for session callers. Ignored for machine credentials, which are permanently bound to one organization.",
+            "name": "x-roastery-org",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "greenLotId": {
+                    "type": "string",
+                    "format": "uuid"
+                  }
+                },
+                "required": [
+                  "greenLotId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The lines behind a lot's landed cost",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "kind": {
+                            "type": "string",
+                            "enum": [
+                              "base_price",
+                              "differential",
+                              "futures",
+                              "fx_adjustment",
+                              "carry",
+                              "storage",
+                              "freight",
+                              "insurance",
+                              "duty",
+                              "customs",
+                              "handling",
+                              "financing",
+                              "broker_fee",
+                              "sampling",
+                              "certification",
+                              "other"
+                            ]
+                          },
+                          "label": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "amount": {
+                            "type": "string"
+                          },
+                          "currency": {
+                            "type": "string"
+                          },
+                          "perUnit": {
+                            "type": "boolean"
+                          },
+                          "amountBase": {
+                            "type": "string"
+                          },
+                          "contractLineId": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "format": "uuid"
+                          },
+                          "incurredAt": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "kind",
+                          "label",
+                          "amount",
+                          "currency",
+                          "perUnit",
+                          "amountBase",
+                          "contractLineId",
+                          "incurredAt"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "items"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "402": {
+            "description": "The organization's plan does not include this module, or a limit is exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string",
+                      "enum": [
+                        "entitlement_required",
+                        "quota_exceeded"
+                      ]
+                    },
+                    "module": {
+                      "type": "string"
+                    },
+                    "plan": {
+                      "type": "string"
+                    },
+                    "requiredPlans": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "key": {
+                      "type": "string"
+                    },
+                    "limit": {
+                      "type": "number"
+                    },
+                    "current": {
+                      "type": "number"
+                    }
+                  },
+                  "required": [
+                    "error",
+                    "code"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller's role does not grant this permission",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited — see Retry-After",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "correlationId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "inventory.green"
+        ],
+        "operationId": "inventory_green_listGreenLotCostComponents_get",
+        "summary": "The lines behind a lot's landed cost",
+        "description": "The rollup answers what a lot cost; this answers why. Components that came from a contract receipt carry the line they came from, so a screen can show them without offering to edit what the contract owns.\n\nRequires permission `inventory.green.read` and the `inventory` module on the organization's plan.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "description": "URL-encoded JSON, identical in shape to the POST body."
+            },
+            "required": false,
+            "description": "URL-encoded JSON, identical in shape to the POST body.",
+            "name": "input",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "description": "Target organization. Required for session callers. Ignored for machine credentials, which are permanently bound to one organization."
+            },
+            "required": false,
+            "description": "Target organization. Required for session callers. Ignored for machine credentials, which are permanently bound to one organization.",
+            "name": "x-roastery-org",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The lines behind a lot's landed cost",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "kind": {
+                            "type": "string",
+                            "enum": [
+                              "base_price",
+                              "differential",
+                              "futures",
+                              "fx_adjustment",
+                              "carry",
+                              "storage",
+                              "freight",
+                              "insurance",
+                              "duty",
+                              "customs",
+                              "handling",
+                              "financing",
+                              "broker_fee",
+                              "sampling",
+                              "certification",
+                              "other"
+                            ]
+                          },
+                          "label": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "amount": {
+                            "type": "string"
+                          },
+                          "currency": {
+                            "type": "string"
+                          },
+                          "perUnit": {
+                            "type": "boolean"
+                          },
+                          "amountBase": {
+                            "type": "string"
+                          },
+                          "contractLineId": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "format": "uuid"
+                          },
+                          "incurredAt": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "kind",
+                          "label",
+                          "amount",
+                          "currency",
+                          "perUnit",
+                          "amountBase",
+                          "contractLineId",
+                          "incurredAt"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "items"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "402": {
+            "description": "The organization's plan does not include this module, or a limit is exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string",
+                      "enum": [
+                        "entitlement_required",
+                        "quota_exceeded"
+                      ]
+                    },
+                    "module": {
+                      "type": "string"
+                    },
+                    "plan": {
+                      "type": "string"
+                    },
+                    "requiredPlans": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "key": {
+                      "type": "string"
+                    },
+                    "limit": {
+                      "type": "number"
+                    },
+                    "current": {
+                      "type": "number"
+                    }
+                  },
+                  "required": [
+                    "error",
+                    "code"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller's role does not grant this permission",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited — see Retry-After",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "correlationId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/rpc/v1/inventory.green.getGreenLotLandedCost": {
       "post": {
         "tags": [
@@ -29033,6 +29676,10 @@
                         "type": "integer",
                         "minimum": 0,
                         "maximum": 365
+                      },
+                      "q": {
+                        "type": "string",
+                        "maxLength": 200
                       }
                     }
                   },
@@ -30888,6 +31535,10 @@
                       },
                       "isActive": {
                         "type": "boolean"
+                      },
+                      "q": {
+                        "type": "string",
+                        "maxLength": 200
                       }
                     }
                   },
@@ -66336,7 +66987,125 @@
                       ],
                       "format": "uuid"
                     },
-                    "snapshot": {},
+                    "snapshot": {
+                      "type": "object",
+                      "properties": {
+                        "coffee": {
+                          "type": "object",
+                          "properties": {
+                            "name": {
+                              "type": "string"
+                            },
+                            "lotCode": {
+                              "type": "string"
+                            },
+                            "roastLevel": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "roastedAt": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            }
+                          },
+                          "required": [
+                            "name",
+                            "lotCode",
+                            "roastLevel",
+                            "roastedAt"
+                          ]
+                        },
+                        "origins": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "producer": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "country": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "region": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "altitude": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "process": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "varieties": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string"
+                                }
+                              }
+                            },
+                            "required": [
+                              "producer",
+                              "country",
+                              "region",
+                              "altitude",
+                              "process",
+                              "varieties"
+                            ]
+                          }
+                        },
+                        "roast": {
+                          "type": [
+                            "object",
+                            "null"
+                          ],
+                          "properties": {
+                            "batchNumber": {
+                              "type": "string"
+                            },
+                            "roastedAt": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "weightLossPct": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            }
+                          },
+                          "required": [
+                            "batchNumber",
+                            "roastedAt",
+                            "weightLossPct"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "coffee",
+                        "origins",
+                        "roast"
+                      ]
+                    },
                     "issuedAt": {
                       "type": "string"
                     }
@@ -66346,6 +67115,7 @@
                     "qrToken",
                     "roastedLotId",
                     "orderLineId",
+                    "snapshot",
                     "issuedAt"
                   ]
                 }
@@ -66640,7 +67410,125 @@
                             ],
                             "format": "uuid"
                           },
-                          "snapshot": {},
+                          "snapshot": {
+                            "type": "object",
+                            "properties": {
+                              "coffee": {
+                                "type": "object",
+                                "properties": {
+                                  "name": {
+                                    "type": "string"
+                                  },
+                                  "lotCode": {
+                                    "type": "string"
+                                  },
+                                  "roastLevel": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "roastedAt": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  }
+                                },
+                                "required": [
+                                  "name",
+                                  "lotCode",
+                                  "roastLevel",
+                                  "roastedAt"
+                                ]
+                              },
+                              "origins": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "producer": {
+                                      "type": [
+                                        "string",
+                                        "null"
+                                      ]
+                                    },
+                                    "country": {
+                                      "type": [
+                                        "string",
+                                        "null"
+                                      ]
+                                    },
+                                    "region": {
+                                      "type": [
+                                        "string",
+                                        "null"
+                                      ]
+                                    },
+                                    "altitude": {
+                                      "type": [
+                                        "string",
+                                        "null"
+                                      ]
+                                    },
+                                    "process": {
+                                      "type": [
+                                        "string",
+                                        "null"
+                                      ]
+                                    },
+                                    "varieties": {
+                                      "type": "array",
+                                      "items": {
+                                        "type": "string"
+                                      }
+                                    }
+                                  },
+                                  "required": [
+                                    "producer",
+                                    "country",
+                                    "region",
+                                    "altitude",
+                                    "process",
+                                    "varieties"
+                                  ]
+                                }
+                              },
+                              "roast": {
+                                "type": [
+                                  "object",
+                                  "null"
+                                ],
+                                "properties": {
+                                  "batchNumber": {
+                                    "type": "string"
+                                  },
+                                  "roastedAt": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "weightLossPct": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  }
+                                },
+                                "required": [
+                                  "batchNumber",
+                                  "roastedAt",
+                                  "weightLossPct"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "coffee",
+                              "origins",
+                              "roast"
+                            ]
+                          },
                           "issuedAt": {
                             "type": "string"
                           }
@@ -66650,6 +67538,7 @@
                           "qrToken",
                           "roastedLotId",
                           "orderLineId",
+                          "snapshot",
                           "issuedAt"
                         ]
                       }
@@ -66940,7 +67829,125 @@
                             ],
                             "format": "uuid"
                           },
-                          "snapshot": {},
+                          "snapshot": {
+                            "type": "object",
+                            "properties": {
+                              "coffee": {
+                                "type": "object",
+                                "properties": {
+                                  "name": {
+                                    "type": "string"
+                                  },
+                                  "lotCode": {
+                                    "type": "string"
+                                  },
+                                  "roastLevel": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "roastedAt": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  }
+                                },
+                                "required": [
+                                  "name",
+                                  "lotCode",
+                                  "roastLevel",
+                                  "roastedAt"
+                                ]
+                              },
+                              "origins": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "producer": {
+                                      "type": [
+                                        "string",
+                                        "null"
+                                      ]
+                                    },
+                                    "country": {
+                                      "type": [
+                                        "string",
+                                        "null"
+                                      ]
+                                    },
+                                    "region": {
+                                      "type": [
+                                        "string",
+                                        "null"
+                                      ]
+                                    },
+                                    "altitude": {
+                                      "type": [
+                                        "string",
+                                        "null"
+                                      ]
+                                    },
+                                    "process": {
+                                      "type": [
+                                        "string",
+                                        "null"
+                                      ]
+                                    },
+                                    "varieties": {
+                                      "type": "array",
+                                      "items": {
+                                        "type": "string"
+                                      }
+                                    }
+                                  },
+                                  "required": [
+                                    "producer",
+                                    "country",
+                                    "region",
+                                    "altitude",
+                                    "process",
+                                    "varieties"
+                                  ]
+                                }
+                              },
+                              "roast": {
+                                "type": [
+                                  "object",
+                                  "null"
+                                ],
+                                "properties": {
+                                  "batchNumber": {
+                                    "type": "string"
+                                  },
+                                  "roastedAt": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "weightLossPct": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  }
+                                },
+                                "required": [
+                                  "batchNumber",
+                                  "roastedAt",
+                                  "weightLossPct"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "coffee",
+                              "origins",
+                              "roast"
+                            ]
+                          },
                           "issuedAt": {
                             "type": "string"
                           }
@@ -66950,6 +67957,7 @@
                           "qrToken",
                           "roastedLotId",
                           "orderLineId",
+                          "snapshot",
                           "issuedAt"
                         ]
                       }
@@ -71554,7 +72562,10 @@
                           "resourceId": {
                             "type": "string"
                           },
-                          "payload": {},
+                          "payload": {
+                            "type": "object",
+                            "additionalProperties": {}
+                          },
                           "occurredAt": {
                             "type": "string"
                           }
@@ -71565,6 +72576,7 @@
                           "sequence",
                           "resourceType",
                           "resourceId",
+                          "payload",
                           "occurredAt"
                         ]
                       }
@@ -71842,7 +72854,10 @@
                           "resourceId": {
                             "type": "string"
                           },
-                          "payload": {},
+                          "payload": {
+                            "type": "object",
+                            "additionalProperties": {}
+                          },
                           "occurredAt": {
                             "type": "string"
                           }
@@ -71853,6 +72868,7 @@
                           "sequence",
                           "resourceType",
                           "resourceId",
+                          "payload",
                           "occurredAt"
                         ]
                       }
