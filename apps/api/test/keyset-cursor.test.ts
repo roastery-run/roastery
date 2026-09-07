@@ -30,7 +30,7 @@ function cursorFor(row: Record<string, unknown>, key: string): string {
 
 describe("cursor", () => {
   it("round-trips a value and its id", () => {
-    const cursor = encodeCursor(
+    const cursor = cursorFor(
       { id: "a", bestBeforeAt: new Date("2026-03-01T00:00:00Z") },
       "bestBeforeAt",
     );
