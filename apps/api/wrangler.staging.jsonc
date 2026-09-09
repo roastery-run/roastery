@@ -30,10 +30,17 @@
 
   "routes": [{ "pattern": "api-staging.roastery.run", "custom_domain": true }],
 
+  // PAUSED while staging is idle. The every-minute sweeper opened a database
+  // connection every 60s, and Neon suspends a compute only after 5 quiet
+  // minutes — so staging's compute never once suspended and burned ~80 CU-hours
+  // in a week with nobody using it. Empty rather than absent: an absent
+  // `crons` leaves the schedules already registered on the Worker in place.
+  //
+  // Restore before staging carries traffic again, or the outbox durability
+  // guarantee is not being exercised anywhere:
+  //   "crons": ["* * * * *", "*/5 * * * *", "30 3 * * *", "0 4 * * *", "0 7 * * *"]
   "triggers": {
-    // Every minute: the outbox sweeper, which is what makes "committed but
-    // never enqueued" recoverable. 04:00 snapshots, 07:00 alert digests.
-    "crons": ["* * * * *", "*/5 * * * *", "30 3 * * *", "0 4 * * *", "0 7 * * *"]
+    "crons": []
   },
 
   // Workers Logs keeps a limited window, and the correlation id the API hands
